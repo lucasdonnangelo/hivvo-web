@@ -8,8 +8,8 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estado do Projeto
 
 **Fase atual:** Fase 2 — Frontend React PWA (base)  
-**Próxima tarefa:** #10 — Login + Cadastro (frontend)  
-**Última tarefa concluída:** #9 — Setup React + Vite + Tailwind + PWA + layouts
+**Próxima tarefa:** #11 — Dashboard (frontend)  
+**Última tarefa concluída:** #10 — Login + Cadastro (frontend)
 
 ---
 
@@ -40,7 +40,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 7. Endpoints de estatísticas
 - [x] 8. Endpoint de IA (proxy Gemini)
 - [x] 9. Setup React + Vite + Tailwind + PWA + layouts
-- [ ] 10. Login + Cadastro (frontend)
+- [x] 10. Login + Cadastro (frontend)
 - [ ] 11. Dashboard (frontend)
 - [ ] 12. Transações (frontend)
 - [ ] 13. Adicionar transação com parcelamento (frontend)
@@ -109,6 +109,14 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ### Tarefa #8 — IA (proxy Gemini)
 - `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
 - `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+
+### Tarefa #10 — Login + Cadastro (frontend)
+- `src/components/ui/Spinner.tsx` — SVG animado, prop `size`, usado internamente pelo Button
+- `src/components/ui/Button.tsx` — variantes `primary`/`ghost`, prop `isLoading` com Spinner, `disabled` automático
+- `src/components/ui/Input.tsx` — `forwardRef`, props `label` e `error`, borda `border-danger` em erro
+- `src/pages/Auth/LoginPage.tsx` — RHF + Zod (email + senha min 8), `mode: 'onChange'`, chama `login()` → `setUser()` → `/dashboard`
+- `src/pages/Auth/RegisterPage.tsx` — RHF + Zod (email + username + senha min 8 + confirmação com `.refine()`), chama `register()` → `login()` → `setUser()` → `/dashboard`
+- `src/App.tsx` — `AuthInitializer` (restaura sessão via `getMe()` no mount), `ProtectedRoute` (redireciona para `/login` se não autenticado), rotas reais importadas
 
 ### Tarefa #9 — Setup Frontend (beefree-web/)
 - `vite.config.ts` — PWA plugin configurado com manifest BeeFree
@@ -210,10 +218,15 @@ beefree-web/
     │   ├── AddTransaction/      — placeholder (Tarefa #13)
     │   ├── Cards/               — placeholder (Tarefa #14)
     │   ├── Assistant/           — placeholder (Tarefa #15)
-    │   ├── Auth/                — placeholder (Tarefa #10)
+    │   ├── Auth/
+    │   │   ├── LoginPage.tsx    ✓
+    │   │   └── RegisterPage.tsx ✓
     │   └── Settings/            — placeholder (Tarefa #17)
     ├── components/
-    │   ├── ui/                  — vazio (Tarefa #10+)
+    │   ├── ui/
+    │   │   ├── Button.tsx       ✓
+    │   │   ├── Input.tsx        ✓
+    │   │   └── Spinner.tsx      ✓
     │   ├── charts/              — vazio (Tarefa #11+)
     │   ├── transaction/         — vazio (Tarefa #12+)
     │   └── cards/               — vazio (Tarefa #14+)
@@ -235,6 +248,6 @@ beefree-web/
 
 ---
 
-*Última atualização: 28 de Maio de 2026 — Tarefa #9 concluída, iniciando Tarefa #10 (Login + Cadastro)*  
+*Última atualização: 28 de Maio de 2026 — Tarefa #10 concluída, iniciando Tarefa #11 (Dashboard)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
