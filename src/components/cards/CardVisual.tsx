@@ -6,9 +6,9 @@ const formatBRL = (v: string | number) =>
   )
 
 const TIPO_LABEL: Record<Card['tipo'], string> = {
-  credito: 'Crédito',
-  debito: 'Débito',
-  ambos: 'Crédito e Débito',
+  'Crédito': 'Crédito',
+  'Débito': 'Débito',
+  'Ambos': 'Crédito e Débito',
 }
 
 interface CardVisualProps {

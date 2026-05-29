@@ -7,7 +7,7 @@ export interface Card {
   dia_fechamento: number
   dia_vencimento: number
   mes_offset_vencimento: number
-  tipo: 'credito' | 'debito' | 'ambos'
+  tipo: 'Crédito' | 'Débito' | 'Ambos'
   ativo: boolean
 }
 
@@ -17,7 +17,7 @@ export interface CardPayload {
   dia_fechamento: number
   dia_vencimento: number
   mes_offset_vencimento: number
-  tipo: 'credito' | 'debito' | 'ambos'
+  tipo: 'Crédito' | 'Débito' | 'Ambos'
   ativo?: boolean
 }
 
@@ -32,7 +32,7 @@ export interface InvoiceListItem {
 export interface ParcelaFaturaItem {
   id: number
   descricao: string
-  valor: string
+  valor_parcela: string
   numero_parcela: number
   total_parcelas: number
   categoria: string

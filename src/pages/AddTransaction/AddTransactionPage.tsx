@@ -222,7 +222,7 @@ export default function AddTransactionPage() {
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
 
   const categories = allCategories.filter((c) => c.ativa)
-  const creditCards = allCards.filter((c) => c.tipo === 'credito' || c.tipo === 'ambos')
+  const creditCards = allCards.filter((c) => c.tipo === 'Crédito' || c.tipo === 'Ambos')
   const hasCards = creditCards.length > 0
 
   const today = [

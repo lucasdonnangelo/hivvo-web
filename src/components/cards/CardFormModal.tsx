@@ -10,7 +10,7 @@ import type { Card, CardPayload } from '../../services/cards'
 const schema = z.object({
   nome: z.string().min(1, 'Nome obrigatório').max(40),
   limite: z.coerce.number({ invalid_type_error: 'Valor inválido' }).positive('Informe um limite'),
-  tipo: z.enum(['credito', 'debito', 'ambos']),
+  tipo: z.enum(['Crédito', 'Débito', 'Ambos']),
   dia_fechamento: z.coerce
     .number()
     .int()
@@ -47,7 +47,7 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
     defaultValues: {
       nome: '',
       limite: undefined,
-      tipo: 'credito',
+      tipo: 'Crédito',
       dia_fechamento: 1,
       dia_vencimento: 10,
       mes_offset_vencimento: 0,
@@ -117,9 +117,9 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
             {...register('tipo')}
             className="w-full px-3 py-2 rounded-md text-sm text-text-primary bg-bg-surface border border-bg-border focus:outline-none focus:border-amber transition-colors"
           >
-            <option value="credito">Crédito</option>
-            <option value="debito">Débito</option>
-            <option value="ambos">Crédito e Débito</option>
+            <option value="Crédito">Crédito</option>
+            <option value="Débito">Débito</option>
+            <option value="Ambos">Crédito e Débito</option>
           </select>
         </div>
 

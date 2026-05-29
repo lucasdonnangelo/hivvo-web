@@ -89,7 +89,7 @@ export default function InvoiceDetail({ detail, mes, ano, onExport }: InvoiceDet
                       </div>
                     </div>
                     <span className="text-sm font-medium text-danger shrink-0 ml-3">
-                      {formatBRL(p.valor)}
+                      {formatBRL(p.valor_parcela)}
                     </span>
                   </div>
                 ))}
