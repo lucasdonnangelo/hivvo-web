@@ -27,6 +27,9 @@ export interface TransactionCreatePayload {
 export const getTransactions = (mes: number, ano: number) =>
   api.get<Transaction[]>('/transactions', { params: { mes, ano } }).then((r) => r.data)
 
+export const getAllTransactions = () =>
+  api.get<Transaction[]>('/transactions').then((r) => r.data)
+
 export const createTransaction = (payload: TransactionCreatePayload) =>
   api.post<Transaction>('/transactions', payload).then((r) => r.data)
 

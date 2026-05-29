@@ -10,6 +10,8 @@ import AddTransactionPage from './pages/AddTransaction/AddTransactionPage'
 import AssistantPage from './pages/Assistant/AssistantPage'
 import CardsPage from './pages/Cards/CardsPage'
 import DashboardPage from './pages/Dashboard/DashboardPage'
+import ImportPage from './pages/Import/ImportPage'
+import SettingsPage from './pages/Settings/SettingsPage'
 import TransactionsPage from './pages/Transactions/TransactionsPage'
 import SummaryPage from './pages/Transactions/SummaryPage'
 import { getMe } from './services/auth'
@@ -60,6 +62,8 @@ export default function App() {
             <Route path="/add" element={<AddTransactionPage />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/assistant" element={<AssistantPage />} />
+            <Route path="/import" element={<ImportPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
       </Routes>

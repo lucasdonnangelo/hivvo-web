@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/authStore'
 
 const navItems = [
   { to: '/dashboard',    label: 'Dashboard',   icon: '⊞' },
@@ -9,6 +10,9 @@ const navItems = [
 ]
 
 export default function DesktopLayout() {
+  const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const initial = user?.username?.[0].toUpperCase() ?? '?'
   return (
     <div className="flex h-full bg-bg text-text-primary">
       {/* Sidebar — 52px, ícones */}
@@ -40,11 +44,12 @@ export default function DesktopLayout() {
         </nav>
 
         <button
-          className="w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs"
-          title="Perfil"
-          aria-label="Perfil"
+          onClick={() => navigate('/settings')}
+          className="w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs hover:bg-bg-border/80 transition-colors"
+          title="Configurações"
+          aria-label="Configurações"
         >
-          P
+          {initial}
         </button>
       </aside>
 

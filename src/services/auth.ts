@@ -14,3 +14,9 @@ export const logout = () => api.post('/auth/logout')
 
 export const getMe = () =>
   api.get<UserResponse>('/auth/me').then((r) => r.data)
+
+export const updateMe = (username: string) =>
+  api.put<UserResponse>('/auth/me', { username }).then((r) => r.data)
+
+export const changePassword = (senha_atual: string, nova_senha: string) =>
+  api.put('/auth/password', { senha_atual, nova_senha })

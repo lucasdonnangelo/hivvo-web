@@ -7,9 +7,10 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 
 ## Estado do Projeto
 
-**Fase atual:** Fase 2 — Frontend React PWA (base)  
-**Próxima tarefa:** #17 — Features secundárias (CSV, backup, categorias, perfil)  
-**Última tarefa concluída:** #16 — Ver resumo detalhado (frontend)
+**Fase atual:** Fase 3 — Telas Restantes ✅ Concluída  
+**Próxima fase:** Fase 4 — Monetização e Lançamento  
+**Última tarefa concluída:** #17 — Features secundárias (CSV, backup, categorias, perfil)  
+**Status:** Produto funcionalmente completo — todas as telas e features da Fase 3 implementadas
 
 ---
 
@@ -47,7 +48,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 14. Cartões e faturas (frontend)
 - [x] 15. Assistente IA (frontend)
 - [x] 16. Ver resumo detalhado (frontend)
-- [ ] 17. Features secundárias (CSV, backup, categorias, perfil)
+- [x] 17. Features secundárias (CSV, backup, categorias, perfil)
 
 ---
 
@@ -109,6 +110,17 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ### Tarefa #8 — IA (proxy Gemini)
 - `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
 - `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+
+### Tarefa #17 — Features Secundárias (frontend)
+- `src/pages/Import/ImportPage.tsx` — novo: upload de .csv com drag-and-drop, parse client-side, preview com validação por linha, barra de progresso durante importação sequencial via `createTransaction`, template CSV para download
+- `src/pages/Settings/SettingsPage.tsx` — novo: página /settings com 3 seções — Perfil (nome editável, email read-only, alterar senha RHF+Zod, logout), Categorias (lista customizadas, adicionar via Modal.tsx, deletar com confirmação inline), Exportar dados (backup JSON via `getAllTransactions`)
+- `src/services/auth.ts` — `updateMe(username)` → PUT /auth/me; `changePassword(senha_atual, nova_senha)` → PUT /auth/password
+- `src/services/categories.ts` — `createCategory(nome)`, `deleteCategory(id)`; `usuario_id: number | null` adicionado ao tipo `Category`
+- `src/services/transactions.ts` — `getAllTransactions()` sem filtro de mês para backup
+- `src/hooks/useCategories.ts` — `useCreateCategory`, `useDeleteCategory` com invalidação de `['categories']`
+- `src/layouts/MobileLayout.tsx` — botão de perfil navega para /settings; exibe inicial do `user.username`
+- `src/layouts/DesktopLayout.tsx` — idem
+- `src/App.tsx` — rotas `/import` e `/settings` adicionadas
 
 ### Tarefa #16 — Ver Resumo Detalhado (frontend)
 - `src/services/statistics.ts` — expandido: `MesEvolucao`, `AnualResponse`, `CategoriasResponse`; `getYearlyStats(ano)`, `getCategoryStats({ mes?, ano })`
@@ -363,6 +375,7 @@ beefree-web/
 
 ---
 
-*Última atualização: 29 de Maio de 2026 — Tarefa #16 concluída, iniciando Tarefa #17 (Features Secundárias)*  
+*Última atualização: 29 de Maio de 2026 — Tarefa #17 concluída. Fase 3 completa. Produto funcionalmente completo.*  
+*Próxima fase: Fase 4 — Monetização e Lançamento (Stripe/Pagar.me, landing page, domínio, Product Hunt)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*

@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/authStore'
 
 const tabs = [
   { to: '/dashboard',    label: 'Início',      icon: '⊞' },
@@ -9,6 +10,9 @@ const tabs = [
 ]
 
 export default function MobileLayout() {
+  const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const initial = user?.username?.[0].toUpperCase() ?? '?'
   return (
     <div className="flex flex-col h-full bg-bg text-text-primary">
       {/* Header */}
@@ -18,10 +22,11 @@ export default function MobileLayout() {
           <span className="text-amber">Free</span>
         </span>
         <button
-          className="w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs"
-          aria-label="Perfil"
+          onClick={() => navigate('/settings')}
+          className="w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs hover:bg-bg-border/80 transition-colors"
+          aria-label="Configurações"
         >
-          P
+          {initial}
         </button>
       </header>
 
