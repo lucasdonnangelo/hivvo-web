@@ -8,8 +8,8 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estado do Projeto
 
 **Fase atual:** Fase 2 — Frontend React PWA (base)  
-**Próxima tarefa:** #11 — Dashboard (frontend)  
-**Última tarefa concluída:** #10 — Login + Cadastro (frontend)
+**Próxima tarefa:** #12 — Transações (frontend)  
+**Última tarefa concluída:** #11 — Dashboard (frontend)
 
 ---
 
@@ -41,7 +41,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 8. Endpoint de IA (proxy Gemini)
 - [x] 9. Setup React + Vite + Tailwind + PWA + layouts
 - [x] 10. Login + Cadastro (frontend)
-- [ ] 11. Dashboard (frontend)
+- [x] 11. Dashboard (frontend)
 - [ ] 12. Transações (frontend)
 - [ ] 13. Adicionar transação com parcelamento (frontend)
 - [ ] 14. Cartões e faturas (frontend)
@@ -109,6 +109,13 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ### Tarefa #8 — IA (proxy Gemini)
 - `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
 - `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+
+### Tarefa #11 — Dashboard (frontend)
+- `src/services/statistics.ts` — tipos `CategoriaStats`, `MonthlyStats` + `getMonthlyStats(mes, ano)`
+- `src/hooks/useStatistics.ts` — `useMonthlyStats` via TanStack Query, queryKey `['statistics','monthly', mes, ano]`
+- `src/components/charts/DonutChart.tsx` — Recharts PieChart/donut, paleta 6 cores do brand guide, legenda com Tailwind classes, tooltip estilizado
+- `src/pages/Dashboard/DashboardPage.tsx` — navegação entre meses, MetricCard (saldo/receitas/despesas + variação%), DonutChart, últimas 5 transações, empty state, skeleton, mobile e desktop via `useBreakpoint`
+- `src/App.tsx` — placeholder `Dashboard` substituído por `DashboardPage`
 
 ### Tarefa #10 — Login + Cadastro (frontend)
 - `src/components/ui/Spinner.tsx` — SVG animado, prop `size`, usado internamente pelo Button
@@ -248,6 +255,6 @@ beefree-web/
 
 ---
 
-*Última atualização: 28 de Maio de 2026 — Tarefa #10 concluída, iniciando Tarefa #11 (Dashboard)*  
+*Última atualização: 28 de Maio de 2026 — Tarefa #11 concluída, iniciando Tarefa #12 (Transações)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*

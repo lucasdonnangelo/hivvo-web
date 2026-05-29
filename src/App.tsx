@@ -6,11 +6,11 @@ import DesktopLayout from './layouts/DesktopLayout'
 import MobileLayout from './layouts/MobileLayout'
 import LoginPage from './pages/Auth/LoginPage'
 import RegisterPage from './pages/Auth/RegisterPage'
+import DashboardPage from './pages/Dashboard/DashboardPage'
 import { getMe } from './services/auth'
 import { useAuthStore } from './store/authStore'
 
-// Placeholders — implementados a partir da Tarefa #11
-const Dashboard = () => <div className="p-6 text-text-primary">Dashboard</div>
+// Placeholders — implementados a partir da Tarefa #12
 const Transactions = () => <div className="p-6 text-text-primary">Transações</div>
 const AddTransaction = () => <div className="p-6 text-text-primary">Adicionar Transação</div>
 const Cards = () => <div className="p-6 text-text-primary">Cartões</div>
@@ -55,7 +55,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/add" element={<AddTransaction />} />
             <Route path="/cards" element={<Cards />} />
