@@ -609,7 +609,7 @@ export default function AddTransactionPage() {
             categoria={watched.categoria}
             parcelado={parcelado}
             numParcelas={numParcelas}
-            saldoAtual={stats?.saldo}
+            saldoAtual={stats?.saldo != null ? Number(stats.saldo) : undefined}
             allCategories={categories}
           />
         </div>

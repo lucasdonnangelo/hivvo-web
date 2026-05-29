@@ -79,7 +79,7 @@ export default function DonutChart({ data }: DonutChartProps) {
               <span className="text-xs text-text-muted truncate">{item.categoria}</span>
             </div>
             <span className="text-xs text-text-primary font-medium shrink-0">
-              {item.percentual.toFixed(1).replace('.', ',')}%
+              {Number(item.percentual).toFixed(1).replace('.', ',')}%
             </span>
           </div>
         ))}
