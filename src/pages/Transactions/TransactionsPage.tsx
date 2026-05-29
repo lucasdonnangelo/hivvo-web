@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useTransactions, useDeleteTransaction, useUpdateTransaction } from '../../hooks/useTransactions'
 import { useCategories } from '../../hooks/useCategories'
@@ -55,6 +56,7 @@ function Chip({ active, onClick, children, showRemove }: ChipProps) {
 
 export default function TransactionsPage() {
   const isMobile = useBreakpoint('md')
+  const navigate = useNavigate()
   const now = new Date()
 
   // Month navigation
@@ -296,11 +298,19 @@ export default function TransactionsPage() {
         {/* Month nav */}
         <div className="shrink-0 flex items-center justify-between px-4 pt-4 pb-3 border-b border-bg-border">
           {monthNav}
-          {hasActiveFilters && (
-            <button onClick={clearFilters} className="text-xs text-amber hover:underline">
-              Limpar
+          <div className="flex items-center gap-3">
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="text-xs text-amber hover:underline">
+                Limpar
+              </button>
+            )}
+            <button
+              onClick={() => navigate('/transactions/summary')}
+              className="text-xs text-text-muted hover:text-amber transition-colors"
+            >
+              Ver resumo →
             </button>
-          )}
+          </div>
         </div>
 
         {/* Search */}
@@ -555,7 +565,15 @@ export default function TransactionsPage() {
       <div className="flex flex-col flex-1 min-w-0">
         <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-bg-border">
           {monthNav}
-          {totalSummary}
+          <div className="flex items-center gap-4">
+            {totalSummary}
+            <button
+              onClick={() => navigate('/transactions/summary')}
+              className="text-xs text-text-muted hover:text-amber transition-colors whitespace-nowrap"
+            >
+              Ver resumo →
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4">{transactionList}</div>
       </div>

@@ -11,6 +11,7 @@ import AssistantPage from './pages/Assistant/AssistantPage'
 import CardsPage from './pages/Cards/CardsPage'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import TransactionsPage from './pages/Transactions/TransactionsPage'
+import SummaryPage from './pages/Transactions/SummaryPage'
 import { getMe } from './services/auth'
 import { useAuthStore } from './store/authStore'
 
@@ -55,6 +56,7 @@ export default function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/transactions/summary" element={<SummaryPage />} />
             <Route path="/add" element={<AddTransactionPage />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/assistant" element={<AssistantPage />} />

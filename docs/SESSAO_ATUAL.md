@@ -8,8 +8,8 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estado do Projeto
 
 **Fase atual:** Fase 2 — Frontend React PWA (base)  
-**Próxima tarefa:** #16 — Ver resumo detalhado (frontend)  
-**Última tarefa concluída:** #15 — Assistente IA (frontend)
+**Próxima tarefa:** #17 — Features secundárias (CSV, backup, categorias, perfil)  
+**Última tarefa concluída:** #16 — Ver resumo detalhado (frontend)
 
 ---
 
@@ -46,7 +46,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 13. Adicionar transação com parcelamento (frontend)
 - [x] 14. Cartões e faturas (frontend)
 - [x] 15. Assistente IA (frontend)
-- [ ] 16. Ver resumo detalhado (frontend)
+- [x] 16. Ver resumo detalhado (frontend)
 - [ ] 17. Features secundárias (CSV, backup, categorias, perfil)
 
 ---
@@ -109,6 +109,27 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ### Tarefa #8 — IA (proxy Gemini)
 - `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
 - `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+
+### Tarefa #16 — Ver Resumo Detalhado (frontend)
+- `src/services/statistics.ts` — expandido: `MesEvolucao`, `AnualResponse`, `CategoriasResponse`; `getYearlyStats(ano)`, `getCategoryStats({ mes?, ano })`
+- `src/services/installments.ts` — novo: `ParcelaResponse`, `getInstallments(params)`
+- `src/hooks/useStatistics.ts` — expandido: `useYearlyStats`, `useCategoryStats`, `useQuarterlyStats` (agrega 3 meses via `useQueries`, mescla categorias, recalcula percentuais)
+- `src/hooks/useInstallments.ts` — novo: `useInstallments(mes, ano)` para parcelas do próximo mês
+- `src/components/charts/BarChart.tsx` — novo: Recharts `BarChart` agrupado receitas/despesas, YAxis com formato BRL compact, `highlightMeses` prop (reservada para uso futuro)
+- `src/pages/Transactions/SummaryPage.tsx` — página completa:
+  - Toggle Mês / Trimestre / Ano com snap automático para início do trimestre
+  - Navegação de período (mês, trimestre por 3 meses, ano) bloqueada no período atual
+  - 4 cards: Receitas, Despesas, Saldo Líquido (cor semântica), Parcelas — Próx. Mês (âmbar)
+  - Comparativo `variacao_%` vs período anterior: backend fornece para Mês; Ano calculado com prevYearly; Trimestre retorna null (sem fetch adicional do trimestre anterior)
+  - DonutChart reutilizado por categoria
+  - BarChart de evolução mensal: Ano usa todos os 12 meses, Trimestre filtra os 3 meses do quarter, Mês usa dados do ano inteiro com mês atual destacável
+  - TopCategorias: lista top 6 com barra de progresso proporcional ao percentual
+  - Botão exportar (placeholder)
+  - Empty state quando receitas + despesas = 0
+  - Skeleton de loading para mobile e desktop
+  - Botão ← volta para `/transactions`
+- `src/App.tsx` — rota `/transactions/summary` adicionada (irmã de `/transactions`, recebe AppLayout)
+- `src/pages/Transactions/TransactionsPage.tsx` — botão "Ver resumo →" no mobile (header) e desktop (topbar)
 
 ### Tarefa #15 — Assistente IA (frontend)
 - `src/services/ai.ts` — refatorado: `sendMessage(mensagem, mes, ano)` extraído como função base; `suggestCategory` passa a usá-la internamente
@@ -285,7 +306,8 @@ beefree-web/
     │   ├── Dashboard/
     │   │   └── DashboardPage.tsx    ✓
     │   ├── Transactions/
-    │   │   └── TransactionsPage.tsx ✓
+    │   │   ├── TransactionsPage.tsx ✓
+    │   │   └── SummaryPage.tsx      ✓
     │   ├── AddTransaction/
     │   │   └── AddTransactionPage.tsx   ✓
     │   ├── Cards/
@@ -303,7 +325,8 @@ beefree-web/
     │   │   ├── Modal.tsx            ✓
     │   │   └── Spinner.tsx          ✓
     │   ├── charts/
-    │   │   └── DonutChart.tsx       ✓
+    │   │   ├── DonutChart.tsx       ✓
+    │   │   └── BarChart.tsx         ✓
     │   ├── transaction/
     │   │   ├── TransactionItem.tsx  ✓
     │   │   ├── TransactionGroup.tsx ✓
@@ -320,7 +343,8 @@ beefree-web/
     │   ├── useCategories.ts         ✓
     │   ├── useStatistics.ts         ✓
     │   ├── useCards.ts              ✓
-    │   └── useAuth.ts               ✓
+    │   ├── useAuth.ts               ✓
+    │   └── useInstallments.ts       ✓
     ├── store/
     │   ├── authStore.ts             ✓
     │   └── uiStore.ts               ✓
@@ -330,13 +354,15 @@ beefree-web/
     │   ├── transactions.ts          ✓
     │   ├── categories.ts            ✓
     │   ├── cards.ts                 ✓
-    │   └── ai.ts                    ✓
+    │   ├── ai.ts                    ✓
+    │   ├── statistics.ts            ✓
+    │   └── installments.ts          ✓
     └── styles/
         └── tokens.css           ✓
 ```
 
 ---
 
-*Última atualização: 29 de Maio de 2026 — Tarefa #15 concluída, iniciando Tarefa #16 (Ver Resumo Detalhado)*  
+*Última atualização: 29 de Maio de 2026 — Tarefa #16 concluída, iniciando Tarefa #17 (Features Secundárias)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
