@@ -8,8 +8,8 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estado do Projeto
 
 **Fase atual:** Fase 2 — Frontend React PWA (base)  
-**Próxima tarefa:** #12 — Transações (frontend)  
-**Última tarefa concluída:** #11 — Dashboard (frontend)
+**Próxima tarefa:** #13 — Adicionar transação com parcelamento (frontend)  
+**Última tarefa concluída:** #12 — Transações (frontend)
 
 ---
 
@@ -42,7 +42,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 9. Setup React + Vite + Tailwind + PWA + layouts
 - [x] 10. Login + Cadastro (frontend)
 - [x] 11. Dashboard (frontend)
-- [ ] 12. Transações (frontend)
+- [x] 12. Transações (frontend)
 - [ ] 13. Adicionar transação com parcelamento (frontend)
 - [ ] 14. Cartões e faturas (frontend)
 - [ ] 15. Assistente IA (frontend)
@@ -109,6 +109,18 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ### Tarefa #8 — IA (proxy Gemini)
 - `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
 - `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+
+### Tarefa #12 — Transações (frontend)
+- `src/services/categories.ts` — `Category` type + `getCategories()`
+- `src/hooks/useCategories.ts` — `useCategories()` via TanStack Query, `staleTime` 5 min
+- `src/hooks/useTransactions.ts` — adicionados `useDeleteTransaction` e `useUpdateTransaction` com invalidação de `['transactions']` e `['statistics','monthly']`
+- `src/components/ui/Modal.tsx` — modal reutilizável: overlay, título, slot `footer`, fecha com Esc ou clique fora
+- `src/components/transaction/TransactionItem.tsx` — linha de transação: descrição, categoria, forma de pag., badge "Parcelado", valor colorido, botões editar/deletar
+- `src/components/transaction/TransactionGroup.tsx` — grupo por data com header "Hoje / Ontem / dia mês" e subtotal do grupo
+- `src/components/transaction/DeleteConfirmModal.tsx` — confirmação de exclusão com botão danger e spinner
+- `src/components/transaction/EditTransactionModal.tsx` — formulário RHF+Zod; se `tx.parcelado === true`, exibe aviso âmbar e oculta campos/salvar
+- `src/pages/Transactions/TransactionsPage.tsx` — página completa: filtros client-side, busca, agrupamento por data, total filtrado, layouts distintos mobile (chips + modal filtros) e desktop (painel lateral 256px)
+- `src/App.tsx` — placeholder `Transactions` substituído por `TransactionsPage`
 
 ### Tarefa #11 — Dashboard (frontend)
 - `src/services/statistics.ts` — tipos `CategoriaStats`, `MonthlyStats` + `getMonthlyStats(mes, ano)`
@@ -220,41 +232,52 @@ beefree-web/
     │   ├── MobileLayout.tsx     ✓
     │   └── AuthLayout.tsx       ✓
     ├── pages/
-    │   ├── Dashboard/           — placeholder (Tarefa #11)
-    │   ├── Transactions/        — placeholder (Tarefa #12)
-    │   ├── AddTransaction/      — placeholder (Tarefa #13)
-    │   ├── Cards/               — placeholder (Tarefa #14)
-    │   ├── Assistant/           — placeholder (Tarefa #15)
+    │   ├── Dashboard/
+    │   │   └── DashboardPage.tsx    ✓
+    │   ├── Transactions/
+    │   │   └── TransactionsPage.tsx ✓
+    │   ├── AddTransaction/          — placeholder (Tarefa #13)
+    │   ├── Cards/                   — placeholder (Tarefa #14)
+    │   ├── Assistant/               — placeholder (Tarefa #15)
     │   ├── Auth/
-    │   │   ├── LoginPage.tsx    ✓
-    │   │   └── RegisterPage.tsx ✓
-    │   └── Settings/            — placeholder (Tarefa #17)
+    │   │   ├── LoginPage.tsx        ✓
+    │   │   └── RegisterPage.tsx     ✓
+    │   └── Settings/                — placeholder (Tarefa #17)
     ├── components/
     │   ├── ui/
-    │   │   ├── Button.tsx       ✓
-    │   │   ├── Input.tsx        ✓
-    │   │   └── Spinner.tsx      ✓
-    │   ├── charts/              — vazio (Tarefa #11+)
-    │   ├── transaction/         — vazio (Tarefa #12+)
-    │   └── cards/               — vazio (Tarefa #14+)
+    │   │   ├── Button.tsx           ✓
+    │   │   ├── Input.tsx            ✓
+    │   │   ├── Modal.tsx            ✓
+    │   │   └── Spinner.tsx          ✓
+    │   ├── charts/
+    │   │   └── DonutChart.tsx       ✓
+    │   ├── transaction/
+    │   │   ├── TransactionItem.tsx  ✓
+    │   │   ├── TransactionGroup.tsx ✓
+    │   │   ├── EditTransactionModal.tsx  ✓
+    │   │   └── DeleteConfirmModal.tsx    ✓
+    │   └── cards/                   — vazio (Tarefa #14+)
     ├── hooks/
-    │   ├── useBreakpoint.ts     ✓
-    │   ├── useTransactions.ts   ✓ (stub)
-    │   └── useAuth.ts           ✓
+    │   ├── useBreakpoint.ts         ✓
+    │   ├── useTransactions.ts       ✓
+    │   ├── useCategories.ts         ✓
+    │   ├── useStatistics.ts         ✓
+    │   └── useAuth.ts               ✓
     ├── store/
-    │   ├── authStore.ts         ✓
-    │   └── uiStore.ts           ✓
+    │   ├── authStore.ts             ✓
+    │   └── uiStore.ts               ✓
     ├── services/
-    │   ├── api.ts               ✓
-    │   ├── auth.ts              ✓
-    │   ├── transactions.ts      ✓
-    │   └── cards.ts             ✓
+    │   ├── api.ts                   ✓
+    │   ├── auth.ts                  ✓
+    │   ├── transactions.ts          ✓
+    │   ├── categories.ts            ✓
+    │   └── cards.ts                 ✓
     └── styles/
         └── tokens.css           ✓
 ```
 
 ---
 
-*Última atualização: 28 de Maio de 2026 — Tarefa #11 concluída, iniciando Tarefa #12 (Transações)*  
+*Última atualização: 28 de Maio de 2026 — Tarefa #12 concluída, iniciando Tarefa #13 (Adicionar Transação)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
