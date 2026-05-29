@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  createTransaction,
   deleteTransaction,
   getTransactions,
   updateTransaction,
   type Transaction,
+  type TransactionCreatePayload,
 } from '../services/transactions'
 
 export function useTransactions(mes: number, ano: number) {
@@ -37,6 +39,17 @@ export function useUpdateTransaction(mes: number, ano: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions', mes, ano] })
       qc.invalidateQueries({ queryKey: ['statistics', 'monthly', mes, ano] })
+    },
+  })
+}
+
+export function useCreateTransaction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: TransactionCreatePayload) => createTransaction(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['statistics', 'monthly'] })
     },
   })
 }

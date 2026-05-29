@@ -8,8 +8,8 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estado do Projeto
 
 **Fase atual:** Fase 2 — Frontend React PWA (base)  
-**Próxima tarefa:** #13 — Adicionar transação com parcelamento (frontend)  
-**Última tarefa concluída:** #12 — Transações (frontend)
+**Próxima tarefa:** #14 — Cartões e faturas (frontend)  
+**Última tarefa concluída:** #13 — Adicionar transação com parcelamento (frontend)
 
 ---
 
@@ -43,7 +43,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 10. Login + Cadastro (frontend)
 - [x] 11. Dashboard (frontend)
 - [x] 12. Transações (frontend)
-- [ ] 13. Adicionar transação com parcelamento (frontend)
+- [x] 13. Adicionar transação com parcelamento (frontend)
 - [ ] 14. Cartões e faturas (frontend)
 - [ ] 15. Assistente IA (frontend)
 - [ ] 16. Ver resumo detalhado (frontend)
@@ -109,6 +109,27 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ### Tarefa #8 — IA (proxy Gemini)
 - `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
 - `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+
+### Tarefa #13 — Adicionar transação com parcelamento (frontend)
+- `src/services/ai.ts` — `suggestCategory(descricao, categorias[])`: POST `/ai/chat` com prompt direcionado; valida que a resposta é uma categoria existente; retorna null em caso de falha
+- `src/hooks/useCards.ts` — `useCards()` via TanStack Query, `staleTime` 5 min
+- `src/services/transactions.ts` — `TransactionCreatePayload` (inclui `num_parcelas?: number`); `createTransaction` atualizado para usar o novo tipo
+- `src/hooks/useTransactions.ts` — `useCreateTransaction`: mutation com invalidação de `['transactions']` e `['statistics','monthly']` (sem mes/ano para invalidar todas as queries)
+- `src/pages/AddTransaction/AddTransactionPage.tsx` — página completa:
+  - Tipo: toggle Despesa/Receita com cores semânticas (danger/success)
+  - Valor: input numérico step 0.01
+  - Descrição: debounce 500ms → `suggestCategory()` → badge `✦ IA` na categoria sugerida
+  - Categoria: `CategoryGrid` 4 colunas com ícone + nome + badge IA; usa `Controller` do RHF
+  - Data: date input com default = hoje (data local)
+  - Forma de pagamento: chips pill com `Controller`
+  - Cartão: `Controller` com select filtrado (credito|ambos); se lista vazia → mensagem "Nenhum cartão cadastrado. Adicione um na aba Cartões."
+  - Parcelamento: toggle switch âmbar; visível apenas se Crédito + cartão selecionado; oculto (e form reset) se não há cartões
+  - Num. parcelas: input 2–24; valor por parcela calculado em tempo real
+  - `canSubmit`: `isValid && !isPending && (!isCredito || !hasCards || cartao_id != null)`
+  - Salvar → `navigate('/dashboard')`; Salvar e adicionar outro → `reset()` mantendo tipo/data/forma_pagamento
+  - Mobile: tela cheia com header + scroll + footer fixo com os dois botões
+  - Desktop: grid `[1fr 300px]` form + `ImpactPreview` sticky com tipo, valor, descrição, categoria, saldo estimado
+- `src/App.tsx` — placeholder `AddTransaction` substituído por `AddTransactionPage`
 
 ### Tarefa #12 — Transações (frontend)
 - `src/services/categories.ts` — `Category` type + `getCategories()`
@@ -236,7 +257,8 @@ beefree-web/
     │   │   └── DashboardPage.tsx    ✓
     │   ├── Transactions/
     │   │   └── TransactionsPage.tsx ✓
-    │   ├── AddTransaction/          — placeholder (Tarefa #13)
+    │   ├── AddTransaction/
+    │   │   └── AddTransactionPage.tsx   ✓
     │   ├── Cards/                   — placeholder (Tarefa #14)
     │   ├── Assistant/               — placeholder (Tarefa #15)
     │   ├── Auth/
@@ -262,6 +284,7 @@ beefree-web/
     │   ├── useTransactions.ts       ✓
     │   ├── useCategories.ts         ✓
     │   ├── useStatistics.ts         ✓
+    │   ├── useCards.ts              ✓
     │   └── useAuth.ts               ✓
     ├── store/
     │   ├── authStore.ts             ✓
@@ -271,13 +294,14 @@ beefree-web/
     │   ├── auth.ts                  ✓
     │   ├── transactions.ts          ✓
     │   ├── categories.ts            ✓
-    │   └── cards.ts                 ✓
+    │   ├── cards.ts                 ✓
+    │   └── ai.ts                    ✓
     └── styles/
         └── tokens.css           ✓
 ```
 
 ---
 
-*Última atualização: 28 de Maio de 2026 — Tarefa #12 concluída, iniciando Tarefa #13 (Adicionar Transação)*  
+*Última atualização: 29 de Maio de 2026 — Tarefa #13 concluída, iniciando Tarefa #14 (Cartões e Faturas)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
