@@ -1,7 +1,7 @@
 import api from './api'
 
 export interface LoginPayload { email: string; password: string }
-export interface RegisterPayload { email: string; username: string; password: string }
+export interface RegisterPayload { email: string; username: string; nome_completo: string; password: string }
 export interface UserResponse { id: number; email: string; username: string }
 
 export const login = (payload: LoginPayload) =>

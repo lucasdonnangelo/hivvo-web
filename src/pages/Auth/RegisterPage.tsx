@@ -11,6 +11,7 @@ import Input from '../../components/ui/Input'
 const schema = z
   .object({
     email: z.string().email('E-mail inválido'),
+    nome_completo: z.string().min(2, 'Mínimo 2 caracteres'),
     username: z.string().min(3, 'Mínimo 3 caracteres'),
     password: z.string().min(8, 'Mínimo 8 caracteres'),
     confirmPassword: z.string(),
@@ -19,6 +20,21 @@ const schema = z
     message: 'Senhas não coincidem',
     path: ['confirmPassword'],
   })
+
+function extractDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0]
+    if (first && typeof first === 'object' && 'msg' in first) {
+      return String((first as { msg: unknown }).msg)
+    }
+    return String(first)
+  }
+  if (detail && typeof detail === 'object') {
+    return JSON.stringify(detail)
+  }
+  return 'Erro ao criar conta. Tente novamente.'
+}
 
 type FormData = z.infer<typeof schema>
 
@@ -45,15 +61,16 @@ export default function RegisterPage() {
       await registerUser({
         email: data.email,
         username: data.username,
+        nome_completo: data.nome_completo,
         password: data.password,
       })
       const user = await login({ email: data.email, password: data.password })
       setUser(user)
       navigate('/dashboard', { replace: true })
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })
+      const detail = (err as { response?: { data?: { detail?: unknown } } })
         ?.response?.data?.detail
-      setServerError(detail ?? 'Erro ao criar conta. Tente novamente.')
+      setServerError(extractDetail(detail))
     }
   }
 
@@ -73,6 +90,15 @@ export default function RegisterPage() {
           autoComplete="email"
           error={errors.email?.message}
           {...register('email')}
+        />
+        <Input
+          id="nome_completo"
+          label="Nome completo"
+          type="text"
+          placeholder="Seu nome completo"
+          autoComplete="name"
+          error={errors.nome_completo?.message}
+          {...register('nome_completo')}
         />
         <Input
           id="username"
