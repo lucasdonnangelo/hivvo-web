@@ -8,8 +8,8 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estado do Projeto
 
 **Fase atual:** Fase 2 — Frontend React PWA (base)  
-**Próxima tarefa:** #14 — Cartões e faturas (frontend)  
-**Última tarefa concluída:** #13 — Adicionar transação com parcelamento (frontend)
+**Próxima tarefa:** #15 — Assistente IA (frontend)  
+**Última tarefa concluída:** #14 — Cartões e faturas (frontend)
 
 ---
 
@@ -44,7 +44,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 11. Dashboard (frontend)
 - [x] 12. Transações (frontend)
 - [x] 13. Adicionar transação com parcelamento (frontend)
-- [ ] 14. Cartões e faturas (frontend)
+- [x] 14. Cartões e faturas (frontend)
 - [ ] 15. Assistente IA (frontend)
 - [ ] 16. Ver resumo detalhado (frontend)
 - [ ] 17. Features secundárias (CSV, backup, categorias, perfil)
@@ -109,6 +109,21 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ### Tarefa #8 — IA (proxy Gemini)
 - `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
 - `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+
+### Tarefa #14 — Cartões e faturas (frontend)
+- `src/services/cards.ts` — expandido: tipos `CardPayload`, `InvoiceListItem`, `ParcelaFaturaItem`, `TransacaoFaturaItem`, `InvoiceDetail`; funções `createCard`, `updateCard`, `deactivateCard` (PUT com `ativo: false`), `getInvoices`, `getInvoiceDetail`
+- `src/hooks/useCards.ts` — expandido: `useCreateCard`, `useUpdateCard`, `useDeactivateCard`, `useInvoices` (enabled quando cardId != null), `useInvoiceDetail`
+- `src/components/cards/CardVisual.tsx` — visual do cartão: gradiente amber-dark→amber→amber-light, nome, limite, tipo; prop `selected` com ring âmbar
+- `src/components/cards/CardFormModal.tsx` — modal RHF+Zod: nome, limite, tipo (select), dia_fechamento, dia_vencimento, mes_offset_vencimento (select "mesmo mês / mês seguinte")
+- `src/components/cards/InvoiceMonthGrid.tsx` — grid 6×2 de meses; mês selecionado em âmbar; meses futuros opacos; exibe valor abreviado por mês
+- `src/components/cards/InvoiceDetail.tsx` — detalhe da fatura: total, data de vencimento, seção "Parcelas" com badge `X/Y` âmbar, seção "Avulsas"; botão exportar (placeholder)
+- `src/pages/Cards/CardsPage.tsx` — página completa:
+  - Mobile: header + carrossel scroll-snap + botões editar/desativar + InvoicePanel
+  - Desktop: painel esquerdo 288px (lista de cartões + ações) + painel direito (InvoicePanel)
+  - `DeactivateModal` com confirmação e botão danger
+  - `InvoicePanel` encapsula `useInvoices` + `useInvoiceDetail` + `InvoiceMonthGrid` + `InvoiceDetailPanel`
+  - Empty state com CTA quando não há cartões ativos
+- `src/App.tsx` — placeholder `Cards` substituído por `CardsPage`
 
 ### Tarefa #13 — Adicionar transação com parcelamento (frontend)
 - `src/services/ai.ts` — `suggestCategory(descricao, categorias[])`: POST `/ai/chat` com prompt direcionado; valida que a resposta é uma categoria existente; retorna null em caso de falha
@@ -259,7 +274,8 @@ beefree-web/
     │   │   └── TransactionsPage.tsx ✓
     │   ├── AddTransaction/
     │   │   └── AddTransactionPage.tsx   ✓
-    │   ├── Cards/                   — placeholder (Tarefa #14)
+    │   ├── Cards/
+    │   │   └── CardsPage.tsx        ✓
     │   ├── Assistant/               — placeholder (Tarefa #15)
     │   ├── Auth/
     │   │   ├── LoginPage.tsx        ✓
@@ -278,7 +294,11 @@ beefree-web/
     │   │   ├── TransactionGroup.tsx ✓
     │   │   ├── EditTransactionModal.tsx  ✓
     │   │   └── DeleteConfirmModal.tsx    ✓
-    │   └── cards/                   — vazio (Tarefa #14+)
+    │   └── cards/
+    │       ├── CardVisual.tsx       ✓
+    │       ├── CardFormModal.tsx    ✓
+    │       ├── InvoiceMonthGrid.tsx ✓
+    │       └── InvoiceDetail.tsx    ✓
     ├── hooks/
     │   ├── useBreakpoint.ts         ✓
     │   ├── useTransactions.ts       ✓
@@ -302,6 +322,6 @@ beefree-web/
 
 ---
 
-*Última atualização: 29 de Maio de 2026 — Tarefa #13 concluída, iniciando Tarefa #14 (Cartões e Faturas)*  
+*Última atualização: 29 de Maio de 2026 — Tarefa #14 concluída, iniciando Tarefa #15 (Assistente IA)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
