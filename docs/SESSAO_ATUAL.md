@@ -8,8 +8,8 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estado do Projeto
 
 **Fase atual:** Fase 2 — Frontend React PWA (base)  
-**Próxima tarefa:** #15 — Assistente IA (frontend)  
-**Última tarefa concluída:** #14 — Cartões e faturas (frontend)
+**Próxima tarefa:** #16 — Ver resumo detalhado (frontend)  
+**Última tarefa concluída:** #15 — Assistente IA (frontend)
 
 ---
 
@@ -45,7 +45,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 12. Transações (frontend)
 - [x] 13. Adicionar transação com parcelamento (frontend)
 - [x] 14. Cartões e faturas (frontend)
-- [ ] 15. Assistente IA (frontend)
+- [x] 15. Assistente IA (frontend)
 - [ ] 16. Ver resumo detalhado (frontend)
 - [ ] 17. Features secundárias (CSV, backup, categorias, perfil)
 
@@ -109,6 +109,20 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ### Tarefa #8 — IA (proxy Gemini)
 - `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
 - `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+
+### Tarefa #15 — Assistente IA (frontend)
+- `src/services/ai.ts` — refatorado: `sendMessage(mensagem, mes, ano)` extraído como função base; `suggestCategory` passa a usá-la internamente
+- `src/pages/Assistant/AssistantPage.tsx` — página completa:
+  - Estado local `Message[]` (`id`, `role`, `text`) — sem persistência no backend
+  - `handleSend`: push user msg → POST `/ai/chat` → push assistant msg; erro → mensagem de fallback
+  - `TypingIndicator`: 3 dots com `animate-bounce` staggerado (0 / 150ms / 300ms)
+  - `MessageBubble`: user à direita (bg-amber/15, border-amber/30), IA à esquerda (bg-bg-surface) com ícone ✦
+  - `EmptyState`: ícone âmbar + texto + chips verticais (apenas mobile); desktop mostra painel lateral com sugestões
+  - `ChatInput`: textarea (Enter envia, Shift+Enter quebra linha), botão seta âmbar
+  - `StatsPanel` (desktop): `useMonthlyStats` do mês corrente — receitas/despesas/saldo + top 4 categorias com barra de percentual + lista de perguntas rápidas
+  - Mobile: chips de perguntas rápidas enviam imediatamente; Desktop: chips preenchem o input
+  - `useEffect` em `messages` → `scrollIntoView` automático no fim da lista
+- `src/App.tsx` — placeholder `Assistant` substituído por `AssistantPage`
 
 ### Tarefa #14 — Cartões e faturas (frontend)
 - `src/services/cards.ts` — expandido: tipos `CardPayload`, `InvoiceListItem`, `ParcelaFaturaItem`, `TransacaoFaturaItem`, `InvoiceDetail`; funções `createCard`, `updateCard`, `deactivateCard` (PUT com `ativo: false`), `getInvoices`, `getInvoiceDetail`
@@ -276,7 +290,8 @@ beefree-web/
     │   │   └── AddTransactionPage.tsx   ✓
     │   ├── Cards/
     │   │   └── CardsPage.tsx        ✓
-    │   ├── Assistant/               — placeholder (Tarefa #15)
+    │   ├── Assistant/
+    │   │   └── AssistantPage.tsx    ✓
     │   ├── Auth/
     │   │   ├── LoginPage.tsx        ✓
     │   │   └── RegisterPage.tsx     ✓
@@ -322,6 +337,6 @@ beefree-web/
 
 ---
 
-*Última atualização: 29 de Maio de 2026 — Tarefa #14 concluída, iniciando Tarefa #15 (Assistente IA)*  
+*Última atualização: 29 de Maio de 2026 — Tarefa #15 concluída, iniciando Tarefa #16 (Ver Resumo Detalhado)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*

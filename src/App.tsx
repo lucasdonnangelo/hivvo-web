@@ -7,12 +7,12 @@ import MobileLayout from './layouts/MobileLayout'
 import LoginPage from './pages/Auth/LoginPage'
 import RegisterPage from './pages/Auth/RegisterPage'
 import AddTransactionPage from './pages/AddTransaction/AddTransactionPage'
+import AssistantPage from './pages/Assistant/AssistantPage'
 import CardsPage from './pages/Cards/CardsPage'
 import DashboardPage from './pages/Dashboard/DashboardPage'
 import TransactionsPage from './pages/Transactions/TransactionsPage'
 import { getMe } from './services/auth'
 import { useAuthStore } from './store/authStore'
-const Assistant = () => <div className="p-6 text-text-primary">Assistente IA</div>
 
 function AppLayout() {
   const isMobile = useBreakpoint('md')
@@ -57,7 +57,7 @@ export default function App() {
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/add" element={<AddTransactionPage />} />
             <Route path="/cards" element={<CardsPage />} />
-            <Route path="/assistant" element={<Assistant />} />
+            <Route path="/assistant" element={<AssistantPage />} />
           </Route>
         </Route>
       </Routes>
