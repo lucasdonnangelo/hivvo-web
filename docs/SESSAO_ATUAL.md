@@ -14,6 +14,24 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 
 ---
 
+## Testes — Estado Atual
+
+| Bloco | Escopo | Status | Observações |
+|---|---|---|---|
+| Bloco 1 | Autenticação (registro, login, logout, sessão persistida) | ✅ Concluído | — |
+| Bloco 2 | Dashboard e Transações (CRUD, filtros, gráficos, resumo detalhado) | ✅ Concluído | 2 bugs corrigidos: `percentual.toFixed` no DonutChart e `R$ NaN` no ImpactPreview |
+| Bloco 3 | Cartões, Faturas e Parcelas | ⏳ Próximo | — |
+| Bloco 4 | Assistente IA, Importar CSV, Backup, Configurações | — | Aguarda Bloco 3 |
+
+### Bugs corrigidos durante testes
+
+| Commit | Arquivo | Problema | Solução |
+|---|---|---|---|
+| `a66c92d` | `DonutChart.tsx:82` | `percentual.toFixed is not a function` — backend retorna string | `Number(item.percentual).toFixed(1)` |
+| `a66c92d` | `AddTransactionPage.tsx:612` | Saldo estimado exibia `R$ NaN` — concatenação de string | `Number(stats.saldo)` na passagem para `ImpactPreview` |
+
+---
+
 ## Decisões Fixas (não discutir)
 
 - **Backend:** FastAPI + SQLModel + PostgreSQL (Supabase)
@@ -375,7 +393,8 @@ beefree-web/
 
 ---
 
-*Última atualização: 29 de Maio de 2026 — Tarefa #17 concluída. Fase 3 completa. Produto funcionalmente completo.*  
+*Última atualização: 29 de Maio de 2026 — Testes Bloco 1 e Bloco 2 concluídos. Próximo: Bloco 3 (Cartões, Faturas e Parcelas).*  
+*Fase atual: Fase 3 completa. Em testes de validação end-to-end.*  
 *Próxima fase: Fase 4 — Monetização e Lançamento (Stripe/Pagar.me, landing page, domínio, Product Hunt)*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
