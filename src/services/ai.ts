@@ -4,8 +4,18 @@ interface AiChatResponse {
   resposta: string
 }
 
-export const sendMessage = async (mensagem: string, mes: number, ano: number): Promise<string> => {
-  const { data } = await api.post<AiChatResponse>('/ai/chat', { mensagem, mes, ano })
+export interface HistoricoItem {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+export const sendMessage = async (
+  mensagem: string,
+  mes: number,
+  ano: number,
+  historico: HistoricoItem[] = [],
+): Promise<string> => {
+  const { data } = await api.post<AiChatResponse>('/ai/chat', { mensagem, mes, ano, historico })
   return data.resposta
 }
 

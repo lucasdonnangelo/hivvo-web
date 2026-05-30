@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useMonthlyStats } from '../../hooks/useStatistics'
 import { sendMessage } from '../../services/ai'
@@ -71,13 +72,28 @@ function MessageBubble({ msg }: { msg: Message }) {
       )}
       <div
         className={[
-          'max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words',
+          'max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed break-words',
           isUser
-            ? 'rounded-br-sm bg-amber/15 border border-amber/30 text-text-primary'
+            ? 'rounded-br-sm bg-amber/15 border border-amber/30 text-text-primary whitespace-pre-wrap'
             : 'rounded-bl-sm bg-bg-surface border border-bg-border text-text-primary',
         ].join(' ')}
       >
-        {msg.text}
+        {isUser ? msg.text : (
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              ul: ({ children }) => <ul className="list-disc list-inside my-1 space-y-0.5">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal list-inside my-1 space-y-0.5">{children}</ol>,
+              li: ({ children }) => <li>{children}</li>,
+              h1: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+              h2: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+              h3: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+            }}
+          >
+            {msg.text}
+          </ReactMarkdown>
+        )}
       </div>
     </div>
   )
@@ -269,28 +285,35 @@ export default function AssistantPage() {
     if (!msg || isLoading) return
 
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', text: msg }
-    setMessages((prev) => [...prev, userMsg])
-    setInput('')
-    setIsLoading(true)
 
-    try {
-      const resposta = await sendMessage(msg, mes, ano)
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: 'assistant', text: resposta },
-      ])
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          text: 'Não foi possível processar sua pergunta no momento. Tente novamente.',
-        },
-      ])
-    } finally {
-      setIsLoading(false)
-    }
+    // Snapshot the history before adding the new user message
+    setMessages((prev) => {
+      const historico = prev.map((m) => ({ role: m.role, text: m.text }))
+
+      setInput('')
+      setIsLoading(true)
+
+      sendMessage(msg, mes, ano, historico)
+        .then((resposta) => {
+          setMessages((current) => [
+            ...current,
+            { id: crypto.randomUUID(), role: 'assistant', text: resposta },
+          ])
+        })
+        .catch(() => {
+          setMessages((current) => [
+            ...current,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              text: 'Não foi possível processar sua pergunta no momento. Tente novamente.',
+            },
+          ])
+        })
+        .finally(() => setIsLoading(false))
+
+      return [...prev, userMsg]
+    })
   }
 
   // on mobile, quick-question chips send immediately
@@ -329,13 +352,13 @@ export default function AssistantPage() {
           )}
         </div>
 
-        {/* Quick chips (only when there are messages) */}
+        {/* Quick chips (only when there are messages) — always auto-send on mobile */}
         {messages.length > 0 && !isLoading && (
           <div className="shrink-0 flex gap-2 overflow-x-auto px-4 py-2 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             {QUICK_QUESTIONS.map((q) => (
               <button
                 key={q}
-                onClick={() => handleQuickSelect(q)}
+                onClick={() => handleSend(q)}
                 className="shrink-0 px-3 py-1.5 rounded-full text-xs bg-bg-surface border border-bg-border text-text-muted hover:text-text-primary hover:border-amber/40 transition-colors"
               >
                 {q}
