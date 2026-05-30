@@ -55,7 +55,10 @@ export default function DonutChart({ data }: DonutChartProps) {
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number) => [formatBRL(value), 'Total']}
+            formatter={(value: unknown) => {
+              const v = value as number
+              return [formatBRL(v), 'Total']
+            }}
             contentStyle={{
               backgroundColor: '#2A2520',
               border: '1px solid #3A3530',

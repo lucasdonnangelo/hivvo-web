@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Modal from '../ui/Modal'
@@ -9,7 +9,7 @@ import type { Card, CardPayload } from '../../services/cards'
 
 const schema = z.object({
   nome: z.string().min(1, 'Nome obrigatório').max(40),
-  limite: z.coerce.number({ invalid_type_error: 'Valor inválido' }).positive('Informe um limite'),
+  limite: z.coerce.number().refine(v => !isNaN(v), { message: 'Valor inválido' }).refine(v => v > 0, { message: 'Informe um limite' }),
   tipo: z.enum(['Crédito', 'Débito', 'Ambos']),
   dia_fechamento: z.coerce
     .number()
@@ -41,8 +41,8 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
     handleSubmit,
     reset,
     formState: { errors, isValid },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+  } = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema) as Resolver<z.infer<typeof schema>>,
     mode: 'onChange',
     defaultValues: {
       nome: '',

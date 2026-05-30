@@ -78,10 +78,13 @@ export default function BarChart({ data, highlightMeses }: BarChartProps) {
             width={52}
           />
           <Tooltip
-            formatter={(value: number, name: string) => [
-              formatBRLFull(value),
-              name === 'receitas' ? 'Receitas' : 'Despesas',
-            ]}
+            formatter={(value: unknown, name: unknown) => {
+              const v = value as number
+              return [
+                formatBRLFull(v),
+                name === 'receitas' ? 'Receitas' : 'Despesas',
+              ]
+            }}
             contentStyle={{
               backgroundColor: '#2A2520',
               border: '1px solid #3A3530',

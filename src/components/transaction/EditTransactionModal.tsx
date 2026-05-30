@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import type { Transaction } from '../../services/transactions'
 import Modal from '../ui/Modal'
@@ -15,8 +15,9 @@ const schema = z.object({
   tipo: z.enum(['receita', 'despesa']),
   descricao: z.string().min(1, 'Campo obrigatório'),
   valor: z.coerce
-    .number({ error: 'Valor inválido' })
-    .positive('Deve ser maior que zero'),
+    .number()
+    .refine(v => !isNaN(v), { message: 'Valor inválido' })
+    .refine(v => v > 0, { message: 'Deve ser maior que zero' }),
   categoria: z.string().min(1, 'Campo obrigatório'),
   data: z.string().min(1, 'Campo obrigatório'),
   forma_pagamento: z.string().min(1, 'Campo obrigatório'),
@@ -43,8 +44,8 @@ export default function EditTransactionModal({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  } = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema) as Resolver<z.infer<typeof schema>>,
     mode: 'onChange',
     defaultValues: {
       tipo: tx.tipo,

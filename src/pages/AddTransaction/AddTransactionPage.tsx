@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import Button from '../../components/ui/Button'
@@ -29,8 +29,9 @@ const schema = z
   .object({
     tipo: z.enum(['receita', 'despesa']),
     valor: z.coerce
-      .number({ invalid_type_error: 'Valor inválido' })
-      .positive('Deve ser maior que zero'),
+      .number()
+      .refine(v => !isNaN(v), { message: 'Valor inválido' })
+      .refine(v => v > 0, { message: 'Deve ser maior que zero' }),
     descricao: z.string().min(1, 'Campo obrigatório'),
     categoria: z.string().min(1, 'Selecione uma categoria'),
     data: z.string().min(1, 'Campo obrigatório'),
@@ -239,8 +240,8 @@ export default function AddTransactionPage() {
     setValue,
     reset,
     formState: { errors, isValid },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  } = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema) as Resolver<z.infer<typeof schema>>,
     mode: 'onChange',
     defaultValues: {
       tipo: 'despesa',
