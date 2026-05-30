@@ -173,7 +173,7 @@ function StatsPanel({
                   <span className="text-xs text-text-primary truncate max-w-[120px]">
                     {cat.categoria}
                   </span>
-                  <span className="text-xs text-text-muted">{cat.percentual.toFixed(0)}%</span>
+                  <span className="text-xs text-text-muted">{Number(cat.percentual).toFixed(0)}%</span>
                 </div>
                 <div className="h-1 rounded-full bg-bg-border">
                   <div

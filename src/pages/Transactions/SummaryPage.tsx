@@ -137,7 +137,7 @@ function TopCategorias({ categorias }: { categorias: CategoriaStats[] }) {
             </div>
             <div className="flex items-center gap-2 shrink-0 ml-3">
               <span className="text-xs text-text-muted">
-                {cat.percentual.toFixed(1).replace('.', ',')}%
+                {Number(cat.percentual).toFixed(1).replace('.', ',')}%
               </span>
               <span className="text-sm font-medium text-text-primary">{formatBRL(cat.total)}</span>
             </div>
@@ -267,8 +267,8 @@ export default function SummaryPage() {
   const yearly       = useYearlyStats(ano)
   const prevYearly   = useYearlyStats(ano - 1)
 
-  // Yearly categories (full-year breakdown)
-  const yearlyCategories = useCategoryStats({ ano })
+  // Yearly categories — mes=12 required by endpoint; gives Dec breakdown as annual proxy
+  const yearlyCategories = useCategoryStats({ mes: 12, ano })
 
   // ── derived stats ───────────────────────────────────────────────────────────
 
