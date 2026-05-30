@@ -5,7 +5,7 @@ import {
   useMonthlyStats,
   useYearlyStats,
   useQuarterlyStats,
-  useCategoryStats,
+  useAnnualCategoryStats,
 } from '../../hooks/useStatistics'
 import { useInstallments } from '../../hooks/useInstallments'
 import DonutChart from '../../components/charts/DonutChart'
@@ -267,8 +267,8 @@ export default function SummaryPage() {
   const yearly       = useYearlyStats(ano)
   const prevYearly   = useYearlyStats(ano - 1)
 
-  // Yearly categories — mes=12 required by endpoint; gives Dec breakdown as annual proxy
-  const yearlyCategories = useCategoryStats({ mes: 12, ano })
+  // Aggregate categories across all 12 months client-side (avoids month-scoped endpoint returning empty)
+  const annualCategories = useAnnualCategoryStats(ano)
 
   // ── derived stats ───────────────────────────────────────────────────────────
 
@@ -319,7 +319,7 @@ export default function SummaryPage() {
 
     // Ano
     const d = yearly.data
-    const loading = yearly.isLoading || yearlyCategories.isLoading
+    const loading = yearly.isLoading || annualCategories.isLoading
     if (!d) return { metrics: null, categorias: [], isLoading: loading, isEmpty: false }
 
     const totalReceitas = d.meses.reduce((s, m) => s + m.receitas, 0)
@@ -338,11 +338,11 @@ export default function SummaryPage() {
         variacao_receitas: prevAnoData ? calcVariacao(totalReceitas, prevReceitas) : null,
         variacao_despesas: prevAnoData ? calcVariacao(totalDespesas, prevDespesas) : null,
       },
-      categorias: yearlyCategories.data?.categorias ?? [],
+      categorias: annualCategories.data?.categorias ?? [],
       isLoading: loading,
       isEmpty: totalReceitas === 0 && totalDespesas === 0,
     }
-  }, [periodo, monthly, quarterly, yearly, yearlyCategories, prevYearly, mes, ano])
+  }, [periodo, monthly, quarterly, yearly, annualCategories, prevYearly, mes, ano])
 
   // ── bar chart data ──────────────────────────────────────────────────────────
 

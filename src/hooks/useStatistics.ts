@@ -4,6 +4,7 @@ import {
   getYearlyStats,
   getCategoryStats,
 } from '../services/statistics'
+import type { CategoriaStats } from '../services/statistics'
 
 export function useMonthlyStats(mes: number, ano: number) {
   return useQuery({
@@ -24,6 +25,43 @@ export function useCategoryStats(params: { mes?: number; ano: number }) {
     queryKey: ['statistics', 'categories', params.mes, params.ano],
     queryFn: () => getCategoryStats(params),
   })
+}
+
+// Fetches all 12 months and aggregates category breakdown client-side,
+// so the Ano view never depends on /statistics/categories (which is month-scoped).
+export function useAnnualCategoryStats(ano: number) {
+  const queries = useQueries({
+    queries: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => ({
+      queryKey: ['statistics', 'monthly', m, ano],
+      queryFn: () => getMonthlyStats(m, ano),
+    })),
+  })
+
+  const isLoading = queries.some((q) => q.isLoading)
+  const allData = queries.map((q) => q.data).filter(Boolean)
+
+  if (isLoading || allData.length === 0) {
+    return { isLoading, data: undefined }
+  }
+
+  const totalDespesas = allData.reduce((sum, d) => sum + (d?.despesas ?? 0), 0)
+
+  const catMap = new Map<string, number>()
+  for (const d of allData) {
+    for (const cat of d?.categorias ?? []) {
+      catMap.set(cat.categoria, (catMap.get(cat.categoria) ?? 0) + cat.total)
+    }
+  }
+
+  const categorias: CategoriaStats[] = [...catMap.entries()]
+    .map(([categoria, total]) => ({
+      categoria,
+      total,
+      percentual: totalDespesas > 0 ? (total / totalDespesas) * 100 : 0,
+    }))
+    .sort((a, b) => b.total - a.total)
+
+  return { isLoading, data: { categorias } }
 }
 
 // Fetches 3 months for a quarter and aggregates them client-side
