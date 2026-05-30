@@ -7,10 +7,11 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 
 ## Estado do Projeto
 
-**Fase atual:** Fase 3 — Telas Restantes ✅ Concluída  
-**Próxima fase:** Fase 4 — Monetização e Lançamento  
-**Última tarefa concluída:** #17 — Features secundárias (CSV, backup, categorias, perfil)  
-**Status:** Produto funcionalmente completo — todas as telas e features da Fase 3 implementadas
+**Fase atual:** Testes end-to-end e refinamentos  
+**Status:** Todos os testes (Blocos 1–5) concluídos. Bugs críticos corrigidos. PWA instalável e funcionando.  
+**Próximo passo imediato:** Continuar refinamentos e melhorias pontuais  
+**Próxima fase:** Deploy — backend no Railway/Render, frontend no Vercel  
+**Última tarefa concluída:** Bloco 5 — Qualidade de build (TypeScript, PWA, bugs de UI)
 
 ---
 
@@ -19,9 +20,10 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 | Bloco | Escopo | Status | Observações |
 |---|---|---|---|
 | Bloco 1 | Autenticação (registro, login, logout, sessão persistida) | ✅ Concluído | — |
-| Bloco 2 | Dashboard e Transações (CRUD, filtros, gráficos, resumo detalhado) | ✅ Concluído | 2 bugs corrigidos: `percentual.toFixed` no DonutChart e `R$ NaN` no ImpactPreview |
-| Bloco 3 | Cartões, Faturas e Parcelas | ⏳ Próximo | — |
-| Bloco 4 | Assistente IA, Importar CSV, Backup, Configurações | — | Aguarda Bloco 3 |
+| Bloco 2 | Dashboard e Transações (CRUD, filtros, gráficos, resumo detalhado) | ✅ Concluído | 2 bugs corrigidos |
+| Bloco 3 | Cartões, Faturas e Parcelas | ✅ Concluído | — |
+| Bloco 4 | Assistente IA, Importar CSV, Backup, Configurações | ✅ Concluído | 1 bug corrigido em /settings |
+| Bloco 5 | Build limpo, PWA instalável, qualidade de código | ✅ Concluído | 12 erros TS corrigidos, ícones PWA criados |
 
 ### Bugs corrigidos durante testes
 
@@ -29,6 +31,29 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 |---|---|---|---|
 | `a66c92d` | `DonutChart.tsx:82` | `percentual.toFixed is not a function` — backend retorna string | `Number(item.percentual).toFixed(1)` |
 | `a66c92d` | `AddTransactionPage.tsx:612` | Saldo estimado exibia `R$ NaN` — concatenação de string | `Number(stats.saldo)` na passagem para `ImpactPreview` |
+| `fe3c8c9` | `SettingsPage.tsx:317` | Confirmação de remoção exibida para todas as categorias por padrão | `deletingId !== null &&` antes da comparação com `cat.id` |
+| `07d476b` | `CardFormModal.tsx`, `EditTransactionModal.tsx`, `AddTransactionPage.tsx` | `invalid_type_error` e `error` inexistentes em `z.coerce.number()` no Zod v4 | `.refine(v => !isNaN(v))` + `.refine(v => v > 0)` |
+| `07d476b` | `CardFormModal.tsx`, `EditTransactionModal.tsx`, `AddTransactionPage.tsx` | `zodResolver` infere tipo INPUT (`unknown`) incompatível com `useForm<OutputType>` | Import `Resolver` + cast `zodResolver(schema) as Resolver<z.infer<typeof schema>>` |
+| `07d476b` | `BarChart.tsx`, `DonutChart.tsx` | Formatter do Recharts espera `ValueType/NameType`, não `number/string` | `(value: unknown, name: unknown)` com cast interno |
+| `15798da` | `public/` | Ícones PWA `icon-192.png` e `icon-512.png` ausentes | Gerados via Pillow: fundo âmbar #EF9F27, letra B off-white centralizada |
+
+---
+
+## Próximos Passos
+
+### Refinamentos (etapa atual)
+- Identificar e corrigir eventuais bugs visuais ou de UX
+- Melhorias pontuais de performance ou acessibilidade
+- Validar fluxos edge-case (ex: transação parcelada sem cartão, mês sem dados)
+
+### Deploy (próxima etapa)
+- **Backend:** publicar `beefree-api` no Railway ou Render (free tier)
+  - Configurar variáveis de ambiente (.env) no painel do serviço
+  - Apontar `DATABASE_URL` para o Supabase de produção
+  - Verificar health check em `/health`
+- **Frontend:** publicar `beefree-web` no Vercel
+  - Configurar `VITE_API_URL` apontando para o backend em produção
+  - Verificar PWA instalável no celular após deploy
 
 ---
 
@@ -39,7 +64,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - **Estado:** Zustand (UI) + TanStack Query (servidor)
 - **Roteamento:** React Router v6
 - **Gráficos:** Recharts
-- **PWA:** Vite PWA Plugin
+- **PWA:** Vite PWA Plugin — instalável, ícones gerados (192×192 e 512×512)
 - **Deploy backend:** Railway ou Render (free tier)
 - **Deploy frontend:** Vercel
 - **Autenticação:** JWT (httpOnly cookie)
@@ -67,6 +92,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 15. Assistente IA (frontend)
 - [x] 16. Ver resumo detalhado (frontend)
 - [x] 17. Features secundárias (CSV, backup, categorias, perfil)
+- [x] 18. Testes end-to-end Blocos 1–5 + correção de bugs críticos
 
 ---
 
@@ -80,182 +106,69 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 | Soft delete em categorias | `ativa=False` em vez de DELETE para preservar histórico de transações. |
 | Parcelamento sem cartão | Usa intervalos mensais simples a partir da data da compra. |
 | Arredondamento de parcelas | Última parcela absorve diferença de arredondamento (`ROUND_HALF_UP`). |
+| Zod v4 coerce + RHF | `z.coerce.number()` com `.refine()` requer cast `as Resolver<z.infer<typeof schema>>` no zodResolver. |
+| Recharts Tooltip formatter | Parâmetros tipados como `unknown` com cast interno — `ValueType`/`NameType` são uniões que incluem `undefined`. |
 
 ---
 
 ## Arquivos Criados/Modificados por Tarefa
 
-### Tarefa #1 — Estrutura base
-- `main.py` — FastAPI app, CORS, routers, GET /health
-- `app/core/config.py` — Settings via pydantic-settings
-- `app/core/database.py` — engine + get_session
-- `requirements.txt` — dependências
-
-### Tarefa #2 — Models + Alembic
-- `app/models/user.py` — Usuario (email, username, senha_hash, rate limiting)
-- `app/models/card.py` — Cartao (dia_vencimento, dia_fechamento, mes_offset_vencimento)
-- `app/models/transaction.py` — Transacao (tipo receita/despesa, usuario_id FK)
-- `app/models/category.py` — CategoriaCustomizada
-- `app/models/installment.py` — Parcela (FK transacao + cartao + usuario)
-- `alembic/env.py`, `alembic.ini`, `alembic/script.py.mako`
-- Migration: `abdb546095c0_initial_schema.py` — aplicada no Supabase
-
-### Tarefa #3 — Auth
-- `app/core/auth.py` — hash_password, verify_password (bcrypt direto), create_access_token, get_current_user
-- `app/schemas/auth.py` — RegisterRequest, LoginRequest, UserResponse
-- `app/routers/auth.py` — POST /register, POST /login, POST /logout, GET /me
-
-### Tarefa #4 — Transações e Categorias
-- `app/schemas/transaction.py` — TransacaoCreate, TransacaoUpdate, TransacaoResponse, TransacaoCreateResponse
-- `app/schemas/category.py` — CategoriaCreate, CategoriaResponse
-- `app/routers/transactions.py` — GET/POST/PUT/DELETE + lógica de parcelamento
-- `app/routers/categories.py` — GET/POST/DELETE + 15 categorias padrão hardcoded
-
-### Tarefa #5 — Cartões e Faturas
-- `app/schemas/card.py` — CartaoCreate, CartaoUpdate, CartaoResponse, CartaoComFaturaResponse
-- `app/schemas/invoice.py` — ParcelaFaturaResponse, TransacaoFaturaResponse, FaturaListItem, FaturaDetalhe
-- `app/routers/cards.py` — GET/POST/PUT/DELETE + fatura aberta calculada em tempo real
-- `app/routers/invoices.py` — GET /{card_id}/invoices (lista), GET /{card_id}/invoices/{ano}/{mes} (detalhe)
-
-### Tarefa #6 — Parcelas
-- `app/schemas/installment.py` — ParcelaUpdate, ParcelaResponse
-- `app/routers/installments.py` — GET (filtros: cartao_id, pago, cancelado, mes, ano), PUT (marcar paga/cancelar), DELETE (individual)
-
-### Tarefa #7 — Estatísticas
-- `app/schemas/statistics.py` — CategoriaStats, MensalResponse, MesEvolucao, AnualResponse, CategoriasResponse
-- `app/routers/statistics.py` — GET /statistics/monthly (receitas/despesas/saldo + categorias + variação % vs mês anterior), GET /statistics/yearly (12 meses, totais), GET /statistics/categories (breakdown por categoria com percentual)
-
-### Tarefa #8 — IA (proxy Gemini)
-- `app/schemas/ai.py` — ChatRequest (mensagem, mes, ano), ChatResponse (resposta)
-- `app/routers/ai.py` — POST /ai/chat: busca contexto via helpers de statistics.py (sem duplicar), injeta saldo/receitas/despesas/top5 categorias/parcelas do próximo mês/nº transações no prompt, chama Gemini via google-genai, retorna 503 claro em caso de falha
+### Tarefa #18 — Testes e correções de bugs (Blocos 1–5)
+- `src/pages/Settings/SettingsPage.tsx` — guarda `deletingId !== null` na confirmação de remoção de categorias
+- `src/components/cards/CardFormModal.tsx` — Zod v4: `.refine()` substituindo `invalid_type_error`; cast do zodResolver; import `Resolver`
+- `src/components/transaction/EditTransactionModal.tsx` — idem
+- `src/pages/AddTransaction/AddTransactionPage.tsx` — idem
+- `src/components/charts/BarChart.tsx` — formatter `(value: unknown, name: unknown)` com cast interno
+- `src/components/charts/DonutChart.tsx` — idem
+- `public/icon-192.png` — ícone PWA 192×192 (fundo âmbar, letra B off-white)
+- `public/icon-512.png` — ícone PWA 512×512 (fundo âmbar, letra B off-white)
 
 ### Tarefa #17 — Features Secundárias (frontend)
-- `src/pages/Import/ImportPage.tsx` — novo: upload de .csv com drag-and-drop, parse client-side, preview com validação por linha, barra de progresso durante importação sequencial via `createTransaction`, template CSV para download
-- `src/pages/Settings/SettingsPage.tsx` — novo: página /settings com 3 seções — Perfil (nome editável, email read-only, alterar senha RHF+Zod, logout), Categorias (lista customizadas, adicionar via Modal.tsx, deletar com confirmação inline), Exportar dados (backup JSON via `getAllTransactions`)
-- `src/services/auth.ts` — `updateMe(username)` → PUT /auth/me; `changePassword(senha_atual, nova_senha)` → PUT /auth/password
-- `src/services/categories.ts` — `createCategory(nome)`, `deleteCategory(id)`; `usuario_id: number | null` adicionado ao tipo `Category`
+- `src/pages/Import/ImportPage.tsx` — upload CSV com drag-and-drop, parse client-side, preview com validação, importação sequencial
+- `src/pages/Settings/SettingsPage.tsx` — /settings com Perfil, Categorias customizadas e Exportar dados
+- `src/services/auth.ts` — `updateMe(username)`, `changePassword(senha_atual, nova_senha)`
+- `src/services/categories.ts` — `createCategory(nome)`, `deleteCategory(id)`; `usuario_id: number | null`
 - `src/services/transactions.ts` — `getAllTransactions()` sem filtro de mês para backup
-- `src/hooks/useCategories.ts` — `useCreateCategory`, `useDeleteCategory` com invalidação de `['categories']`
-- `src/layouts/MobileLayout.tsx` — botão de perfil navega para /settings; exibe inicial do `user.username`
-- `src/layouts/DesktopLayout.tsx` — idem
+- `src/hooks/useCategories.ts` — `useCreateCategory`, `useDeleteCategory`
+- `src/layouts/MobileLayout.tsx`, `DesktopLayout.tsx` — botão de perfil navega para /settings
 - `src/App.tsx` — rotas `/import` e `/settings` adicionadas
 
 ### Tarefa #16 — Ver Resumo Detalhado (frontend)
-- `src/services/statistics.ts` — expandido: `MesEvolucao`, `AnualResponse`, `CategoriasResponse`; `getYearlyStats(ano)`, `getCategoryStats({ mes?, ano })`
-- `src/services/installments.ts` — novo: `ParcelaResponse`, `getInstallments(params)`
-- `src/hooks/useStatistics.ts` — expandido: `useYearlyStats`, `useCategoryStats`, `useQuarterlyStats` (agrega 3 meses via `useQueries`, mescla categorias, recalcula percentuais)
-- `src/hooks/useInstallments.ts` — novo: `useInstallments(mes, ano)` para parcelas do próximo mês
-- `src/components/charts/BarChart.tsx` — novo: Recharts `BarChart` agrupado receitas/despesas, YAxis com formato BRL compact, `highlightMeses` prop (reservada para uso futuro)
-- `src/pages/Transactions/SummaryPage.tsx` — página completa:
-  - Toggle Mês / Trimestre / Ano com snap automático para início do trimestre
-  - Navegação de período (mês, trimestre por 3 meses, ano) bloqueada no período atual
-  - 4 cards: Receitas, Despesas, Saldo Líquido (cor semântica), Parcelas — Próx. Mês (âmbar)
-  - Comparativo `variacao_%` vs período anterior: backend fornece para Mês; Ano calculado com prevYearly; Trimestre retorna null (sem fetch adicional do trimestre anterior)
-  - DonutChart reutilizado por categoria
-  - BarChart de evolução mensal: Ano usa todos os 12 meses, Trimestre filtra os 3 meses do quarter, Mês usa dados do ano inteiro com mês atual destacável
-  - TopCategorias: lista top 6 com barra de progresso proporcional ao percentual
-  - Botão exportar (placeholder)
-  - Empty state quando receitas + despesas = 0
-  - Skeleton de loading para mobile e desktop
-  - Botão ← volta para `/transactions`
-- `src/App.tsx` — rota `/transactions/summary` adicionada (irmã de `/transactions`, recebe AppLayout)
-- `src/pages/Transactions/TransactionsPage.tsx` — botão "Ver resumo →" no mobile (header) e desktop (topbar)
+- `src/services/statistics.ts` — `getYearlyStats(ano)`, `getCategoryStats({ mes?, ano })`
+- `src/services/installments.ts` — novo
+- `src/hooks/useStatistics.ts` — `useYearlyStats`, `useCategoryStats`, `useQuarterlyStats`
+- `src/hooks/useInstallments.ts` — novo
+- `src/components/charts/BarChart.tsx` — novo
+- `src/pages/Transactions/SummaryPage.tsx` — página completa com toggle Mês/Trimestre/Ano
 
 ### Tarefa #15 — Assistente IA (frontend)
-- `src/services/ai.ts` — refatorado: `sendMessage(mensagem, mes, ano)` extraído como função base; `suggestCategory` passa a usá-la internamente
-- `src/pages/Assistant/AssistantPage.tsx` — página completa:
-  - Estado local `Message[]` (`id`, `role`, `text`) — sem persistência no backend
-  - `handleSend`: push user msg → POST `/ai/chat` → push assistant msg; erro → mensagem de fallback
-  - `TypingIndicator`: 3 dots com `animate-bounce` staggerado (0 / 150ms / 300ms)
-  - `MessageBubble`: user à direita (bg-amber/15, border-amber/30), IA à esquerda (bg-bg-surface) com ícone ✦
-  - `EmptyState`: ícone âmbar + texto + chips verticais (apenas mobile); desktop mostra painel lateral com sugestões
-  - `ChatInput`: textarea (Enter envia, Shift+Enter quebra linha), botão seta âmbar
-  - `StatsPanel` (desktop): `useMonthlyStats` do mês corrente — receitas/despesas/saldo + top 4 categorias com barra de percentual + lista de perguntas rápidas
-  - Mobile: chips de perguntas rápidas enviam imediatamente; Desktop: chips preenchem o input
-  - `useEffect` em `messages` → `scrollIntoView` automático no fim da lista
-- `src/App.tsx` — placeholder `Assistant` substituído por `AssistantPage`
+- `src/services/ai.ts` — `sendMessage(mensagem, mes, ano)` como base; `suggestCategory` reutiliza
+- `src/pages/Assistant/AssistantPage.tsx` — chat completo com TypingIndicator, MessageBubble, StatsPanel (desktop)
 
 ### Tarefa #14 — Cartões e faturas (frontend)
-- `src/services/cards.ts` — expandido: tipos `CardPayload`, `InvoiceListItem`, `ParcelaFaturaItem`, `TransacaoFaturaItem`, `InvoiceDetail`; funções `createCard`, `updateCard`, `deactivateCard` (PUT com `ativo: false`), `getInvoices`, `getInvoiceDetail`
-- `src/hooks/useCards.ts` — expandido: `useCreateCard`, `useUpdateCard`, `useDeactivateCard`, `useInvoices` (enabled quando cardId != null), `useInvoiceDetail`
-- `src/components/cards/CardVisual.tsx` — visual do cartão: gradiente amber-dark→amber→amber-light, nome, limite, tipo; prop `selected` com ring âmbar
-- `src/components/cards/CardFormModal.tsx` — modal RHF+Zod: nome, limite, tipo (select), dia_fechamento, dia_vencimento, mes_offset_vencimento (select "mesmo mês / mês seguinte")
-- `src/components/cards/InvoiceMonthGrid.tsx` — grid 6×2 de meses; mês selecionado em âmbar; meses futuros opacos; exibe valor abreviado por mês
-- `src/components/cards/InvoiceDetail.tsx` — detalhe da fatura: total, data de vencimento, seção "Parcelas" com badge `X/Y` âmbar, seção "Avulsas"; botão exportar (placeholder)
-- `src/pages/Cards/CardsPage.tsx` — página completa:
-  - Mobile: header + carrossel scroll-snap + botões editar/desativar + InvoicePanel
-  - Desktop: painel esquerdo 288px (lista de cartões + ações) + painel direito (InvoicePanel)
-  - `DeactivateModal` com confirmação e botão danger
-  - `InvoicePanel` encapsula `useInvoices` + `useInvoiceDetail` + `InvoiceMonthGrid` + `InvoiceDetailPanel`
-  - Empty state com CTA quando não há cartões ativos
-- `src/App.tsx` — placeholder `Cards` substituído por `CardsPage`
+- `src/services/cards.ts` — tipos e funções de cartões/faturas
+- `src/hooks/useCards.ts` — mutations e queries de cartões/faturas
+- `src/components/cards/` — CardVisual, CardFormModal, InvoiceMonthGrid, InvoiceDetail
+- `src/pages/Cards/CardsPage.tsx` — página completa mobile/desktop
 
 ### Tarefa #13 — Adicionar transação com parcelamento (frontend)
-- `src/services/ai.ts` — `suggestCategory(descricao, categorias[])`: POST `/ai/chat` com prompt direcionado; valida que a resposta é uma categoria existente; retorna null em caso de falha
-- `src/hooks/useCards.ts` — `useCards()` via TanStack Query, `staleTime` 5 min
-- `src/services/transactions.ts` — `TransactionCreatePayload` (inclui `num_parcelas?: number`); `createTransaction` atualizado para usar o novo tipo
-- `src/hooks/useTransactions.ts` — `useCreateTransaction`: mutation com invalidação de `['transactions']` e `['statistics','monthly']` (sem mes/ano para invalidar todas as queries)
-- `src/pages/AddTransaction/AddTransactionPage.tsx` — página completa:
-  - Tipo: toggle Despesa/Receita com cores semânticas (danger/success)
-  - Valor: input numérico step 0.01
-  - Descrição: debounce 500ms → `suggestCategory()` → badge `✦ IA` na categoria sugerida
-  - Categoria: `CategoryGrid` 4 colunas com ícone + nome + badge IA; usa `Controller` do RHF
-  - Data: date input com default = hoje (data local)
-  - Forma de pagamento: chips pill com `Controller`
-  - Cartão: `Controller` com select filtrado (credito|ambos); se lista vazia → mensagem "Nenhum cartão cadastrado. Adicione um na aba Cartões."
-  - Parcelamento: toggle switch âmbar; visível apenas se Crédito + cartão selecionado; oculto (e form reset) se não há cartões
-  - Num. parcelas: input 2–24; valor por parcela calculado em tempo real
-  - `canSubmit`: `isValid && !isPending && (!isCredito || !hasCards || cartao_id != null)`
-  - Salvar → `navigate('/dashboard')`; Salvar e adicionar outro → `reset()` mantendo tipo/data/forma_pagamento
-  - Mobile: tela cheia com header + scroll + footer fixo com os dois botões
-  - Desktop: grid `[1fr 300px]` form + `ImpactPreview` sticky com tipo, valor, descrição, categoria, saldo estimado
-- `src/App.tsx` — placeholder `AddTransaction` substituído por `AddTransactionPage`
+- `src/pages/AddTransaction/AddTransactionPage.tsx` — form completo com parcelamento, sugestão IA, ImpactPreview
 
 ### Tarefa #12 — Transações (frontend)
-- `src/services/categories.ts` — `Category` type + `getCategories()`
-- `src/hooks/useCategories.ts` — `useCategories()` via TanStack Query, `staleTime` 5 min
-- `src/hooks/useTransactions.ts` — adicionados `useDeleteTransaction` e `useUpdateTransaction` com invalidação de `['transactions']` e `['statistics','monthly']`
-- `src/components/ui/Modal.tsx` — modal reutilizável: overlay, título, slot `footer`, fecha com Esc ou clique fora
-- `src/components/transaction/TransactionItem.tsx` — linha de transação: descrição, categoria, forma de pag., badge "Parcelado", valor colorido, botões editar/deletar
-- `src/components/transaction/TransactionGroup.tsx` — grupo por data com header "Hoje / Ontem / dia mês" e subtotal do grupo
-- `src/components/transaction/DeleteConfirmModal.tsx` — confirmação de exclusão com botão danger e spinner
-- `src/components/transaction/EditTransactionModal.tsx` — formulário RHF+Zod; se `tx.parcelado === true`, exibe aviso âmbar e oculta campos/salvar
-- `src/pages/Transactions/TransactionsPage.tsx` — página completa: filtros client-side, busca, agrupamento por data, total filtrado, layouts distintos mobile (chips + modal filtros) e desktop (painel lateral 256px)
-- `src/App.tsx` — placeholder `Transactions` substituído por `TransactionsPage`
+- `src/components/transaction/` — TransactionItem, TransactionGroup, EditTransactionModal, DeleteConfirmModal
+- `src/pages/Transactions/TransactionsPage.tsx` — filtros, busca, agrupamento por data
 
 ### Tarefa #11 — Dashboard (frontend)
-- `src/services/statistics.ts` — tipos `CategoriaStats`, `MonthlyStats` + `getMonthlyStats(mes, ano)`
-- `src/hooks/useStatistics.ts` — `useMonthlyStats` via TanStack Query, queryKey `['statistics','monthly', mes, ano]`
-- `src/components/charts/DonutChart.tsx` — Recharts PieChart/donut, paleta 6 cores do brand guide, legenda com Tailwind classes, tooltip estilizado
-- `src/pages/Dashboard/DashboardPage.tsx` — navegação entre meses, MetricCard (saldo/receitas/despesas + variação%), DonutChart, últimas 5 transações, empty state, skeleton, mobile e desktop via `useBreakpoint`
-- `src/App.tsx` — placeholder `Dashboard` substituído por `DashboardPage`
+- `src/components/charts/DonutChart.tsx` — novo
+- `src/pages/Dashboard/DashboardPage.tsx` — métricas, DonutChart, últimas transações, empty state
 
 ### Tarefa #10 — Login + Cadastro (frontend)
-- `src/components/ui/Spinner.tsx` — SVG animado, prop `size`, usado internamente pelo Button
-- `src/components/ui/Button.tsx` — variantes `primary`/`ghost`, prop `isLoading` com Spinner, `disabled` automático
-- `src/components/ui/Input.tsx` — `forwardRef`, props `label` e `error`, borda `border-danger` em erro
-- `src/pages/Auth/LoginPage.tsx` — RHF + Zod (email + senha min 8), `mode: 'onChange'`, chama `login()` → `setUser()` → `/dashboard`
-- `src/pages/Auth/RegisterPage.tsx` — RHF + Zod (email + username + senha min 8 + confirmação com `.refine()`), chama `register()` → `login()` → `setUser()` → `/dashboard`
-- `src/App.tsx` — `AuthInitializer` (restaura sessão via `getMe()` no mount), `ProtectedRoute` (redireciona para `/login` se não autenticado), rotas reais importadas
+- `src/components/ui/Button.tsx`, `Input.tsx`, `Spinner.tsx`
+- `src/pages/Auth/LoginPage.tsx`, `RegisterPage.tsx`
 
-### Tarefa #9 — Setup Frontend (beefree-web/)
-- `vite.config.ts` — PWA plugin configurado com manifest BeeFree
-- `tailwind.config.ts` — tokens de cor/tipografia do brand guide (amber, bg, text, success, danger)
-- `index.html` — Inter font, lang=pt-BR, theme-color=#1A1714
-- `src/index.css` — @tailwind directives + reset de altura full-screen
-- `src/styles/tokens.css` — variáveis CSS do brand guide
-- `src/main.tsx` — QueryClientProvider + BrowserRouter + StrictMode
-- `src/App.tsx` — React Router v6: AppLayout escolhe Mobile vs Desktop via useBreakpoint
-- `src/layouts/MobileLayout.tsx` — header + Outlet + bottom tab bar com FAB central
-- `src/layouts/DesktopLayout.tsx` — sidebar 52px (ícones) + Outlet
-- `src/layouts/AuthLayout.tsx` — card centralizado no fundo escuro
-- `src/hooks/useBreakpoint.ts` — useBreakpoint('md') → true em mobile (<768px)
-- `src/store/authStore.ts` — Zustand: user, isAuthenticated, setUser, clearAuth
-- `src/store/uiStore.ts` — Zustand: toasts, activeModal, isLoading
-- `src/services/api.ts` — Axios com withCredentials + interceptor 401→clearAuth
-- `src/services/auth.ts`, `transactions.ts`, `cards.ts` — stubs dos serviços
-- `public/manifest.json` — PWA manifest estático
-- `docs/` — cópias de BeeFree_Referencia.md e SESSAO_ATUAL.md
+### Tarefas #1–#9 — Backend completo + Setup Frontend
+- Backend FastAPI: auth, transações, categorias, cartões, faturas, parcelas, estatísticas, IA
+- Frontend setup: Vite + Tailwind + PWA + layouts + Zustand + TanStack Query
 
 ---
 
@@ -280,40 +193,13 @@ beefree-api/
 ├── requirements.txt
 ├── alembic.ini
 ├── alembic/
-│   ├── env.py
-│   ├── script.py.mako
 │   └── versions/
 │       └── abdb546095c0_initial_schema.py
 └── app/
-    ├── models/
-    │   ├── user.py          ✓
-    │   ├── card.py          ✓
-    │   ├── transaction.py   ✓
-    │   ├── category.py      ✓
-    │   └── installment.py   ✓
-    ├── schemas/
-    │   ├── auth.py          ✓
-    │   ├── transaction.py   ✓
-    │   ├── category.py      ✓
-    │   ├── card.py          ✓
-    │   ├── invoice.py       ✓
-    │   ├── installment.py   ✓
-    │   └── statistics.py    ✓
-    ├── routers/
-    │   ├── auth.py          ✓
-    │   ├── transactions.py  ✓
-    │   ├── categories.py    ✓
-    │   ├── cards.py         ✓
-    │   ├── invoices.py      ✓
-    │   ├── installments.py  ✓
-    │   ├── statistics.py    ✓
-    │   └── ai.py            ✓
-    ├── repositories/        — vazio
-    ├── services/            — vazio
-    └── core/
-        ├── auth.py          ✓
-        ├── database.py      ✓
-        └── config.py        ✓
+    ├── models/       user, card, transaction, category, installment  ✓
+    ├── schemas/      auth, transaction, category, card, invoice, installment, statistics, ai  ✓
+    ├── routers/      auth, transactions, categories, cards, invoices, installments, statistics, ai  ✓
+    └── core/         auth, database, config  ✓
 ```
 
 ---
@@ -326,75 +212,21 @@ beefree-web/
 ├── vite.config.ts
 ├── tailwind.config.ts
 ├── public/
-│   └── manifest.json
+│   ├── manifest.json        ✓
+│   ├── icon-192.png         ✓  (gerado — fundo âmbar, letra B)
+│   └── icon-512.png         ✓  (gerado — fundo âmbar, letra B)
 └── src/
-    ├── layouts/
-    │   ├── DesktopLayout.tsx    ✓
-    │   ├── MobileLayout.tsx     ✓
-    │   └── AuthLayout.tsx       ✓
-    ├── pages/
-    │   ├── Dashboard/
-    │   │   └── DashboardPage.tsx    ✓
-    │   ├── Transactions/
-    │   │   ├── TransactionsPage.tsx ✓
-    │   │   └── SummaryPage.tsx      ✓
-    │   ├── AddTransaction/
-    │   │   └── AddTransactionPage.tsx   ✓
-    │   ├── Cards/
-    │   │   └── CardsPage.tsx        ✓
-    │   ├── Assistant/
-    │   │   └── AssistantPage.tsx    ✓
-    │   ├── Auth/
-    │   │   ├── LoginPage.tsx        ✓
-    │   │   └── RegisterPage.tsx     ✓
-    │   └── Settings/                — placeholder (Tarefa #17)
-    ├── components/
-    │   ├── ui/
-    │   │   ├── Button.tsx           ✓
-    │   │   ├── Input.tsx            ✓
-    │   │   ├── Modal.tsx            ✓
-    │   │   └── Spinner.tsx          ✓
-    │   ├── charts/
-    │   │   ├── DonutChart.tsx       ✓
-    │   │   └── BarChart.tsx         ✓
-    │   ├── transaction/
-    │   │   ├── TransactionItem.tsx  ✓
-    │   │   ├── TransactionGroup.tsx ✓
-    │   │   ├── EditTransactionModal.tsx  ✓
-    │   │   └── DeleteConfirmModal.tsx    ✓
-    │   └── cards/
-    │       ├── CardVisual.tsx       ✓
-    │       ├── CardFormModal.tsx    ✓
-    │       ├── InvoiceMonthGrid.tsx ✓
-    │       └── InvoiceDetail.tsx    ✓
-    ├── hooks/
-    │   ├── useBreakpoint.ts         ✓
-    │   ├── useTransactions.ts       ✓
-    │   ├── useCategories.ts         ✓
-    │   ├── useStatistics.ts         ✓
-    │   ├── useCards.ts              ✓
-    │   ├── useAuth.ts               ✓
-    │   └── useInstallments.ts       ✓
-    ├── store/
-    │   ├── authStore.ts             ✓
-    │   └── uiStore.ts               ✓
-    ├── services/
-    │   ├── api.ts                   ✓
-    │   ├── auth.ts                  ✓
-    │   ├── transactions.ts          ✓
-    │   ├── categories.ts            ✓
-    │   ├── cards.ts                 ✓
-    │   ├── ai.ts                    ✓
-    │   ├── statistics.ts            ✓
-    │   └── installments.ts          ✓
-    └── styles/
-        └── tokens.css           ✓
+    ├── layouts/             DesktopLayout, MobileLayout, AuthLayout  ✓
+    ├── pages/               Dashboard, Transactions/Summary, AddTransaction, Cards, Assistant, Auth, Settings, Import  ✓
+    ├── components/          ui/, charts/, transaction/, cards/  ✓
+    ├── hooks/               useBreakpoint, useTransactions, useCategories, useStatistics, useCards, useAuth, useInstallments  ✓
+    ├── store/               authStore, uiStore  ✓
+    ├── services/            api, auth, transactions, categories, cards, ai, statistics, installments  ✓
+    └── styles/              tokens.css  ✓
 ```
 
 ---
 
-*Última atualização: 29 de Maio de 2026 — Testes Bloco 1 e Bloco 2 concluídos. Próximo: Bloco 3 (Cartões, Faturas e Parcelas).*  
-*Fase atual: Fase 3 completa. Em testes de validação end-to-end.*  
-*Próxima fase: Fase 4 — Monetização e Lançamento (Stripe/Pagar.me, landing page, domínio, Product Hunt)*  
+*Última atualização: 30 de Maio de 2026 — Todos os testes (Blocos 1–5) concluídos. Bugs críticos corrigidos. PWA instalável com ícones gerados. Próximo: refinamentos e deploy.*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
