@@ -284,36 +284,32 @@ export default function AssistantPage() {
     const msg = (text ?? input).trim()
     if (!msg || isLoading) return
 
+    // Snapshot history from current state before any update (safe: read at call site, not inside updater)
+    const historico = messages.map((m) => ({ role: m.role, text: m.text }))
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', text: msg }
 
-    // Snapshot the history before adding the new user message
-    setMessages((prev) => {
-      const historico = prev.map((m) => ({ role: m.role, text: m.text }))
+    setMessages((prev) => [...prev, userMsg])
+    setInput('')
+    setIsLoading(true)
 
-      setInput('')
-      setIsLoading(true)
-
-      sendMessage(msg, mes, ano, historico)
-        .then((resposta) => {
-          setMessages((current) => [
-            ...current,
-            { id: crypto.randomUUID(), role: 'assistant', text: resposta },
-          ])
-        })
-        .catch(() => {
-          setMessages((current) => [
-            ...current,
-            {
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              text: 'Não foi possível processar sua pergunta no momento. Tente novamente.',
-            },
-          ])
-        })
-        .finally(() => setIsLoading(false))
-
-      return [...prev, userMsg]
-    })
+    try {
+      const resposta = await sendMessage(msg, mes, ano, historico)
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: 'assistant', text: resposta },
+      ])
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          text: 'Não foi possível processar sua pergunta no momento. Tente novamente.',
+        },
+      ])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // on mobile, quick-question chips send immediately
