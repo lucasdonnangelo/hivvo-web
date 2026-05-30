@@ -314,7 +314,7 @@ export default function SettingsPage() {
           ) : (
             <div className="flex flex-col gap-1">
               {customCategories.map((cat) =>
-                deletingId === cat.id ? (
+                deletingId !== null && deletingId === cat.id ? (
                   <div
                     key={cat.id}
                     className="flex items-center justify-between gap-2 px-2 py-2 rounded-md bg-danger/5 border border-danger/30"
