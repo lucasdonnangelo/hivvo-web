@@ -4,6 +4,7 @@ import {
   deleteCategory,
   getCategories,
 } from '../services/categories'
+import { useUIStore } from '../store/uiStore'
 
 export function useCategories() {
   return useQuery({
@@ -16,8 +17,12 @@ export function useCategories() {
 export function useCreateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (nome: string) => createCategory(nome),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+    mutationFn: ({ nome, icone }: { nome: string; icone: string }) =>
+      createCategory(nome, icone),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      useUIStore.getState().addToast({ message: 'Categoria criada', type: 'success' })
+    },
   })
 }
 
@@ -25,6 +30,9 @@ export function useDeleteCategory() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => deleteCategory(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      useUIStore.getState().addToast({ message: 'Categoria removida', type: 'success' })
+    },
   })
 }

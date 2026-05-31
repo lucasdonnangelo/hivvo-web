@@ -12,8 +12,8 @@ export interface Category {
 export const getCategories = () =>
   api.get<Category[]>('/categories').then((r) => r.data)
 
-export const createCategory = (nome: string) =>
-  api.post<Category>('/categories', { nome }).then((r) => r.data)
+export const createCategory = (nome: string, icone: string) =>
+  api.post<Category>('/categories', { nome, icone }).then((r) => r.data)
 
 export const deleteCategory = (id: number) =>
   api.delete(`/categories/${id}`)

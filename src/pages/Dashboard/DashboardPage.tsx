@@ -114,6 +114,7 @@ function TransactionItem({ tx }: { tx: Transaction }) {
 }
 
 function EmptyState({ mes, ano }: { mes: number; ano: number }) {
+  const isMobile = useBreakpoint('md')
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="w-12 h-12 rounded-full bg-bg-surface flex items-center justify-center mb-4">
@@ -124,7 +125,9 @@ function EmptyState({ mes, ano }: { mes: number; ano: number }) {
         Nenhuma transação em {MONTHS[mes - 1]} {ano}
       </p>
       <p className="text-text-muted text-xs mt-4">
-        Use o botão + para adicionar sua primeira transação.
+        {isMobile
+          ? 'Toque no botão + abaixo para adicionar sua primeira transação.'
+          : 'Clique no ícone + na barra lateral para adicionar sua primeira transação.'}
       </p>
     </div>
   )

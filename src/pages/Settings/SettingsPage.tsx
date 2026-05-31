@@ -9,6 +9,7 @@ import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import { useCategories, useCreateCategory, useDeleteCategory } from '../../hooks/useCategories'
 import { useAuthStore } from '../../store/authStore'
+import { useUIStore } from '../../store/uiStore'
 import { updateMe, changePassword, logout } from '../../services/auth'
 import { getAllTransactions } from '../../services/transactions'
 
@@ -24,6 +25,33 @@ const pwSchema = z
   })
 
 type PwForm = z.infer<typeof pwSchema>
+
+const QUICK_EMOJIS = ['🍔','🚗','🏠','💊','📚','🎮','👕','📱','✈️','🐾','💰','💻','📈','🎯','📦']
+
+function extractEmojiAndName(text: string): { icone: string; nome: string } {
+  if (!text) return { icone: '📦', nome: '' }
+  const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+  const [first] = seg.segment(text)
+  if (first && /\p{Extended_Pictographic}/u.test(first.segment)) {
+    return { icone: first.segment, nome: text.slice(first.segment.length).trim() }
+  }
+  return { icone: '📦', nome: text }
+}
+
+function extractDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0]
+    if (first && typeof first === 'object' && 'msg' in first) {
+      return String((first as { msg: unknown }).msg)
+    }
+    return String(first)
+  }
+  if (detail && typeof detail === 'object') {
+    return JSON.stringify(detail)
+  }
+  return 'Erro ao salvar. Tente novamente.'
+}
 
 function downloadJSON(data: unknown, filename: string) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -58,6 +86,7 @@ export default function SettingsPage() {
   const user = useAuthStore((s) => s.user)
   const setUser = useAuthStore((s) => s.setUser)
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const addToast = useUIStore((s) => s.addToast)
 
   // ── Nome ──────────────────────────────────────────────────────────────────
   const [name, setName] = useState(user?.username ?? '')
@@ -79,8 +108,11 @@ export default function SettingsPage() {
       setUser(updated)
       setNameSuccess(true)
       setTimeout(() => setNameSuccess(false), 2000)
-    } catch {
-      setNameError('Erro ao salvar. Tente novamente.')
+      addToast({ message: 'Nome atualizado', type: 'success' })
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })
+        ?.response?.data?.detail
+      setNameError(extractDetail(detail))
     } finally {
       setNameSaving(false)
     }
@@ -104,6 +136,7 @@ export default function SettingsPage() {
       resetPwForm()
       setPwSuccess(true)
       setTimeout(() => setPwSuccess(false), 3000)
+      addToast({ message: 'Senha alterada com sucesso', type: 'success' })
     } catch {
       setPwError('senha_atual', { message: 'Senha atual incorreta.' })
     }
@@ -156,18 +189,19 @@ export default function SettingsPage() {
 
   function handleAddCatSubmit() {
     const trimmed = newCatName.trim()
-    if (trimmed.length < 2) {
-      setCatNameError('Mínimo 2 caracteres.')
+    const { icone, nome } = extractEmojiAndName(trimmed)
+    if (nome.length < 2) {
+      setCatNameError('Mínimo 2 caracteres no nome.')
       return
     }
     const duplicate = categories.some(
-      (c) => c.nome.toLowerCase() === trimmed.toLowerCase(),
+      (c) => c.nome.toLowerCase() === nome.toLowerCase(),
     )
     if (duplicate) {
       setCatNameError('Já existe uma categoria com esse nome.')
       return
     }
-    createMutation.mutate(trimmed, {
+    createMutation.mutate({ nome, icone }, {
       onSuccess: () => setShowAddModal(false),
       onError: () => setCatNameError('Erro ao criar. Tente novamente.'),
     })
@@ -299,21 +333,15 @@ export default function SettingsPage() {
                 <div key={i} className="h-9 rounded-md bg-bg-border animate-pulse" />
               ))}
             </div>
-          ) : customCategories.length === 0 ? (
+          ) : categories.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-4 text-center">
               <p className="text-sm text-text-muted">
-                Nenhuma categoria customizada ainda.
+                Nenhuma categoria disponível.
               </p>
-              <button
-                onClick={openAddModal}
-                className="text-xs text-amber hover:text-amber-light transition-colors underline underline-offset-2"
-              >
-                Criar primeira categoria
-              </button>
             </div>
           ) : (
             <div className="flex flex-col gap-1">
-              {customCategories.map((cat) =>
+              {categories.map((cat) =>
                 deletingId !== null && deletingId === cat.id ? (
                   <div
                     key={cat.id}
@@ -351,13 +379,15 @@ export default function SettingsPage() {
                       <span className="text-base leading-none">{cat.icone}</span>
                       <span className="text-sm text-text-primary truncate">{cat.nome}</span>
                     </div>
-                    <button
-                      onClick={() => setDeletingId(cat.id)}
-                      className="text-text-muted hover:text-danger transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 text-xs shrink-0"
-                      aria-label={`Remover ${cat.nome}`}
-                    >
-                      ✕
-                    </button>
+                    {cat.usuario_id !== null && (
+                      <button
+                        onClick={() => setDeletingId(cat.id)}
+                        className="text-text-muted hover:text-danger transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 text-xs shrink-0"
+                        aria-label={`Remover ${cat.nome}`}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 ),
               )}
@@ -399,7 +429,7 @@ export default function SettingsPage() {
         </div>
       }
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         <label className="text-xs text-text-muted" htmlFor="cat-name">
           Nome
         </label>
@@ -414,12 +444,31 @@ export default function SettingsPage() {
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleAddCatSubmit()
           }}
-          placeholder="Ex: Viagens"
+          placeholder="Ex: 🐾 Pets"
           autoFocus
           className={`w-full rounded-md bg-bg border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-amber transition-colors ${
             catNameError ? 'border-danger' : 'border-bg-border'
           }`}
         />
+        {!isMobile && (
+          <div className="flex flex-wrap gap-1">
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => {
+                  setNewCatName((prev) =>
+                    emoji + ' ' + prev.replace(/^\p{Extended_Pictographic}\s*/u, ''),
+                  )
+                  setCatNameError('')
+                }}
+                className="text-base leading-none p-1 rounded hover:bg-bg-border transition-colors"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
         {catNameError && <p className="text-xs text-danger">{catNameError}</p>}
       </div>
     </Modal>
