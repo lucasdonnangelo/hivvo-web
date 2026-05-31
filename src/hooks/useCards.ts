@@ -8,6 +8,7 @@ import {
   updateCard,
   type CardPayload,
 } from '../services/cards'
+import { useUIStore } from '../store/uiStore'
 
 export function useCards() {
   return useQuery({
@@ -21,7 +22,10 @@ export function useCreateCard() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: CardPayload) => createCard(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['cards'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cards'] })
+      useUIStore.getState().addToast({ message: 'Cartão adicionado', type: 'success' })
+    },
   })
 }
 
@@ -30,7 +34,10 @@ export function useUpdateCard() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: Partial<CardPayload> }) =>
       updateCard(id, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['cards'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cards'] })
+      useUIStore.getState().addToast({ message: 'Cartão atualizado', type: 'success' })
+    },
   })
 }
 

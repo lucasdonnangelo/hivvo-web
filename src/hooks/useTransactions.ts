@@ -7,6 +7,7 @@ import {
   type Transaction,
   type TransactionCreatePayload,
 } from '../services/transactions'
+import { useUIStore } from '../store/uiStore'
 
 export function useTransactions(mes: number, ano: number) {
   return useQuery({
@@ -22,6 +23,7 @@ export function useDeleteTransaction(mes: number, ano: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions', mes, ano] })
       qc.invalidateQueries({ queryKey: ['statistics', 'monthly', mes, ano] })
+      useUIStore.getState().addToast({ message: 'Transação removida', type: 'success' })
     },
   })
 }
@@ -39,6 +41,7 @@ export function useUpdateTransaction(mes: number, ano: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions', mes, ano] })
       qc.invalidateQueries({ queryKey: ['statistics', 'monthly', mes, ano] })
+      useUIStore.getState().addToast({ message: 'Transação atualizada', type: 'success' })
     },
   })
 }
@@ -50,6 +53,7 @@ export function useCreateTransaction() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['statistics', 'monthly'] })
+      useUIStore.getState().addToast({ message: 'Transação adicionada com sucesso', type: 'success' })
     },
   })
 }

@@ -16,6 +16,7 @@ import TransactionsPage from './pages/Transactions/TransactionsPage'
 import SummaryPage from './pages/Transactions/SummaryPage'
 import { getMe } from './services/auth'
 import { useAuthStore } from './store/authStore'
+import ToastContainer from './components/ui/Toast'
 
 function AppLayout() {
   const isMobile = useBreakpoint('md')
@@ -47,6 +48,7 @@ function AuthInitializer({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AuthInitializer>
+      <ToastContainer />
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
