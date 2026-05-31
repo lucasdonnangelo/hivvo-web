@@ -7,11 +7,11 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 
 ## Estado do Projeto
 
-**Fase atual:** Testes end-to-end e refinamentos  
-**Status:** Todos os testes (Blocos 1–5) concluídos. Bugs críticos corrigidos. PWA instalável e funcionando.  
-**Próximo passo imediato:** Continuar refinamentos e melhorias pontuais  
+**Fase atual:** Refinamentos de UX e novas features de autenticação  
+**Status:** Todos os testes (Blocos 1–5) concluídos. Bugs #1–#5 corrigidos e commitados.  
+**Próximo passo imediato:** (1) Recuperação de senha por e-mail via Resend; (2) Refresh token  
 **Próxima fase:** Deploy — backend no Railway/Render, frontend no Vercel  
-**Última tarefa concluída:** Bloco 5 — Qualidade de build (TypeScript, PWA, bugs de UI)
+**Última tarefa concluída:** Bugs #1–#5 — refinamentos de UX (Settings, categorias, emoji, empty state, toast)
 
 ---
 
@@ -32,19 +32,30 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 | `a66c92d` | `DonutChart.tsx:82` | `percentual.toFixed is not a function` — backend retorna string | `Number(item.percentual).toFixed(1)` |
 | `a66c92d` | `AddTransactionPage.tsx:612` | Saldo estimado exibia `R$ NaN` — concatenação de string | `Number(stats.saldo)` na passagem para `ImpactPreview` |
 | `fe3c8c9` | `SettingsPage.tsx:317` | Confirmação de remoção exibida para todas as categorias por padrão | `deletingId !== null &&` antes da comparação com `cat.id` |
-| `07d476b` | `CardFormModal.tsx`, `EditTransactionModal.tsx`, `AddTransactionPage.tsx` | `invalid_type_error` e `error` inexistentes em `z.coerce.number()` no Zod v4 | `.refine(v => !isNaN(v))` + `.refine(v => v > 0)` |
-| `07d476b` | `CardFormModal.tsx`, `EditTransactionModal.tsx`, `AddTransactionPage.tsx` | `zodResolver` infere tipo INPUT (`unknown`) incompatível com `useForm<OutputType>` | Import `Resolver` + cast `zodResolver(schema) as Resolver<z.infer<typeof schema>>` |
+| `07d476b` | `CardFormModal`, `EditTransactionModal`, `AddTransactionPage` | `invalid_type_error` e `error` inexistentes em `z.coerce.number()` no Zod v4 | `.refine(v => !isNaN(v))` + `.refine(v => v > 0)` |
+| `07d476b` | `CardFormModal`, `EditTransactionModal`, `AddTransactionPage` | `zodResolver` infere tipo INPUT (`unknown`) incompatível com `useForm<OutputType>` | Import `Resolver` + cast `zodResolver(schema) as Resolver<z.infer<typeof schema>>` |
 | `07d476b` | `BarChart.tsx`, `DonutChart.tsx` | Formatter do Recharts espera `ValueType/NameType`, não `number/string` | `(value: unknown, name: unknown)` com cast interno |
 | `15798da` | `public/` | Ícones PWA `icon-192.png` e `icon-512.png` ausentes | Gerados via Pillow: fundo âmbar #EF9F27, letra B off-white centralizada |
+| `f55c4df` | `SettingsPage.tsx` | Error handling genérico ao salvar nome — não exibia mensagem do backend | `extractDetail` extrai `error.response.data.detail` (string/array/objeto) |
+| `f55c4df` | `SettingsPage.tsx` | Botão X aparecia para categorias padrão (`usuario_id === null`) | Loop usa `categories.map()` com condição `{cat.usuario_id !== null && <X>}` |
+| `f55c4df` | `SettingsPage.tsx`, `services/categories.ts`, `hooks/useCategories.ts` | Emoji em categorias: sem suporte a emoji no nome | Campo aceita emoji; `extractEmojiAndName` via `Intl.Segmenter`; fallback `📦`; sugestões desktop |
+| `f55c4df` | `DashboardPage.tsx` | Empty state do Dashboard não diferenciava mobile/desktop | Texto contextual via `useBreakpoint`: 'botão + abaixo' vs 'ícone + na barra lateral' |
+| `41522d5` | `Toast.tsx`, `App.tsx`, hooks | Toast de sucesso ausente em toda a aplicação | `ToastContainer` com auto-dismiss 3s, animação suave, posição adaptativa mobile/desktop |
 
 ---
 
 ## Próximos Passos
 
-### Refinamentos (etapa atual)
-- Identificar e corrigir eventuais bugs visuais ou de UX
-- Melhorias pontuais de performance ou acessibilidade
-- Validar fluxos edge-case (ex: transação parcelada sem cartão, mês sem dados)
+### Features de autenticação (etapa atual)
+
+#### 1. Recuperação de senha por e-mail (Resend)
+- **Backend:** `POST /auth/forgot-password` (recebe email, gera token, envia link via Resend) + `POST /auth/reset-password` (valida token, atualiza senha)
+- **Frontend:** tela `/forgot-password` (campo email + botão enviar) + tela `/reset-password?token=...` (novo campo de senha)
+- **Serviço de e-mail:** Resend (resend.com) — integração via SDK `resend` no Python
+
+#### 2. Refresh token
+- **Backend:** gerar `refresh_token` (JWT de longa duração, ex: 30 dias) no login; `POST /auth/refresh` valida o cookie e retorna novo `access_token`
+- **Frontend:** interceptor Axios detecta 401, chama `/auth/refresh` automaticamente e repete a requisição original
 
 ### Deploy (próxima etapa)
 - **Backend:** publicar `beefree-api` no Railway ou Render (free tier)
@@ -227,6 +238,6 @@ beefree-web/
 
 ---
 
-*Última atualização: 30 de Maio de 2026 — Todos os testes (Blocos 1–5) concluídos. Bugs críticos corrigidos. PWA instalável com ícones gerados. Próximo: refinamentos e deploy.*  
+*Última atualização: 31 de Maio de 2026 — Bugs #1–#5 corrigidos e commitados. Próximo: recuperação de senha via Resend + refresh token.*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
