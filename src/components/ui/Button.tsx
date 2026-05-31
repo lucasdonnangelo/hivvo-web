@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from 'react'
 import Spinner from './Spinner'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'ghost'
+  variant?: 'primary' | 'ghost' | 'danger'
   isLoading?: boolean
 }
 
@@ -11,8 +11,8 @@ const base =
 
 const variants: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary: 'bg-amber text-bg hover:bg-amber-light active:bg-amber-dark',
-  ghost:
-    'border border-bg-border text-text-primary hover:bg-bg-surface active:bg-bg-border',
+  ghost: 'border border-bg-border text-text-primary hover:bg-bg-surface active:bg-bg-border',
+  danger: 'border border-danger text-danger hover:bg-danger/5 active:bg-danger/10',
 }
 
 export default function Button({

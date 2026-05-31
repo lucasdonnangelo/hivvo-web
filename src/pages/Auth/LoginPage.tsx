@@ -68,6 +68,7 @@ export default function LoginPage() {
           type="password"
           placeholder="••••••••"
           autoComplete="current-password"
+          showToggle
           error={errors.password?.message}
           {...register('password')}
         />

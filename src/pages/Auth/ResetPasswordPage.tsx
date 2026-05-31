@@ -101,6 +101,7 @@ export default function ResetPasswordPage() {
           type="password"
           placeholder="••••••••"
           autoComplete="new-password"
+          showToggle
           error={errors.nova_senha?.message}
           {...register('nova_senha')}
         />
@@ -110,6 +111,7 @@ export default function ResetPasswordPage() {
           type="password"
           placeholder="••••••••"
           autoComplete="new-password"
+          showToggle
           error={errors.confirmar_senha?.message}
           {...register('confirmar_senha')}
         />

@@ -143,6 +143,8 @@ export default function SettingsPage() {
   }
 
   // ── Logout ────────────────────────────────────────────────────────────────
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+
   async function handleLogout() {
     try {
       await logout()
@@ -274,6 +276,7 @@ export default function SettingsPage() {
               label="Senha atual"
               type="password"
               autoComplete="current-password"
+              showToggle
               error={errors.senha_atual?.message}
               {...register('senha_atual')}
             />
@@ -282,6 +285,7 @@ export default function SettingsPage() {
               label="Nova senha"
               type="password"
               autoComplete="new-password"
+              showToggle
               error={errors.nova_senha?.message}
               {...register('nova_senha')}
             />
@@ -290,6 +294,7 @@ export default function SettingsPage() {
               label="Confirmar nova senha"
               type="password"
               autoComplete="new-password"
+              showToggle
               error={errors.confirmar?.message}
               {...register('confirmar')}
             />
@@ -305,7 +310,7 @@ export default function SettingsPage() {
         {/* Logout */}
         <SettingsRow>
           <button
-            onClick={handleLogout}
+            onClick={() => setLogoutModalOpen(true)}
             className="w-full flex items-center justify-center px-4 py-3 rounded-md text-sm font-medium border border-bg-border text-danger hover:bg-danger/5 active:bg-danger/10 transition-colors duration-150"
           >
             Sair da conta
@@ -474,10 +479,32 @@ export default function SettingsPage() {
     </Modal>
   )
 
+  const logoutModal = logoutModalOpen && (
+    <Modal
+      title="Sair da conta"
+      onClose={() => setLogoutModalOpen(false)}
+      footer={
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setLogoutModalOpen(false)}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={handleLogout}>
+            Sair
+          </Button>
+        </div>
+      }
+    >
+      <p className="text-sm text-text-muted leading-relaxed">
+        Tem certeza que deseja sair? Você precisará fazer login novamente para acessar o app.
+      </p>
+    </Modal>
+  )
+
   if (isMobile) {
     return (
       <>
         {addModal}
+        {logoutModal}
         <div className="flex flex-col h-full">
           <header className="shrink-0 flex items-center gap-3 px-4 h-14 border-b border-bg-border bg-bg-surface">
             <button
@@ -498,6 +525,7 @@ export default function SettingsPage() {
   return (
     <>
       {addModal}
+      {logoutModal}
       <div className="p-6 max-w-xl mx-auto">
         <h1 className="text-[22px] font-medium tracking-tight text-text-primary mb-6">
           Configurações

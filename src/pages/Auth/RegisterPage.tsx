@@ -115,6 +115,7 @@ export default function RegisterPage() {
           type="password"
           placeholder="••••••••"
           autoComplete="new-password"
+          showToggle
           error={errors.password?.message}
           {...register('password')}
         />
@@ -124,6 +125,7 @@ export default function RegisterPage() {
           type="password"
           placeholder="••••••••"
           autoComplete="new-password"
+          showToggle
           error={errors.confirmPassword?.message}
           {...register('confirmPassword')}
         />
