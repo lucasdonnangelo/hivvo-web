@@ -8,10 +8,10 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estado do Projeto
 
 **Fase atual:** Refinamentos de UX e novas features de autenticação  
-**Status:** Todos os testes (Blocos 1–5) concluídos. Bugs #1–#5 corrigidos e commitados.  
-**Próximo passo imediato:** (1) Recuperação de senha por e-mail via Resend; (2) Refresh token  
+**Status:** Recuperação de senha (frontend + backend) concluída. Bugs #1–#7 corrigidos e commitados.  
+**Próximo passo imediato:** Refresh token — interceptor Axios no frontend + `POST /auth/refresh` no backend  
 **Próxima fase:** Deploy — backend no Railway/Render, frontend no Vercel  
-**Última tarefa concluída:** Bugs #1–#5 — refinamentos de UX (Settings, categorias, emoji, empty state, toast)
+**Última tarefa concluída:** Bug #7 — encoding UTF-8 corrigido no backend (`charset=utf-8` no Content-Type)
 
 ---
 
@@ -41,6 +41,8 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 | `f55c4df` | `SettingsPage.tsx`, `services/categories.ts`, `hooks/useCategories.ts` | Emoji em categorias: sem suporte a emoji no nome | Campo aceita emoji; `extractEmojiAndName` via `Intl.Segmenter`; fallback `📦`; sugestões desktop |
 | `f55c4df` | `DashboardPage.tsx` | Empty state do Dashboard não diferenciava mobile/desktop | Texto contextual via `useBreakpoint`: 'botão + abaixo' vs 'ícone + na barra lateral' |
 | `41522d5` | `Toast.tsx`, `App.tsx`, hooks | Toast de sucesso ausente em toda a aplicação | `ToastContainer` com auto-dismiss 3s, animação suave, posição adaptativa mobile/desktop |
+| `c592196` | `TransactionsPage.tsx` | "Ver Resumo" discreto e difícil de encontrar em mobile e desktop | Chip âmbar na barra de filtros (mobile) + botão com borda âmbar no topbar (desktop) |
+| `d9270ae` | `beefree-api/main.py` | Mensagens com Mojibake (`vocÃª`, `receberÃ¡`) — bytes UTF-8 lidos como latin-1 | `UTF8JSONResponse` com `charset=utf-8` como `default_response_class` |
 
 ---
 
@@ -48,10 +50,9 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 
 ### Features de autenticação (etapa atual)
 
-#### 1. Recuperação de senha por e-mail (Resend)
-- **Backend:** `POST /auth/forgot-password` (recebe email, gera token, envia link via Resend) + `POST /auth/reset-password` (valida token, atualiza senha)
-- **Frontend:** tela `/forgot-password` (campo email + botão enviar) + tela `/reset-password?token=...` (novo campo de senha)
-- **Serviço de e-mail:** Resend (resend.com) — integração via SDK `resend` no Python
+#### 1. ~~Recuperação de senha por e-mail (Resend)~~ ✅ Concluído
+- Backend: `POST /auth/forgot-password` + `POST /auth/reset-password` — implementados (commit backend)
+- Frontend: `/forgot-password` + `/reset-password?token=...` — implementados (`ed822af`)
 
 #### 2. Refresh token
 - **Backend:** gerar `refresh_token` (JWT de longa duração, ex: 30 dias) no login; `POST /auth/refresh` valida o cookie e retorna novo `access_token`
@@ -104,6 +105,12 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - [x] 16. Ver resumo detalhado (frontend)
 - [x] 17. Features secundárias (CSV, backup, categorias, perfil)
 - [x] 18. Testes end-to-end Blocos 1–5 + correção de bugs críticos
+- [x] 19. Recuperação de senha — frontend (`/forgot-password`, `/reset-password`) + backend (`/auth/forgot-password`, `/auth/reset-password`)
+- [x] 20. UX: confirmação de logout (modal) + toggle de visibilidade de senha em todos os campos
+- [x] 21. Bug #6 — "Ver Resumo" mais visível (chip mobile + botão desktop)
+- [x] 22. Bug #7 — encoding UTF-8 no backend (`charset=utf-8` no Content-Type)
+- [ ] 23. Refresh token — `POST /auth/refresh` (backend) + interceptor Axios (frontend)
+- [ ] 24. Deploy — backend Railway/Render + frontend Vercel
 
 ---
 
@@ -119,10 +126,32 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 | Arredondamento de parcelas | Última parcela absorve diferença de arredondamento (`ROUND_HALF_UP`). |
 | Zod v4 coerce + RHF | `z.coerce.number()` com `.refine()` requer cast `as Resolver<z.infer<typeof schema>>` no zodResolver. |
 | Recharts Tooltip formatter | Parâmetros tipados como `unknown` com cast interno — `ValueType`/`NameType` são uniões que incluem `undefined`. |
+| Input.showToggle | Estado local `visible` encapsulado no componente — não vaza para o formulário. `tabIndex={-1}` no botão do olho para não interferir no tab order. |
+| Button.variant danger | `border border-danger text-danger hover:bg-danger/5` — usado no modal de confirmação de logout. |
+| UTF-8 encoding backend | `UTF8JSONResponse` subclasse com `media_type = "application/json; charset=utf-8"` como `default_response_class` — elimina Mojibake em browsers que não assumem UTF-8 sem charset explícito. |
 
 ---
 
 ## Arquivos Criados/Modificados por Tarefa
+
+### Tarefas #21–#22 — Bugs #6 e #7 (UX + encoding)
+- `src/pages/Transactions/TransactionsPage.tsx` — chip "Resumo" âmbar na barra de filtros mobile; botão com borda âmbar no topbar desktop; `ChartBarIcon` SVG inline (Bug #6)
+- `beefree-api/main.py` — `UTF8JSONResponse` como `default_response_class` (Bug #7)
+
+### Tarefa #20 — Confirmação de logout + toggle de visibilidade de senha
+- `src/components/ui/Button.tsx` — variante `danger` adicionada
+- `src/components/ui/Input.tsx` — prop `showToggle` com estado local `visible`, botão com ícones SVG `EyeIcon`/`EyeOffIcon`, `pr-10` no input, `tabIndex={-1}` no botão
+- `src/pages/Auth/LoginPage.tsx` — `showToggle` no campo `password`
+- `src/pages/Auth/RegisterPage.tsx` — `showToggle` nos campos `password` e `confirmPassword`
+- `src/pages/Auth/ResetPasswordPage.tsx` — `showToggle` nos campos `nova_senha` e `confirmar_senha`
+- `src/pages/Settings/SettingsPage.tsx` — modal de confirmação de logout (`logoutModalOpen`, `Button variant="danger"`); `showToggle` nos campos `senha_atual`, `nova_senha`, `confirmar`
+
+### Tarefa #19 — Recuperação de senha (frontend)
+- `src/services/auth.ts` — `forgotPassword(email)`, `resetPassword(token, nova_senha)`
+- `src/pages/Auth/ForgotPasswordPage.tsx` — nova página; estado `submitted` — mensagem genérica independente do resultado da API
+- `src/pages/Auth/ResetPasswordPage.tsx` — nova página; lê `token` via `useSearchParams`; redireciona para `/login` se ausente; `status: 'idle' | 'success' | 'error'`
+- `src/pages/Auth/LoginPage.tsx` — link "Esqueceu a senha?" abaixo do botão Entrar
+- `src/App.tsx` — rotas `/forgot-password` e `/reset-password` dentro do `AuthLayout`, fora do `ProtectedRoute`
 
 ### Tarefa #18 — Testes e correções de bugs (Blocos 1–5)
 - `src/pages/Settings/SettingsPage.tsx` — guarda `deletingId !== null` na confirmação de remoção de categorias
@@ -183,38 +212,6 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 
 ---
 
-## Regras de Trabalho
-
-1. **Uma tarefa por vez** — não avançar sem confirmação
-2. **Sempre rodar testes** antes de marcar tarefa como concluída
-3. **Nunca hardcodar cores** — usar sempre os tokens do brand guide
-4. **Nunca misturar** TanStack Query com Zustand
-5. **Layouts distintos** — MobileLayout e DesktopLayout, nunca CSS responsivo puro
-6. **Valores monetários** — sempre Decimal no Python, toFixed(2) no JS
-7. **JWT** — nunca em localStorage, apenas httpOnly cookie ou memória
-
----
-
-## Estrutura de Pastas Atual (Backend)
-
-```
-beefree-api/
-├── main.py
-├── .env
-├── requirements.txt
-├── alembic.ini
-├── alembic/
-│   └── versions/
-│       └── abdb546095c0_initial_schema.py
-└── app/
-    ├── models/       user, card, transaction, category, installment  ✓
-    ├── schemas/      auth, transaction, category, card, invoice, installment, statistics, ai  ✓
-    ├── routers/      auth, transactions, categories, cards, invoices, installments, statistics, ai  ✓
-    └── core/         auth, database, config  ✓
-```
-
----
-
 ## Estrutura de Pastas Atual (Frontend)
 
 ```
@@ -228,8 +225,8 @@ beefree-web/
 │   └── icon-512.png         ✓  (gerado — fundo âmbar, letra B)
 └── src/
     ├── layouts/             DesktopLayout, MobileLayout, AuthLayout  ✓
-    ├── pages/               Dashboard, Transactions/Summary, AddTransaction, Cards, Assistant, Auth, Settings, Import  ✓
-    ├── components/          ui/, charts/, transaction/, cards/  ✓
+    ├── pages/               Dashboard, Transactions/Summary, AddTransaction, Cards, Assistant, Auth (Login, Register, ForgotPassword, ResetPassword), Settings, Import  ✓
+    ├── components/          ui/ (Button, Input, Modal, Spinner, Toast), charts/, transaction/, cards/  ✓
     ├── hooks/               useBreakpoint, useTransactions, useCategories, useStatistics, useCards, useAuth, useInstallments  ✓
     ├── store/               authStore, uiStore  ✓
     ├── services/            api, auth, transactions, categories, cards, ai, statistics, installments  ✓
@@ -238,6 +235,18 @@ beefree-web/
 
 ---
 
-*Última atualização: 31 de Maio de 2026 — Bugs #1–#5 corrigidos e commitados. Próximo: recuperação de senha via Resend + refresh token.*  
+## Regras de Trabalho
+
+1. **Uma tarefa por vez** — não avançar sem confirmação
+2. **Sempre rodar testes** antes de marcar tarefa como concluída
+3. **Nunca hardcodar cores** — usar sempre os tokens do brand guide
+4. **Nunca misturar** TanStack Query com Zustand
+5. **Layouts distintos** — MobileLayout e DesktopLayout, nunca CSS responsivo puro
+6. **Valores monetários** — sempre Decimal no Python, toFixed(2) no JS
+7. **JWT** — nunca em localStorage, apenas httpOnly cookie ou memória
+
+---
+
+*Última atualização: 31 de Maio de 2026 — Bugs #1–#7 corrigidos. Recuperação de senha concluída (frontend + backend). Próximo: refresh token.*  
 *Projeto: BeeFree — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
