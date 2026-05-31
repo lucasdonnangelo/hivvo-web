@@ -6,6 +6,8 @@ import DesktopLayout from './layouts/DesktopLayout'
 import MobileLayout from './layouts/MobileLayout'
 import LoginPage from './pages/Auth/LoginPage'
 import RegisterPage from './pages/Auth/RegisterPage'
+import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/Auth/ResetPasswordPage'
 import AddTransactionPage from './pages/AddTransaction/AddTransactionPage'
 import AssistantPage from './pages/Assistant/AssistantPage'
 import CardsPage from './pages/Cards/CardsPage'
@@ -53,6 +55,8 @@ export default function App() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>

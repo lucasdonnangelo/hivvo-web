@@ -20,3 +20,9 @@ export const updateMe = (username: string) =>
 
 export const changePassword = (senha_atual: string, nova_senha: string) =>
   api.put('/auth/password', { senha_atual, nova_senha })
+
+export const forgotPassword = (email: string) =>
+  api.post('/auth/forgot-password', { email })
+
+export const resetPassword = (token: string, nova_senha: string) =>
+  api.post('/auth/reset-password', { token, nova_senha })

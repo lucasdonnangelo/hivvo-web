@@ -82,6 +82,12 @@ export default function LoginPage() {
         >
           Entrar
         </Button>
+
+        <p className="text-center text-xs text-text-muted">
+          <Link to="/forgot-password" className="text-amber hover:text-amber-light transition-colors">
+            Esqueceu a senha?
+          </Link>
+        </p>
       </form>
 
       <p className="text-center text-sm text-text-muted">
