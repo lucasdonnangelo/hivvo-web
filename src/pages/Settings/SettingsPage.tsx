@@ -173,8 +173,6 @@ export default function SettingsPage() {
 
   // ── Categorias ────────────────────────────────────────────────────────────
   const { data: categories = [], isLoading: catsLoading } = useCategories()
-  const customCategories = categories.filter((c) => c.usuario_id !== null)
-
   const createMutation = useCreateCategory()
   const deleteMutation = useDeleteCategory()
 
