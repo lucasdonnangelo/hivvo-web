@@ -113,7 +113,7 @@ function EmptyState({
       <div className="w-14 h-14 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center mb-4">
         <span className="text-amber text-2xl">✦</span>
       </div>
-      <p className="text-text-primary font-medium mb-1">Assistente BeeFree</p>
+      <p className="text-text-primary font-medium mb-1">Assistente Hivvo</p>
       <p className="text-text-muted text-sm mb-6">
         Pergunte sobre seus gastos, economias e finanças do mês.
       </p>

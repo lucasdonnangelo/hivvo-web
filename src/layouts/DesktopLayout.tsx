@@ -19,9 +19,9 @@ export default function DesktopLayout() {
       <aside className="w-[52px] shrink-0 flex flex-col items-center py-4 gap-1 bg-bg-surface border-r border-bg-border">
         <span
           className="text-amber font-medium text-sm mb-4 select-none"
-          title="BeeFree"
+          title="Hivvo"
         >
-          B
+          H
         </span>
 
         <nav className="flex flex-col gap-1 flex-1 w-full items-center">

@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'BeeFree',
-        short_name: 'BeeFree',
+        name: 'Hivvo',
+        short_name: 'Hivvo',
         description: 'Gestão financeira pessoal com IA',
         theme_color: '#1A1714',
         background_color: '#1A1714',

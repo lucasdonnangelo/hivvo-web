@@ -163,7 +163,7 @@ export default function SettingsPage() {
     try {
       const data = await getAllTransactions()
       const date = new Date().toISOString().slice(0, 10)
-      downloadJSON(data, `beefree-backup-${date}.json`)
+      downloadJSON(data, `hivvo-backup-${date}.json`)
     } catch {
       setExportError('Não foi possível exportar. Tente novamente.')
     } finally {

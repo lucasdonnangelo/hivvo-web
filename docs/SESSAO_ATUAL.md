@@ -1,7 +1,7 @@
-# BeeFree — Sessão Atual
+# Hivvo — Sessão Atual
 
 ## Antes de começar
-Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para entender o produto, a arquitetura e as decisões de stack. Não proponha alternativas de tecnologia — as escolhas já foram feitas.
+Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entender o produto, a arquitetura e as decisões de stack. Não proponha alternativas de tecnologia — as escolhas já foram feitas.
 
 ---
 
@@ -42,7 +42,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 | `f55c4df` | `DashboardPage.tsx` | Empty state do Dashboard não diferenciava mobile/desktop | Texto contextual via `useBreakpoint`: 'botão + abaixo' vs 'ícone + na barra lateral' |
 | `41522d5` | `Toast.tsx`, `App.tsx`, hooks | Toast de sucesso ausente em toda a aplicação | `ToastContainer` com auto-dismiss 3s, animação suave, posição adaptativa mobile/desktop |
 | `c592196` | `TransactionsPage.tsx` | "Ver Resumo" discreto e difícil de encontrar em mobile e desktop | Chip âmbar na barra de filtros (mobile) + botão com borda âmbar no topbar (desktop) |
-| `d9270ae` | `beefree-api/main.py` | Mensagens com Mojibake (`vocÃª`, `receberÃ¡`) — bytes UTF-8 lidos como latin-1 | `UTF8JSONResponse` com `charset=utf-8` como `default_response_class` |
+| `d9270ae` | `hivvo-api/main.py` | Mensagens com Mojibake (`vocÃª`, `receberÃ¡`) — bytes UTF-8 lidos como latin-1 | `UTF8JSONResponse` com `charset=utf-8` como `default_response_class` |
 
 ---
 
@@ -59,11 +59,11 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 - **Frontend:** interceptor Axios detecta 401, chama `/auth/refresh` automaticamente e repete a requisição original
 
 ### Deploy (próxima etapa)
-- **Backend:** publicar `beefree-api` no Railway ou Render (free tier)
+- **Backend:** publicar `hivvo-api` no Railway ou Render (free tier)
   - Configurar variáveis de ambiente (.env) no painel do serviço
   - Apontar `DATABASE_URL` para o Supabase de produção
   - Verificar health check em `/health`
-- **Frontend:** publicar `beefree-web` no Vercel
+- **Frontend:** publicar `hivvo-web` no Vercel
   - Configurar `VITE_API_URL` apontando para o backend em produção
   - Verificar PWA instalável no celular após deploy
 
@@ -136,7 +136,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 
 ### Tarefas #21–#22 — Bugs #6 e #7 (UX + encoding)
 - `src/pages/Transactions/TransactionsPage.tsx` — chip "Resumo" âmbar na barra de filtros mobile; botão com borda âmbar no topbar desktop; `ChartBarIcon` SVG inline (Bug #6)
-- `beefree-api/main.py` — `UTF8JSONResponse` como `default_response_class` (Bug #7)
+- `hivvo-api/main.py` — `UTF8JSONResponse` como `default_response_class` (Bug #7)
 
 ### Tarefa #20 — Confirmação de logout + toggle de visibilidade de senha
 - `src/components/ui/Button.tsx` — variante `danger` adicionada
@@ -215,7 +215,7 @@ Leia os arquivos `docs/BeeFree_Referencia.md` e `docs/SESSAO_ATUAL.md` para ente
 ## Estrutura de Pastas Atual (Frontend)
 
 ```
-beefree-web/
+hivvo-web/
 ├── index.html
 ├── vite.config.ts
 ├── tailwind.config.ts
@@ -248,5 +248,5 @@ beefree-web/
 ---
 
 *Última atualização: 31 de Maio de 2026 — Bugs #1–#7 corrigidos. Recuperação de senha concluída (frontend + backend). Próximo: refresh token.*  
-*Projeto: BeeFree — gestão financeira pessoal com IA*  
+*Projeto: Hivvo — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*

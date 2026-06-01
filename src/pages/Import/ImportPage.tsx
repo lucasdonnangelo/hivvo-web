@@ -116,7 +116,7 @@ export default function ImportPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'beefree_template.csv'
+    a.download = 'hivvo_template.csv'
     a.click()
     URL.revokeObjectURL(url)
   }

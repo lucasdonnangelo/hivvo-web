@@ -49,7 +49,7 @@ export default function LoginPage() {
     <div className="bg-bg-surface rounded-lg p-6 flex flex-col gap-6">
       <div>
         <h1 className="text-text-primary text-lg font-medium">Entrar</h1>
-        <p className="text-text-muted text-sm mt-1">Acesse sua conta BeeFree</p>
+        <p className="text-text-muted text-sm mt-1">Acesse sua conta Hivvo</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
