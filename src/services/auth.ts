@@ -26,3 +26,6 @@ export const forgotPassword = (email: string) =>
 
 export const resetPassword = (token: string, nova_senha: string) =>
   api.post('/auth/reset-password', { token, nova_senha })
+
+export const refreshToken = () =>
+  api.post<UserResponse>('/auth/refresh').then((r) => r.data)
