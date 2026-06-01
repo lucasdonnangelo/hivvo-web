@@ -7,11 +7,11 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ## Estado do Projeto
 
-**Fase atual:** Refinamentos de UX e novas features de autenticação  
-**Status:** Recuperação de senha (frontend + backend) concluída. Bugs #1–#7 corrigidos e commitados.  
-**Próximo passo imediato:** Refresh token — interceptor Axios no frontend + `POST /auth/refresh` no backend  
+**Fase atual:** Refinamentos de UI/UX + Deploy  
+**Status:** Refresh token implementado e funcionando. Interceptor Axios com retry automático, fila de requisições e redirect para /login em sessão expirada. Bugs #1–#7 corrigidos. Termos de Uso e Política de Privacidade criados. Renomeação BeeFree → Hivvo concluída.  
+**Próximo passo imediato:** Sessão de UI/UX (melhorias visuais, animações, polimento geral)  
 **Próxima fase:** Deploy — backend no Railway/Render, frontend no Vercel  
-**Última tarefa concluída:** Bug #7 — encoding UTF-8 corrigido no backend (`charset=utf-8` no Content-Type)
+**Última tarefa concluída:** Tarefa #23 — Refresh token (interceptor Axios + `refreshToken()` em `auth.ts`)
 
 ---
 
@@ -48,15 +48,9 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ## Próximos Passos
 
-### Features de autenticação (etapa atual)
-
-#### 1. ~~Recuperação de senha por e-mail (Resend)~~ ✅ Concluído
-- Backend: `POST /auth/forgot-password` + `POST /auth/reset-password` — implementados (commit backend)
-- Frontend: `/forgot-password` + `/reset-password?token=...` — implementados (`ed822af`)
-
-#### 2. Refresh token
-- **Backend:** gerar `refresh_token` (JWT de longa duração, ex: 30 dias) no login; `POST /auth/refresh` valida o cookie e retorna novo `access_token`
-- **Frontend:** interceptor Axios detecta 401, chama `/auth/refresh` automaticamente e repete a requisição original
+### Sessão de UI/UX (etapa atual)
+- Melhorias visuais, animações e polimento geral do produto
+- A definir em sessão dedicada
 
 ### Deploy (próxima etapa)
 - **Backend:** publicar `hivvo-api` no Railway ou Render (free tier)
@@ -109,8 +103,11 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 - [x] 20. UX: confirmação de logout (modal) + toggle de visibilidade de senha em todos os campos
 - [x] 21. Bug #6 — "Ver Resumo" mais visível (chip mobile + botão desktop)
 - [x] 22. Bug #7 — encoding UTF-8 no backend (`charset=utf-8` no Content-Type)
-- [ ] 23. Refresh token — `POST /auth/refresh` (backend) + interceptor Axios (frontend)
-- [ ] 24. Deploy — backend Railway/Render + frontend Vercel
+- [x] 23. Refresh token — interceptor Axios com retry automático + `refreshToken()` em `auth.ts`
+- [x] 24. Renomeação BeeFree → Hivvo (brand, layouts, títulos, manifest, PWA)
+- [x] 25. Termos de Uso (`/terms`) e Política de Privacidade (`/privacy`) — páginas estáticas em `AuthLayout`
+- [ ] 26. Sessão de UI/UX — melhorias visuais e polimento
+- [ ] 27. Deploy — backend Railway/Render + frontend Vercel
 
 ---
 
@@ -129,10 +126,22 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 | Input.showToggle | Estado local `visible` encapsulado no componente — não vaza para o formulário. `tabIndex={-1}` no botão do olho para não interferir no tab order. |
 | Button.variant danger | `border border-danger text-danger hover:bg-danger/5` — usado no modal de confirmação de logout. |
 | UTF-8 encoding backend | `UTF8JSONResponse` subclasse com `media_type = "application/json; charset=utf-8"` como `default_response_class` — elimina Mojibake em browsers que não assumem UTF-8 sem charset explícito. |
+| Refresh token — interceptor | `isRefreshing` + `failedQueue` serializam 401s paralelos; falha no refresh faz `clearAuth()` + `window.location.href = '/login'`; dependência circular evitada chamando `api.post('/auth/refresh')` inline. |
+| import type Axios | `AxiosRequestConfig` importado com `import type` — `InternalAxiosRequestConfig` não disponível na versão instalada (Axios 1.16.1). |
 
 ---
 
 ## Arquivos Criados/Modificados por Tarefa
+
+### Tarefas #23 — Refresh token (interceptor Axios)
+- `src/services/auth.ts` — `refreshToken()` exportado chamando `POST /auth/refresh`
+- `src/services/api.ts` — interceptor 401 reescrito: `isRefreshing` + `failedQueue` + retry da request original; redirect `/login` em caso de falha no refresh
+
+### Tarefas #24–#25 — Renomeação + páginas legais
+- Renomeação BeeFree → Hivvo em todos os layouts, títulos, manifest e PWA
+- `src/pages/Legal/TermsPage.tsx` — Termos de Uso (rota `/terms`)
+- `src/pages/Legal/PrivacyPage.tsx` — Política de Privacidade (rota `/privacy`)
+- `src/App.tsx` — rotas `/terms` e `/privacy` dentro do `AuthLayout`, fora do `ProtectedRoute`
 
 ### Tarefas #21–#22 — Bugs #6 e #7 (UX + encoding)
 - `src/pages/Transactions/TransactionsPage.tsx` — chip "Resumo" âmbar na barra de filtros mobile; botão com borda âmbar no topbar desktop; `ChartBarIcon` SVG inline (Bug #6)
@@ -225,7 +234,7 @@ hivvo-web/
 │   └── icon-512.png         ✓  (gerado — fundo âmbar, letra B)
 └── src/
     ├── layouts/             DesktopLayout, MobileLayout, AuthLayout  ✓
-    ├── pages/               Dashboard, Transactions/Summary, AddTransaction, Cards, Assistant, Auth (Login, Register, ForgotPassword, ResetPassword), Settings, Import  ✓
+    ├── pages/               Dashboard, Transactions/Summary, AddTransaction, Cards, Assistant, Auth (Login, Register, ForgotPassword, ResetPassword), Settings, Import, Legal (Terms, Privacy)  ✓
     ├── components/          ui/ (Button, Input, Modal, Spinner, Toast), charts/, transaction/, cards/  ✓
     ├── hooks/               useBreakpoint, useTransactions, useCategories, useStatistics, useCards, useAuth, useInstallments  ✓
     ├── store/               authStore, uiStore  ✓
@@ -247,6 +256,6 @@ hivvo-web/
 
 ---
 
-*Última atualização: 31 de Maio de 2026 — Bugs #1–#7 corrigidos. Recuperação de senha concluída (frontend + backend). Próximo: refresh token.*  
+*Última atualização: 01 de Junho de 2026 — Refresh token implementado (interceptor automático). Renomeação Hivvo concluída. Termos e Privacidade criados. Próximo: UI/UX + Deploy.*  
 *Projeto: Hivvo — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
