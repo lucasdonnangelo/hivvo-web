@@ -32,10 +32,9 @@ api.interceptors.response.use(
 
     const originalRequest: AxiosRequestConfig = error.config
 
-    // O próprio refresh falhou — sessão encerrada
+    // O próprio refresh falhou — sessão encerrada; ProtectedRoute redireciona via Zustand
     if (originalRequest.url === '/auth/refresh') {
       useAuthStore.getState().clearAuth()
-      window.location.href = '/login'
       return Promise.reject(error)
     }
 
@@ -60,7 +59,6 @@ api.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError)
       useAuthStore.getState().clearAuth()
-      window.location.href = '/login'
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false

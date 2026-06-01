@@ -33,18 +33,18 @@ function ProtectedRoute() {
 }
 
 function AuthInitializer({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false)
+  const [initialized, setInitialized] = useState(false)
   const setUser = useAuthStore((s) => s.setUser)
 
   useEffect(() => {
     getMe()
       .then(setUser)
       .catch(() => {})
-      .finally(() => setReady(true))
+      .finally(() => setInitialized(true))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (!ready) return null
+  if (!initialized) return null
 
   return <>{children}</>
 }

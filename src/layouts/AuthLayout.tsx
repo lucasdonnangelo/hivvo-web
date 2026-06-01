@@ -6,8 +6,8 @@ export default function AuthLayout() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <span className="text-2xl font-medium tracking-tight select-none">
-            <span className="text-text-primary">Bee</span>
-            <span className="text-amber">Free</span>
+            <span className="text-text-primary">Hi</span>
+            <span className="text-amber">vvo</span>
           </span>
         </div>
         <Outlet />

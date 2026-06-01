@@ -18,8 +18,8 @@ export default function MobileLayout() {
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 h-14 bg-bg-surface border-b border-bg-border">
         <span className="text-base font-medium tracking-tight select-none">
-          <span className="text-text-primary">Bee</span>
-          <span className="text-amber">Free</span>
+          <span className="text-text-primary">Hi</span>
+          <span className="text-amber">vvo</span>
         </span>
         <button
           onClick={() => navigate('/settings')}
