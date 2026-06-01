@@ -1,4 +1,4 @@
-import axios, { InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 const api = axios.create({
@@ -29,7 +29,7 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    const originalRequest: InternalAxiosRequestConfig = error.config
+    const originalRequest: AxiosRequestConfig = error.config
 
     // O próprio refresh falhou — sessão encerrada
     if (originalRequest.url === '/auth/refresh') {
