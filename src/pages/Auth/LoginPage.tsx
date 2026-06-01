@@ -100,6 +100,16 @@ export default function LoginPage() {
           Criar conta
         </Link>
       </p>
+
+      <p className="text-center text-xs text-text-muted">
+        <Link to="/terms" className="hover:text-text-primary transition-colors">
+          Termos de Uso
+        </Link>
+        {' · '}
+        <Link to="/privacy" className="hover:text-text-primary transition-colors">
+          Política de Privacidade
+        </Link>
+      </p>
     </div>
   )
 }

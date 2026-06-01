@@ -19,6 +19,8 @@ import SummaryPage from './pages/Transactions/SummaryPage'
 import { getMe } from './services/auth'
 import { useAuthStore } from './store/authStore'
 import ToastContainer from './components/ui/Toast'
+import TermsPage from './pages/Legal/TermsPage'
+import PrivacyPage from './pages/Legal/PrivacyPage'
 
 function AppLayout() {
   const isMobile = useBreakpoint('md')
@@ -58,6 +60,9 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
+
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
