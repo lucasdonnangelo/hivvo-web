@@ -23,10 +23,13 @@ export default function MobileLayout() {
         </span>
         <button
           onClick={() => navigate('/settings')}
-          className="w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs hover:bg-bg-border/80 transition-colors"
+          className="relative w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs hover:bg-bg-border/80 transition-colors"
           aria-label="Configurações"
         >
           {initial}
+          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-bg-surface border border-bg-border flex items-center justify-center text-[8px] text-text-muted leading-none">
+            ⚙
+          </span>
         </button>
       </header>
 
