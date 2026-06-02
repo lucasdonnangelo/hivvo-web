@@ -9,6 +9,7 @@ export interface Card {
   mes_offset_vencimento: number
   tipo: 'Crédito' | 'Débito' | 'Ambos'
   ativo: boolean
+  fatura_aberta_total: string | null
 }
 
 export interface CardPayload {
