@@ -17,9 +17,13 @@ export default function TransactionItem({ tx, onEdit, onDelete }: Props) {
     <div className="flex items-center gap-3 py-3 border-b border-bg-border last:border-0">
       <div className="flex flex-col min-w-0 flex-1">
         <span className="text-sm text-text-primary truncate">{tx.descricao}</span>
-        <span className="text-xs text-text-muted">
+        <span className="text-xs text-text-muted flex items-center gap-1.5 flex-wrap">
           {tx.categoria} · {tx.forma_pagamento}
-          {tx.parcelado && ' · Parcelado'}
+          {tx.parcelado && tx.total_parcelas && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber/15 text-amber border border-amber/30">
+              {tx.total_parcelas}x
+            </span>
+          )}
         </span>
       </div>
       <span

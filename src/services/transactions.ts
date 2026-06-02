@@ -10,6 +10,7 @@ export interface Transaction {
   forma_pagamento: string
   cartao_id: number | null
   parcelado: boolean
+  total_parcelas: number | null
 }
 
 export interface TransactionCreatePayload {
