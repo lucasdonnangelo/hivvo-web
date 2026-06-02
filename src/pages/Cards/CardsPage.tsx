@@ -76,10 +76,18 @@ function InvoicePanel({ cardId, mes, ano, onMonthSelect, onExport }: InvoicePane
 
   if (loadingList || loadingDetail) {
     return (
-      <div className="flex flex-col gap-3 p-1">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-10 bg-bg-surface rounded-lg animate-pulse" />
-        ))}
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-6 gap-2">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+            <div key={i} className="h-8 bg-bg-surface rounded-md animate-pulse" />
+          ))}
+        </div>
+        <div className="border-t border-bg-border" />
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 bg-bg-surface rounded-lg animate-pulse" />
+          ))}
+        </div>
       </div>
     )
   }
@@ -191,11 +199,53 @@ export default function CardsPage() {
   // ─── loading ───────────────────────────────────────────────────────────────
 
   if (loadingCards) {
+    if (isMobile) {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="shrink-0 flex items-center justify-between px-4 pt-4 pb-3">
+            <div className="h-5 w-16 bg-bg-surface rounded animate-pulse" />
+            <div className="w-8 h-8 bg-bg-surface rounded-full animate-pulse" />
+          </div>
+          <div className="shrink-0 h-36 mx-4 mb-1 bg-bg-surface rounded-xl animate-pulse" />
+          <div className="shrink-0 flex gap-2 px-4 pt-3 pb-4">
+            <div className="flex-1 h-8 bg-bg-surface rounded-md animate-pulse" />
+            <div className="flex-1 h-8 bg-bg-surface rounded-md animate-pulse" />
+          </div>
+          <div className="flex flex-col gap-3 px-4">
+            <div className="grid grid-cols-6 gap-2">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-8 bg-bg-surface rounded-md animate-pulse" />
+              ))}
+            </div>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 bg-bg-surface rounded-lg animate-pulse" />
+            ))}
+          </div>
+        </div>
+      )
+    }
     return (
-      <div className="flex flex-col gap-3 p-4">
-        {[1, 2].map((i) => (
-          <div key={i} className="h-24 bg-bg-surface rounded-xl animate-pulse" />
-        ))}
+      <div className="flex h-full">
+        <aside className="w-72 shrink-0 border-r border-bg-border flex flex-col p-4 gap-4">
+          <div className="flex items-center justify-between">
+            <div className="h-5 w-16 bg-bg-surface rounded animate-pulse" />
+            <div className="w-7 h-7 bg-bg-surface rounded-full animate-pulse" />
+          </div>
+          {[1, 2].map((i) => (
+            <div key={i} className="h-28 bg-bg-surface rounded-xl animate-pulse" />
+          ))}
+        </aside>
+        <div className="flex-1 p-6 flex flex-col gap-4">
+          <div className="grid grid-cols-6 gap-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+              <div key={i} className="h-8 bg-bg-surface rounded-md animate-pulse" />
+            ))}
+          </div>
+          <div className="border-t border-bg-border" />
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 bg-bg-surface rounded-lg animate-pulse" />
+          ))}
+        </div>
       </div>
     )
   }

@@ -284,11 +284,56 @@ export default function TransactionsPage() {
   // ─── loading / error ───────────────────────────────────────────────────────
 
   if (isLoading) {
+    if (isMobile) {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="shrink-0 flex items-center justify-between px-4 pt-4 pb-3 border-b border-bg-border">
+            <div className="h-5 w-32 bg-bg-surface rounded-md animate-pulse" />
+          </div>
+          <div className="shrink-0 mx-4 mt-3 h-9 bg-bg-surface rounded-md animate-pulse" />
+          <div className="shrink-0 flex gap-2 px-4 py-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-7 w-16 bg-bg-surface rounded-full animate-pulse shrink-0" />
+            ))}
+          </div>
+          <div className="shrink-0 h-7 mx-4 bg-bg-surface/50 rounded animate-pulse" />
+          <div className="flex-1 flex flex-col gap-3 px-4 py-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-14 bg-bg-surface rounded-lg animate-pulse" />
+            ))}
+          </div>
+        </div>
+      )
+    }
     return (
-      <div className="flex flex-col gap-3 p-4">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-14 bg-bg-surface rounded-lg animate-pulse" />
-        ))}
+      <div className="flex h-full">
+        <aside className="w-64 shrink-0 border-r border-bg-border flex flex-col gap-5 p-4">
+          <div className="h-9 bg-bg-surface rounded-md animate-pulse" />
+          <div className="flex flex-col gap-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-5 w-28 bg-bg-surface rounded animate-pulse" />
+            ))}
+          </div>
+          <div className="flex flex-col gap-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-5 w-36 bg-bg-surface rounded animate-pulse" />
+            ))}
+          </div>
+        </aside>
+        <div className="flex flex-col flex-1 min-w-0">
+          <div className="shrink-0 h-14 border-b border-bg-border px-6 flex items-center gap-3">
+            <div className="h-5 w-32 bg-bg-surface rounded-md animate-pulse" />
+            <div className="ml-auto flex gap-3">
+              <div className="h-7 w-24 bg-bg-surface rounded-md animate-pulse" />
+              <div className="h-7 w-28 bg-bg-surface rounded-md animate-pulse" />
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col gap-3 px-6 py-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-14 bg-bg-surface rounded-lg animate-pulse" />
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
