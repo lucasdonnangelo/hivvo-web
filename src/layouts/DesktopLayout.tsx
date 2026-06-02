@@ -15,8 +15,8 @@ export default function DesktopLayout() {
   const initial = user?.username?.[0].toUpperCase() ?? '?'
   return (
     <div className="flex h-full bg-bg text-text-primary">
-      {/* Sidebar — 52px, ícones */}
-      <aside className="w-[52px] shrink-0 flex flex-col items-center py-4 gap-1 bg-bg-surface border-r border-bg-border">
+      {/* Sidebar — 72px, ícones + labels */}
+      <aside className="w-[72px] shrink-0 flex flex-col items-center py-4 gap-1 bg-bg-surface border-r border-bg-border">
         <span
           className="text-amber font-medium text-sm mb-4 select-none"
           title="Hivvo"
@@ -24,32 +24,36 @@ export default function DesktopLayout() {
           H
         </span>
 
-        <nav className="flex flex-col gap-1 flex-1 w-full items-center">
+        <nav className="flex flex-col gap-1 flex-1 w-full px-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               title={item.label}
               className={({ isActive }) =>
-                `w-10 h-10 flex items-center justify-center rounded-md text-base transition-colors ${
+                `w-full flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-md transition-colors ${
                   isActive
                     ? 'bg-amber text-bg'
                     : 'text-text-muted hover:text-text-primary hover:bg-bg-border'
                 }`
               }
             >
-              {item.icon}
+              <span className="text-base leading-none">{item.icon}</span>
+              <span className="text-[10px] leading-none tracking-tight">{item.label}</span>
             </NavLink>
           ))}
         </nav>
 
         <button
           onClick={() => navigate('/settings')}
-          className="w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs hover:bg-bg-border/80 transition-colors"
+          className="flex flex-col items-center gap-0.5 text-text-muted hover:text-text-primary transition-colors"
           title="Configurações"
           aria-label="Configurações"
         >
-          {initial}
+          <span className="w-7 h-7 rounded-full bg-bg-border flex items-center justify-center text-xs">
+            {initial}
+          </span>
+          <span className="text-[10px] leading-none tracking-tight">Config.</span>
         </button>
       </aside>
 
