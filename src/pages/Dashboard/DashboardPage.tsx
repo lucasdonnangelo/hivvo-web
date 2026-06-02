@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useMonthlyStats } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
+import { useUpcomingInstallments } from '../../hooks/useInstallments'
 import type { Transaction } from '../../services/transactions'
 import DonutChart from '../../components/charts/DonutChart'
 
@@ -38,6 +39,7 @@ function SkeletonDashboard({ isMobile }: { isMobile: boolean }) {
           <div className="h-20 bg-bg-surface rounded-lg animate-pulse" />
           <div className="h-20 bg-bg-surface rounded-lg animate-pulse" />
         </div>
+        <div className="h-28 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-72 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-52 bg-bg-surface rounded-lg animate-pulse" />
       </div>
@@ -53,7 +55,10 @@ function SkeletonDashboard({ isMobile }: { isMobile: boolean }) {
       </div>
       <div className="grid grid-cols-[45%_1fr] gap-4">
         <div className="h-80 bg-bg-surface rounded-lg animate-pulse" />
-        <div className="h-80 bg-bg-surface rounded-lg animate-pulse" />
+        <div className="flex flex-col gap-4">
+          <div className="h-36 bg-bg-surface rounded-lg animate-pulse" />
+          <div className="flex-1 bg-bg-surface rounded-lg animate-pulse" />
+        </div>
       </div>
     </div>
   )
@@ -133,6 +138,57 @@ function EmptyState({ mes, ano }: { mes: number; ano: number }) {
   )
 }
 
+interface CommitmentsEntry {
+  mes: number
+  ano: number
+  total: number
+}
+
+function CommitmentsCard({
+  data,
+  isLoading,
+}: {
+  data: CommitmentsEntry[]
+  isLoading: boolean
+}) {
+  const grandTotal = data.reduce((s, d) => s + d.total, 0)
+  return (
+    <div className="bg-bg-surface rounded-lg p-4">
+      <h2 className="text-sm font-medium text-text-primary mb-3">Compromissos futuros</h2>
+      {isLoading ? (
+        <div className="flex flex-col gap-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-8 bg-bg-border rounded-md animate-pulse" />
+          ))}
+          <div className="border-t border-bg-border mt-1 pt-2">
+            <div className="h-8 bg-bg-border rounded-md animate-pulse" />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col">
+            {data.map(({ mes, ano, total }) => (
+              <div
+                key={`${mes}-${ano}`}
+                className="flex items-center justify-between py-2 border-b border-bg-border last:border-0"
+              >
+                <span className="text-sm text-text-muted">
+                  {MONTHS[mes - 1]} {ano}
+                </span>
+                <span className="text-sm font-medium text-amber">{formatBRL(total)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between pt-3 mt-1">
+            <span className="text-xs font-medium text-text-muted">Total 3 meses</span>
+            <span className="text-base font-medium text-amber">{formatBRL(grandTotal)}</span>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── page ────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -156,8 +212,34 @@ export default function DashboardPage() {
 
   const { data: stats, isLoading: statsLoading, isError } = useMonthlyStats(mes, ano)
   const { data: transactions, isLoading: txLoading } = useTransactions(mes, ano)
+  const { data: parcelas = [], isLoading: parcelasLoading } = useUpcomingInstallments()
 
   const isLoading = statsLoading || txLoading
+
+  const upcomingMonths = useMemo(() => {
+    const today = new Date()
+    const curMes = today.getMonth() + 1
+    const curAno = today.getFullYear()
+    return [0, 1, 2].map((offset) => {
+      const totalMonth = curMes - 1 + offset
+      return {
+        mes: (totalMonth % 12) + 1,
+        ano: curAno + Math.floor(totalMonth / 12),
+      }
+    })
+  }, [])
+
+  const upcomingData = useMemo(
+    () =>
+      upcomingMonths.map(({ mes: m, ano: a }) => ({
+        mes: m,
+        ano: a,
+        total: parcelas
+          .filter((p) => p.fatura_mes === m && p.fatura_ano === a)
+          .reduce((sum, p) => sum + parseFloat(p.valor), 0),
+      })),
+    [parcelas, upcomingMonths],
+  )
 
   const recentTransactions = useMemo(() => {
     if (!transactions) return []
@@ -230,6 +312,8 @@ export default function DashboardPage() {
           />
         </div>
 
+        <CommitmentsCard data={upcomingData} isLoading={parcelasLoading} />
+
         {isEmpty ? (
           <EmptyState mes={mes} ano={ano} />
         ) : (
@@ -292,15 +376,18 @@ export default function DashboardPage() {
             <DonutChart data={stats.categorias} />
           </div>
 
-          <div className="bg-bg-surface rounded-lg p-6">
-            <h2 className="text-sm font-medium text-text-primary mb-4">
-              Últimas transações
-            </h2>
-            {recentTransactions.length === 0 ? (
-              <p className="text-text-muted text-sm">Nenhuma transação encontrada.</p>
-            ) : (
-              recentTransactions.map((tx) => <TransactionItem key={tx.id} tx={tx} />)
-            )}
+          <div className="flex flex-col gap-4">
+            <CommitmentsCard data={upcomingData} isLoading={parcelasLoading} />
+            <div className="bg-bg-surface rounded-lg p-6 flex-1">
+              <h2 className="text-sm font-medium text-text-primary mb-4">
+                Últimas transações
+              </h2>
+              {recentTransactions.length === 0 ? (
+                <p className="text-text-muted text-sm">Nenhuma transação encontrada.</p>
+              ) : (
+                recentTransactions.map((tx) => <TransactionItem key={tx.id} tx={tx} />)
+              )}
+            </div>
           </div>
         </div>
       )}
