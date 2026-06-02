@@ -57,7 +57,9 @@ export default function InvoiceDetail({ detail, mes, ano, onExport }: InvoiceDet
         </div>
         <div className="text-right">
           <p className="text-xs text-text-muted">Total</p>
-          <p className="text-lg font-semibold text-danger">{formatBRL(detail.total)}</p>
+          <p className={`text-lg font-semibold ${parseFloat(detail.total) > 0 ? 'text-danger' : 'text-text-muted'}`}>
+            {formatBRL(detail.total)}
+          </p>
         </div>
       </div>
 
