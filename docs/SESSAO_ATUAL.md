@@ -7,11 +7,11 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ## Estado do Projeto
 
-**Fase atual:** Refinamentos de UI/UX + Deploy  
-**Status:** Refresh token implementado e funcionando. Interceptor Axios com retry automático, fila de requisições e redirect para /login em sessão expirada. Bugs #1–#7 corrigidos. Termos de Uso e Política de Privacidade criados. Renomeação BeeFree → Hivvo concluída.  
-**Próximo passo imediato:** Sessão de UI/UX (melhorias visuais, animações, polimento geral)  
-**Próxima fase:** Deploy — backend no Railway/Render, frontend no Vercel  
-**Última tarefa concluída:** Tarefa #23 — Refresh token (interceptor Axios + `refreshToken()` em `auth.ts`)
+**Fase atual:** Deploy  
+**Status:** Sessão de UI/UX concluída — melhorias #1 a #10 implementadas e commitadas. App funcional, polido e pronto para produção.  
+**Próximo passo imediato:** Deploy do backend no Railway ou Render  
+**Próxima fase:** Registro do domínio hivvo.app + landing page  
+**Última tarefa concluída:** Melhoria #10 — Onboarding progressivo pós-cadastro (commit `1994d61`)
 
 ---
 
@@ -48,11 +48,7 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ## Próximos Passos
 
-### Sessão de UI/UX (etapa atual)
-- Melhorias visuais, animações e polimento geral do produto
-- A definir em sessão dedicada
-
-### Deploy (próxima etapa)
+### Deploy (etapa atual)
 - **Backend:** publicar `hivvo-api` no Railway ou Render (free tier)
   - Configurar variáveis de ambiente (.env) no painel do serviço
   - Apontar `DATABASE_URL` para o Supabase de produção
@@ -60,6 +56,59 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 - **Frontend:** publicar `hivvo-web` no Vercel
   - Configurar `VITE_API_URL` apontando para o backend em produção
   - Verificar PWA instalável no celular após deploy
+- **Domínio:** registrar `hivvo.app` e apontar para o Vercel
+
+### Fase seguinte — Lançamento
+- Landing page do Hivvo
+- Post LinkedIn + Product Hunt
+- Analytics com Posthog (gratuito)
+- Definir limites do plano gratuito
+
+---
+
+## Melhorias de UI/UX — Sessão de 01/06/2026 ✅
+
+| # | Melhoria | Commit | Arquivos |
+|---|---|---|---|
+| #1 | Labels na sidebar desktop | (histórico) | `DesktopLayout.tsx` |
+| #2 | Skeleton loading em Transações e Cartões | (histórico) | `TransactionsPage.tsx`, `CardsPage.tsx` |
+| #3 | Importar CSV acessível pela navegação | (histórico) | `SettingsPage.tsx`, layouts |
+| #4 | Widget de compromissos futuros no Dashboard | (histórico) | `DashboardPage.tsx`, `useInstallments.ts` |
+| #5 | Badge de parcela inline nas transações | `6d582fa` | `TransactionItem.tsx`, `services/transactions.ts` |
+| #6 | Acesso a Configurações via avatar — gear badge mobile | `96809d3` | `MobileLayout.tsx` |
+| #7 | Total R$ 0,00 em vermelho nos cartões | `56b334e` | `InvoiceDetail.tsx` |
+| #8 | Termos e Privacidade acessíveis dentro do app | `035dc5f` | `SettingsPage.tsx` |
+| #9 | Barra de limite usado/disponível no card | `36b117a` | `CardVisual.tsx`, `services/cards.ts` |
+| #10 | Onboarding progressivo pós-cadastro | `1994d61` | `OnboardingBanner.tsx`, `DashboardPage.tsx` |
+
+### Detalhes das melhorias #5–#10
+
+**#5 — Badge de parcela inline:**
+- `total_parcelas: number | null` adicionado ao tipo `Transaction` (backend já retornava)
+- `TransactionItem` substituiu `· Parcelado` por badge pill âmbar `{total_parcelas}x`
+- `InvoiceDetail` já tinha badge X/Y correto — sem alteração
+
+**#6 — Acesso a Configurações:**
+- Desktop: já tinha `title="Configurações"` e label "Config." — sem alteração
+- Mobile: badge `⚙` sobreposto no canto inferior-direito do avatar (absolute, 14×14px)
+
+**#7 — Cor do total de fatura:**
+- `total > 0 → text-danger`, `total === 0 → text-text-muted`
+- `parseFloat(detail.total) > 0` como condição
+
+**#8 — Legal em Configurações:**
+- Seção "LEGAL" no final de `SettingsPage` com links para `/terms` e `/privacy`
+- Rotas já estavam fora do `ProtectedRoute` em `App.tsx`
+
+**#9 — Barra de limite:**
+- `fatura_aberta_total: string | null` adicionado ao tipo `Card`
+- Barra `h-1`, track `bg-bg/20`, fill `bg-bg/60`, texto `R$ X usado · R$ Y disponível`
+- `GET /cards` já retornava `fatura_aberta_total` via `CartaoComFaturaResponse`
+
+**#10 — Onboarding:**
+- `OnboardingBanner` auto-contido: 3 steps com botões de ação, dismissal em `localStorage`
+- Condição: `!isLoading && transactions.length === 0 && cards.length === 0`
+- Renderizado acima do `EmptyState` em mobile e desktop
 
 ---
 
@@ -106,8 +155,8 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 - [x] 23. Refresh token — interceptor Axios com retry automático + `refreshToken()` em `auth.ts`
 - [x] 24. Renomeação BeeFree → Hivvo (brand, layouts, títulos, manifest, PWA)
 - [x] 25. Termos de Uso (`/terms`) e Política de Privacidade (`/privacy`) — páginas estáticas em `AuthLayout`
-- [ ] 26. Sessão de UI/UX — melhorias visuais e polimento
-- [ ] 27. Deploy — backend Railway/Render + frontend Vercel
+- [x] 26. Sessão de UI/UX — melhorias #1 a #10 implementadas e commitadas
+- [ ] 27. Deploy — backend Railway/Render + frontend Vercel + domínio hivvo.app
 
 ---
 
@@ -128,10 +177,24 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 | UTF-8 encoding backend | `UTF8JSONResponse` subclasse com `media_type = "application/json; charset=utf-8"` como `default_response_class` — elimina Mojibake em browsers que não assumem UTF-8 sem charset explícito. |
 | Refresh token — interceptor | `isRefreshing` + `failedQueue` serializam 401s paralelos; falha no refresh faz `clearAuth()` + `window.location.href = '/login'`; dependência circular evitada chamando `api.post('/auth/refresh')` inline. |
 | import type Axios | `AxiosRequestConfig` importado com `import type` — `InternalAxiosRequestConfig` não disponível na versão instalada (Axios 1.16.1). |
+| OnboardingBanner dismiss | Estado lazy `() => localStorage.getItem(STORAGE_KEY) === '1'` — sem flash de re-render. Chave: `hivvo_onboarding_dismissed`. |
+| Badge parcela inline | `total_parcelas` já era retornado pelo backend mas não declarado no tipo TS — sem backend change. `numero_parcela` ausente em `transacoes`; badge mostra `Nx` em vez de `X/Y` (X seria sempre 1 no filtro por data de compra). |
+| Barra de limite CardVisual | `fatura_aberta_total` de `CartaoComFaturaResponse` já disponível — só faltava declarar no tipo `Card` do frontend. Guard `limite > 0` evita divisão por zero. |
 
 ---
 
 ## Arquivos Criados/Modificados por Tarefa
+
+### Melhorias UI/UX #5–#10 (01/06/2026)
+- `src/services/transactions.ts` — `total_parcelas: number | null` no tipo `Transaction`
+- `src/components/transaction/TransactionItem.tsx` — badge pill âmbar `{total_parcelas}x`
+- `src/layouts/MobileLayout.tsx` — badge `⚙` sobreposto ao avatar de Configurações
+- `src/components/cards/InvoiceDetail.tsx` — cor condicional do total (`text-danger` / `text-text-muted`)
+- `src/pages/Settings/SettingsPage.tsx` — seção "LEGAL" com links para `/terms` e `/privacy`
+- `src/services/cards.ts` — `fatura_aberta_total: string | null` no tipo `Card`
+- `src/components/cards/CardVisual.tsx` — barra de progresso uso/disponível do limite
+- `src/components/ui/OnboardingBanner.tsx` — novo componente (3 passos, dismissal localStorage)
+- `src/pages/Dashboard/DashboardPage.tsx` — `useCards()` + `showOnboarding` + `OnboardingBanner`
 
 ### Tarefas #23 — Refresh token (interceptor Axios)
 - `src/services/auth.ts` — `refreshToken()` exportado chamando `POST /auth/refresh`
@@ -235,7 +298,7 @@ hivvo-web/
 └── src/
     ├── layouts/             DesktopLayout, MobileLayout, AuthLayout  ✓
     ├── pages/               Dashboard, Transactions/Summary, AddTransaction, Cards, Assistant, Auth (Login, Register, ForgotPassword, ResetPassword), Settings, Import, Legal (Terms, Privacy)  ✓
-    ├── components/          ui/ (Button, Input, Modal, Spinner, Toast), charts/, transaction/, cards/  ✓
+    ├── components/          ui/ (Button, Input, Modal, Spinner, Toast, OnboardingBanner), charts/, transaction/, cards/  ✓
     ├── hooks/               useBreakpoint, useTransactions, useCategories, useStatistics, useCards, useAuth, useInstallments  ✓
     ├── store/               authStore, uiStore  ✓
     ├── services/            api, auth, transactions, categories, cards, ai, statistics, installments  ✓
@@ -256,6 +319,6 @@ hivvo-web/
 
 ---
 
-*Última atualização: 01 de Junho de 2026 — Refresh token implementado (interceptor automático). Renomeação Hivvo concluída. Termos e Privacidade criados. Próximo: UI/UX + Deploy.*  
+*Última atualização: 01 de Junho de 2026 — Sessão de UI/UX concluída (melhorias #1–#10). Próximo: Deploy (Railway/Render + Vercel + domínio hivvo.app).*  
 *Projeto: Hivvo — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
