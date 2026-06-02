@@ -3,8 +3,10 @@ import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useMonthlyStats } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useUpcomingInstallments } from '../../hooks/useInstallments'
+import { useCards } from '../../hooks/useCards'
 import type { Transaction } from '../../services/transactions'
 import DonutChart from '../../components/charts/DonutChart'
+import OnboardingBanner from '../../components/ui/OnboardingBanner'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -213,6 +215,7 @@ export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading, isError } = useMonthlyStats(mes, ano)
   const { data: transactions, isLoading: txLoading } = useTransactions(mes, ano)
   const { data: parcelas = [], isLoading: parcelasLoading } = useUpcomingInstallments()
+  const { data: cards = [] } = useCards()
 
   const isLoading = statsLoading || txLoading
 
@@ -250,6 +253,9 @@ export default function DashboardPage() {
 
   const isEmpty =
     !isLoading && stats !== undefined && stats.receitas === 0 && stats.despesas === 0
+
+  const showOnboarding =
+    !isLoading && (transactions ?? []).length === 0 && cards.length === 0
 
   const monthNav = (
     <div className="flex items-center justify-between">
@@ -314,6 +320,8 @@ export default function DashboardPage() {
 
         <CommitmentsCard data={upcomingData} isLoading={parcelasLoading} />
 
+        {showOnboarding && <OnboardingBanner />}
+
         {isEmpty ? (
           <EmptyState mes={mes} ano={ano} />
         ) : (
@@ -364,6 +372,8 @@ export default function DashboardPage() {
           variacaoInverted
         />
       </div>
+
+      {showOnboarding && <OnboardingBanner />}
 
       {isEmpty ? (
         <EmptyState mes={mes} ano={ano} />
