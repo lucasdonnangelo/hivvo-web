@@ -426,6 +426,28 @@ export default function SettingsPage() {
         </SettingsRow>
       </Section>
 
+      {/* ── Legal ── */}
+      <Section title="Legal">
+        <SettingsRow>
+          <button
+            onClick={() => navigate('/terms')}
+            className="w-full flex items-center justify-between text-sm text-text-primary hover:text-amber transition-colors"
+          >
+            <span>Termos de Uso</span>
+            <span className="text-text-muted">→</span>
+          </button>
+        </SettingsRow>
+        <SettingsRow>
+          <button
+            onClick={() => navigate('/privacy')}
+            className="w-full flex items-center justify-between text-sm text-text-primary hover:text-amber transition-colors"
+          >
+            <span>Política de Privacidade</span>
+            <span className="text-text-muted">→</span>
+          </button>
+        </SettingsRow>
+      </Section>
+
     </div>
   )
 
