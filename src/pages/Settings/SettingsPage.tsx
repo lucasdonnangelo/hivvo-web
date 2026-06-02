@@ -399,6 +399,18 @@ export default function SettingsPage() {
         </SettingsRow>
       </Section>
 
+      {/* ── Importar dados ── */}
+      <Section title="Importar dados">
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
+            Importe transações a partir de um arquivo CSV.
+          </p>
+          <Button variant="ghost" onClick={() => navigate('/import')}>
+            ↑ Importar CSV
+          </Button>
+        </SettingsRow>
+      </Section>
+
       {/* ── Exportar dados ── */}
       <Section title="Exportar dados">
         <SettingsRow>

@@ -353,6 +353,12 @@ export default function TransactionsPage() {
             <ChartBarIcon />
             Resumo
           </button>
+          <button
+            onClick={() => navigate('/import')}
+            className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-bg-surface text-text-muted border border-bg-border hover:text-text-primary transition-colors"
+          >
+            ↑ CSV
+          </button>
 
           {filtroCategorias.length > 0 && (
             <div className="w-px h-5 bg-bg-border shrink-0" />
@@ -578,8 +584,14 @@ export default function TransactionsPage() {
       <div className="flex flex-col flex-1 min-w-0">
         <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-bg-border">
           {monthNav}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {totalSummary}
+            <button
+              onClick={() => navigate('/import')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-text-muted border border-bg-border hover:text-text-primary hover:bg-bg-surface active:bg-bg-border transition-colors whitespace-nowrap"
+            >
+              ↑ Importar CSV
+            </button>
             <button
               onClick={() => navigate('/transactions/summary')}
               className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border border-amber text-amber hover:bg-amber/5 active:bg-amber/10 transition-colors whitespace-nowrap"
