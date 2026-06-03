@@ -133,7 +133,12 @@ export default function InvoiceDetail({ detail, mes, ano, onExport }: InvoiceDet
       <div className="pt-2 border-t border-bg-border">
         <button
           onClick={onExport}
-          className="flex items-center gap-2 text-xs text-text-muted hover:text-amber transition-colors"
+          disabled={isEmpty}
+          className={`flex items-center gap-2 text-xs transition-colors ${
+            isEmpty
+              ? 'text-text-muted opacity-40 cursor-not-allowed'
+              : 'text-text-muted hover:text-amber'
+          }`}
         >
           <span>↓</span>
           Exportar fatura
