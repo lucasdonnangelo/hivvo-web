@@ -12,6 +12,7 @@ import { useMonthlyStats } from '../../hooks/useStatistics'
 import { useCreateTransaction } from '../../hooks/useTransactions'
 import { suggestCategory } from '../../services/ai'
 import type { Category } from '../../services/categories'
+import { useUIStore } from '../../store/uiStore'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -220,6 +221,7 @@ export default function AddTransactionPage() {
   const { data: stats } = useMonthlyStats(now.getMonth() + 1, now.getFullYear())
   const createTx = useCreateTransaction()
 
+  const addToast = useUIStore((s) => s.addToast)
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
 
   const categories = allCategories.filter((c) => c.ativa)
@@ -306,7 +308,7 @@ export default function AddTransactionPage() {
 
   const buildPayload = (data: FormData) => ({
     tipo: data.tipo,
-    valor: Number(data.valor).toFixed(2),
+    valor: parseFloat(String(data.valor).replace(',', '.')).toFixed(2),
     descricao: data.descricao,
     categoria: data.categoria,
     data: data.data,
@@ -319,24 +321,32 @@ export default function AddTransactionPage() {
   })
 
   const onSave = handleSubmit(async (data) => {
-    await createTx.mutateAsync(buildPayload(data))
-    navigate('/dashboard')
+    try {
+      await createTx.mutateAsync(buildPayload(data))
+      navigate('/dashboard')
+    } catch {
+      addToast({ message: 'Erro ao salvar transação. Verifique os dados e tente novamente.', type: 'error' })
+    }
   })
 
   const onSaveAndAdd = handleSubmit(async (data) => {
-    await createTx.mutateAsync(buildPayload(data))
-    reset({
-      tipo: data.tipo,
-      valor: '' as unknown as number,
-      descricao: '',
-      categoria: '',
-      data: data.data,
-      forma_pagamento: data.forma_pagamento,
-      cartao_id: null,
-      parcelado: false,
-      num_parcelas: undefined,
-    })
-    setSuggestedCategory(null)
+    try {
+      await createTx.mutateAsync(buildPayload(data))
+      reset({
+        tipo: data.tipo,
+        valor: '' as unknown as number,
+        descricao: '',
+        categoria: '',
+        data: data.data,
+        forma_pagamento: data.forma_pagamento,
+        cartao_id: null,
+        parcelado: false,
+        num_parcelas: undefined,
+      })
+      setSuggestedCategory(null)
+    } catch {
+      addToast({ message: 'Erro ao salvar transação. Verifique os dados e tente novamente.', type: 'error' })
+    }
   })
 
   // ── shared form fields ────────────────────────────────────────────────────

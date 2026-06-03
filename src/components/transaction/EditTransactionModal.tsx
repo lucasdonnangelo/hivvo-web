@@ -58,7 +58,7 @@ export default function EditTransactionModal({
   })
 
   const onSubmit = (data: FormData) => {
-    onSave(tx.id, { ...data, valor: data.valor.toFixed(2) })
+    onSave(tx.id, { ...data, valor: parseFloat(String(data.valor).replace(',', '.')).toFixed(2) })
   }
 
   // Ajuste aprovado: transação parcelada exibe aviso, sem campos editáveis e sem botão salvar

@@ -15,6 +15,7 @@ import InvoiceMonthGrid from '../../components/cards/InvoiceMonthGrid'
 import InvoiceDetailPanel from '../../components/cards/InvoiceDetail'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import { useUIStore } from '../../store/uiStore'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 export default function CardsPage() {
   const isMobile = useBreakpoint('md')
   const { mes: initMes, ano: initAno } = currentMonthYear()
+  const addToast = useUIStore((s) => s.addToast)
 
   const { data: allCards = [], isLoading: loadingCards } = useCards()
   const activeCards = allCards.filter((c) => c.ativo)
@@ -170,7 +172,10 @@ export default function CardsPage() {
     if (cardToEdit) {
       updateMutation.mutate(
         { id: cardToEdit.id, payload },
-        { onSuccess: () => setCardToEdit(null) },
+        {
+          onSuccess: () => setCardToEdit(null),
+          onError: () => addToast({ message: 'Erro ao atualizar cartão. Tente novamente.', type: 'error' }),
+        },
       )
     } else {
       createMutation.mutate(payload, {
@@ -178,6 +183,7 @@ export default function CardsPage() {
           setShowAddModal(false)
           setSelectedCardId(created.id)
         },
+        onError: () => addToast({ message: 'Erro ao adicionar cartão. Verifique os dados e tente novamente.', type: 'error' }),
       })
     }
   }
@@ -189,6 +195,7 @@ export default function CardsPage() {
         setCardToDeactivate(null)
         setSelectedCardId(null)
       },
+      onError: () => addToast({ message: 'Erro ao desativar cartão. Tente novamente.', type: 'error' }),
     })
   }
 

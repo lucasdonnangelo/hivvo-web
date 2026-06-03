@@ -9,6 +9,7 @@ import EditTransactionModal from '../../components/transaction/EditTransactionMo
 import DeleteConfirmModal from '../../components/transaction/DeleteConfirmModal'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import { useUIStore } from '../../store/uiStore'
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ export default function TransactionsPage() {
   const isMobile = useBreakpoint('md')
   const navigate = useNavigate()
   const now = new Date()
+  const addToast = useUIStore((s) => s.addToast)
 
   // Month navigation
   const [mes, setMes] = useState(now.getMonth() + 1)
@@ -171,11 +173,20 @@ export default function TransactionsPage() {
 
   const handleConfirmDelete = () => {
     if (!txToDelete) return
-    deleteMutation.mutate(txToDelete.id, { onSuccess: () => setTxToDelete(null) })
+    deleteMutation.mutate(txToDelete.id, {
+      onSuccess: () => setTxToDelete(null),
+      onError: () => addToast({ message: 'Erro ao remover transação. Tente novamente.', type: 'error' }),
+    })
   }
 
   const handleSaveEdit = (id: number, payload: Partial<Omit<Transaction, 'id'>>) => {
-    updateMutation.mutate({ id, payload }, { onSuccess: () => setTxToEdit(null) })
+    updateMutation.mutate(
+      { id, payload },
+      {
+        onSuccess: () => setTxToEdit(null),
+        onError: () => addToast({ message: 'Erro ao atualizar transação. Verifique os dados e tente novamente.', type: 'error' }),
+      },
+    )
   }
 
   // ─── shared fragments ──────────────────────────────────────────────────────

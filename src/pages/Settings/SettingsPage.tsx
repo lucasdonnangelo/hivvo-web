@@ -113,6 +113,7 @@ export default function SettingsPage() {
       const detail = (err as { response?: { data?: { detail?: unknown } } })
         ?.response?.data?.detail
       setNameError(extractDetail(detail))
+      addToast({ message: 'Erro ao salvar nome. Tente novamente.', type: 'error' })
     } finally {
       setNameSaving(false)
     }
@@ -139,6 +140,7 @@ export default function SettingsPage() {
       addToast({ message: 'Senha alterada com sucesso', type: 'success' })
     } catch {
       setPwError('senha_atual', { message: 'Senha atual incorreta.' })
+      addToast({ message: 'Erro ao alterar senha. Verifique os dados e tente novamente.', type: 'error' })
     }
   }
 
