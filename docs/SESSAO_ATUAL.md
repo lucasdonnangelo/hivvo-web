@@ -8,10 +8,10 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 ## Estado do Projeto
 
 **Fase atual:** Deploy  
-**Status:** Sessão de UI/UX concluída — melhorias #1 a #10 implementadas e commitadas. App funcional, polido e pronto para produção.  
+**Status:** Sessão de polimento pós-UI concluída — 5 bugs corrigidos (formulários, navegação, UX). App funcional e pronto para produção.  
 **Próximo passo imediato:** Deploy do backend no Railway ou Render  
 **Próxima fase:** Registro do domínio hivvo.app + landing page  
-**Última tarefa concluída:** Melhoria #10 — Onboarding progressivo pós-cadastro (commit `1994d61`)
+**Última tarefa concluída:** Bug — Botão Exportar fatura desabilitado em fatura vazia (commit `6f6ed86`)
 
 ---
 
@@ -43,6 +43,11 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 | `41522d5` | `Toast.tsx`, `App.tsx`, hooks | Toast de sucesso ausente em toda a aplicação | `ToastContainer` com auto-dismiss 3s, animação suave, posição adaptativa mobile/desktop |
 | `c592196` | `TransactionsPage.tsx` | "Ver Resumo" discreto e difícil de encontrar em mobile e desktop | Chip âmbar na barra de filtros (mobile) + botão com borda âmbar no topbar (desktop) |
 | `d9270ae` | `hivvo-api/main.py` | Mensagens com Mojibake (`vocÃª`, `receberÃ¡`) — bytes UTF-8 lidos como latin-1 | `UTF8JSONResponse` com `charset=utf-8` como `default_response_class` |
+| `a059122` | `AddTransactionPage`, `EditTransactionModal`, `TransactionsPage`, `SettingsPage`, `CardsPage` | Valor enviado ao backend podia conter vírgula; erros 4xx/5xx deixavam botão em loading sem feedback | `parseFloat(String(v).replace(',', '.'))` no payload; try/catch + `onError` com toast vermelho em todos os formulários |
+| `38f1f61` | `TermsPage.tsx`, `PrivacyPage.tsx` | Botão "← Voltar" redirecionava sempre para `/login` | Substituído `<Link to="/login">` por `<button onClick={() => navigate(-1)}>` |
+| `20d0a53` | `SettingsPage.tsx` | Toast de sucesso ao salvar nome exibia "Nome atualizado" em vez de "Perfil atualizado" | Mensagem corrigida |
+| `3e577a7` | `RegisterPage.tsx`, `services/auth.ts` | Campo "Nome de usuário" no cadastro — backend passou a gerar automaticamente | Campo removido do schema Zod, JSX e payload; `RegisterPayload` atualizado |
+| `6f6ed86` | `InvoiceDetail.tsx` | Botão "↓ Exportar fatura" ativo mesmo em fatura vazia | `disabled={isEmpty}` + `opacity-40 cursor-not-allowed` reutilizando variável `isEmpty` já existente |
 
 ---
 
@@ -185,6 +190,18 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ## Arquivos Criados/Modificados por Tarefa
 
+### Correções de polimento pós-UI (03/06/2026)
+- `src/pages/AddTransaction/AddTransactionPage.tsx` — normalização de valor (`replace(',', '.')`) no `buildPayload`; try/catch em `onSave` e `onSaveAndAdd` com toast de erro
+- `src/components/transaction/EditTransactionModal.tsx` — normalização de valor no `onSubmit`
+- `src/pages/Transactions/TransactionsPage.tsx` — `onError` em `handleSaveEdit` e `handleConfirmDelete` com toast de erro
+- `src/pages/Settings/SettingsPage.tsx` — toast de erro em `handleSaveName` e `onPasswordSubmit`; mensagem de sucesso alterada para "Perfil atualizado"
+- `src/pages/Cards/CardsPage.tsx` — `onError` em `handleSaveCard` (create + update) e `handleDeactivate`
+- `src/pages/Legal/TermsPage.tsx` — `navigate(-1)` em vez de `<Link to="/login">`
+- `src/pages/Legal/PrivacyPage.tsx` — idem
+- `src/pages/Auth/RegisterPage.tsx` — campo `username` removido do schema Zod, JSX e payload
+- `src/services/auth.ts` — `username` removido de `RegisterPayload`
+- `src/components/cards/InvoiceDetail.tsx` — botão Exportar `disabled={isEmpty}` com estilo `opacity-40 cursor-not-allowed`
+
 ### Melhorias UI/UX #5–#10 (01/06/2026)
 - `src/services/transactions.ts` — `total_parcelas: number | null` no tipo `Transaction`
 - `src/components/transaction/TransactionItem.tsx` — badge pill âmbar `{total_parcelas}x`
@@ -319,6 +336,6 @@ hivvo-web/
 
 ---
 
-*Última atualização: 01 de Junho de 2026 — Sessão de UI/UX concluída (melhorias #1–#10). Próximo: Deploy (Railway/Render + Vercel + domínio hivvo.app).*  
+*Última atualização: 03 de Junho de 2026 — Sessão de polimento: 5 bugs corrigidos (formulários, navegação, UX). Próximo: Deploy (Railway/Render + Vercel + domínio hivvo.app).*  
 *Projeto: Hivvo — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
