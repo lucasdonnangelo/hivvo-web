@@ -12,7 +12,6 @@ const schema = z
   .object({
     email: z.string().email('E-mail inválido'),
     nome_completo: z.string().min(2, 'Mínimo 2 caracteres'),
-    username: z.string().min(3, 'Mínimo 3 caracteres'),
     password: z.string().min(8, 'Mínimo 8 caracteres'),
     confirmPassword: z.string(),
   })
@@ -60,7 +59,6 @@ export default function RegisterPage() {
     try {
       await registerUser({
         email: data.email,
-        username: data.username,
         nome_completo: data.nome_completo,
         password: data.password,
       })
@@ -99,15 +97,6 @@ export default function RegisterPage() {
           autoComplete="name"
           error={errors.nome_completo?.message}
           {...register('nome_completo')}
-        />
-        <Input
-          id="username"
-          label="Nome de usuário"
-          type="text"
-          placeholder="seunome"
-          autoComplete="username"
-          error={errors.username?.message}
-          {...register('username')}
         />
         <Input
           id="password"
