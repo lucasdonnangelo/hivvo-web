@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -24,15 +24,17 @@ function Ul({ items }: { items: React.ReactNode[] }) {
 }
 
 export default function PrivacyPage() {
+  const navigate = useNavigate()
+
   return (
     <div className="min-h-screen bg-bg py-10 px-4">
       <div className="max-w-3xl mx-auto">
-        <Link
-          to="/login"
+        <button
+          onClick={() => navigate(-1)}
           className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-text-primary transition-colors mb-8"
         >
           ← Voltar
-        </Link>
+        </button>
 
         <h1 className="text-2xl font-medium text-text-primary mb-1">
           Política de Privacidade — Hivvo
