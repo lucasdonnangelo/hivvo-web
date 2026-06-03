@@ -108,7 +108,7 @@ export default function SettingsPage() {
       setUser(updated)
       setNameSuccess(true)
       setTimeout(() => setNameSuccess(false), 2000)
-      addToast({ message: 'Nome atualizado', type: 'success' })
+      addToast({ message: 'Perfil atualizado', type: 'success' })
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: unknown } } })
         ?.response?.data?.detail
