@@ -239,7 +239,7 @@ export default function DashboardPage() {
         ano: a,
         total: parcelas
           .filter((p) => p.fatura_mes === m && p.fatura_ano === a)
-          .reduce((sum, p) => sum + parseFloat(p.valor), 0),
+          .reduce((sum, p) => sum + parseFloat(p.valor_parcela), 0),
       })),
     [parcelas, upcomingMonths],
   )

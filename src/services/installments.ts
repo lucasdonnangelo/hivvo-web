@@ -4,7 +4,7 @@ export interface ParcelaResponse {
   id: number
   transacao_id: number
   cartao_id: number | null
-  valor: string
+  valor_parcela: string
   fatura_mes: number
   fatura_ano: number
   pago: boolean

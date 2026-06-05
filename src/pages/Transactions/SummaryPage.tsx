@@ -254,7 +254,7 @@ export default function SummaryPage() {
   const nextAno = mes === 12 ? ano + 1 : ano
   const { data: nextInstallments = [] } = useInstallments(nextMes, nextAno)
   const parcelasProxMes = useMemo(
-    () => nextInstallments.filter((p) => !p.pago && !p.cancelado).reduce((sum, p) => sum + parseFloat(p.valor), 0),
+    () => nextInstallments.filter((p) => !p.pago && !p.cancelado).reduce((sum, p) => sum + parseFloat(p.valor_parcela), 0),
     [nextInstallments],
   )
 
