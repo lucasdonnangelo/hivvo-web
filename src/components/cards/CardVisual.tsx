@@ -39,7 +39,9 @@ export default function CardVisual({ card, selected, onClick }: CardVisualProps)
         <span className="text-bg font-semibold text-base tracking-tight truncate max-w-[160px]">
           {card.nome}
         </span>
-        <span className="text-bg/70 text-xs font-medium">{TIPO_LABEL[card.tipo]}</span>
+        <span className="bg-bg/20 text-bg/80 text-xs font-medium rounded-full px-2 py-0.5 whitespace-nowrap shrink-0">
+          {TIPO_LABEL[card.tipo]}
+        </span>
       </div>
 
       {/* limit + usage bar */}

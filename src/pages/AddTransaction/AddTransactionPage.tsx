@@ -512,13 +512,13 @@ export default function AddTransactionPage() {
                   aria-checked={field.value}
                   onClick={() => field.onChange(!field.value)}
                   className={[
-                    'relative w-10 h-6 rounded-full transition-colors',
+                    'relative w-10 h-6 rounded-full overflow-hidden transition-colors',
                     field.value ? 'bg-amber' : 'bg-bg-border',
                   ].join(' ')}
                 >
                   <span
                     className={[
-                      'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                      'absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full transition-transform',
                       field.value ? 'translate-x-[18px]' : 'translate-x-0.5',
                     ].join(' ')}
                   />
