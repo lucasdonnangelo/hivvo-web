@@ -39,14 +39,14 @@ const schema = z
     forma_pagamento: z.string().min(1, 'Campo obrigatório'),
     cartao_id: z.number().nullable().optional(),
     parcelado: z.boolean(),
-    num_parcelas: z.preprocess(
+    total_parcelas: z.preprocess(
       (v) => (v === '' || v === undefined || v === null ? undefined : Number(v)),
       z.number().int().min(2, 'Mínimo 2 parcelas').max(24, 'Máximo 24 parcelas').optional(),
     ),
   })
-  .refine((d) => !d.parcelado || (d.num_parcelas != null && d.num_parcelas >= 2), {
+  .refine((d) => !d.parcelado || (d.total_parcelas != null && d.total_parcelas >= 2), {
     message: 'Informe o número de parcelas',
-    path: ['num_parcelas'],
+    path: ['total_parcelas'],
   })
 
 type FormData = z.infer<typeof schema>
@@ -254,14 +254,14 @@ export default function AddTransactionPage() {
       forma_pagamento: 'PIX',
       cartao_id: null,
       parcelado: false,
-      num_parcelas: undefined,
+      total_parcelas: undefined,
     },
   })
 
   const watched = watch()
   const { forma_pagamento, parcelado, tipo, descricao } = watched
   const valorNum = Number(watched.valor) || 0
-  const numParcelas = watched.num_parcelas ? Number(watched.num_parcelas) : undefined
+  const numParcelas = watched.total_parcelas ? Number(watched.total_parcelas) : undefined
 
   const isCredito = forma_pagamento === 'Crédito'
   const showCartao = isCredito
@@ -295,14 +295,14 @@ export default function AddTransactionPage() {
     if (!isCredito) {
       setValue('cartao_id', null, { shouldValidate: false })
       setValue('parcelado', false, { shouldValidate: false })
-      setValue('num_parcelas', undefined, { shouldValidate: false })
+      setValue('total_parcelas', undefined, { shouldValidate: false })
     }
   }, [isCredito]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset num_parcelas when parcelamento is toggled off
+  // Reset total_parcelas when parcelamento is toggled off
   useEffect(() => {
     if (!parcelado) {
-      setValue('num_parcelas', undefined, { shouldValidate: false })
+      setValue('total_parcelas', undefined, { shouldValidate: false })
     }
   }, [parcelado]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -315,8 +315,8 @@ export default function AddTransactionPage() {
     forma_pagamento: data.forma_pagamento,
     cartao_id: data.cartao_id ?? null,
     parcelado: data.parcelado,
-    ...(data.parcelado && data.num_parcelas
-      ? { num_parcelas: Number(data.num_parcelas) }
+    ...(data.parcelado && data.total_parcelas
+      ? { total_parcelas: Number(data.total_parcelas) }
       : {}),
   })
 
@@ -341,7 +341,7 @@ export default function AddTransactionPage() {
         forma_pagamento: data.forma_pagamento,
         cartao_id: null,
         parcelado: false,
-        num_parcelas: undefined,
+        total_parcelas: undefined,
       })
       setSuggestedCategory(null)
     } catch {
@@ -535,8 +535,8 @@ export default function AddTransactionPage() {
                 min="2"
                 max="24"
                 placeholder="Ex: 12"
-                error={errors.num_parcelas?.message}
-                {...register('num_parcelas')}
+                error={errors.total_parcelas?.message}
+                {...register('total_parcelas')}
               />
               {valorPorParcela && (
                 <p className="text-xs text-text-muted">

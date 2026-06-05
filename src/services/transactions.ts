@@ -22,7 +22,7 @@ export interface TransactionCreatePayload {
   forma_pagamento: string
   cartao_id: number | null
   parcelado: boolean
-  num_parcelas?: number
+  total_parcelas?: number
 }
 
 export const getTransactions = (mes: number, ano: number) =>
