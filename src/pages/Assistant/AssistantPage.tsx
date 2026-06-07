@@ -385,7 +385,7 @@ export default function AssistantPage() {
       <div className="bg-bg-surface border border-bg-border rounded-2xl p-6 max-w-sm w-full shadow-xl">
         <h3 className="text-text-primary font-medium mb-2">Nova conversa</h3>
         <p className="text-text-muted text-sm mb-6">
-          Deseja iniciar uma nova conversa? O histórico será apagado.
+          Deseja limpar o chat? Você poderá continuar de onde parou a qualquer momento.
         </p>
         <div className="flex gap-3 justify-end">
           <button
