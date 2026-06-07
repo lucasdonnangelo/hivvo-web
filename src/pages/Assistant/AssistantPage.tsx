@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useMonthlyStats } from '../../hooks/useStatistics'
-import { sendMessage } from '../../services/ai'
+import { clearHistorico, getHistorico, sendMessage } from '../../services/ai'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -273,8 +273,29 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true)
+  const [clearModalOpen, setClearModalOpen] = useState(false)
 
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setIsHistoryLoading(true)
+    getHistorico()
+      .then((items) => {
+        if (cancelled) return
+        setMessages(
+          items.map((item) => ({
+            id: crypto.randomUUID(),
+            role: item.role,
+            text: item.text,
+          })),
+        )
+      })
+      .catch(() => { /* history load failure is non-fatal — start with empty state */ })
+      .finally(() => { if (!cancelled) setIsHistoryLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -284,8 +305,6 @@ export default function AssistantPage() {
     const msg = (text ?? input).trim()
     if (!msg || isLoading) return
 
-    // Snapshot history from current state before any update (safe: read at call site, not inside updater)
-    const historico = messages.map((m) => ({ role: m.role, text: m.text }))
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', text: msg }
 
     setMessages((prev) => [...prev, userMsg])
@@ -293,7 +312,7 @@ export default function AssistantPage() {
     setIsLoading(true)
 
     try {
-      const resposta = await sendMessage(msg, mes, ano, historico)
+      const resposta = await sendMessage(msg, mes, ano)
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: 'assistant', text: resposta },
@@ -312,6 +331,11 @@ export default function AssistantPage() {
     }
   }
 
+  const handleClearHistory = () => {
+    setMessages([])
+    setClearModalOpen(false)
+  }
+
   // on mobile, quick-question chips send immediately
   // on desktop, they just fill the input
   const handleQuickSelect = (q: string) => {
@@ -324,6 +348,28 @@ export default function AssistantPage() {
 
   // ─── shared fragments ──────────────────────────────────────────────────────
 
+  const newConversationButton = (
+    <button
+      onClick={() => setClearModalOpen(true)}
+      className="flex items-center gap-1.5 text-xs text-text-muted hover:text-amber transition-colors"
+      aria-label="Nova conversa"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+      Nova conversa
+    </button>
+  )
+
+  const historyLoadingSkeleton = (
+    <div className="flex flex-col gap-4 px-4 py-4">
+      <div className="h-10 rounded-2xl bg-bg-surface animate-pulse w-2/3" />
+      <div className="h-10 rounded-2xl bg-bg-surface animate-pulse w-3/4 self-end" />
+      <div className="h-14 rounded-2xl bg-bg-surface animate-pulse w-2/3" />
+    </div>
+  )
+
   const messageList = (
     <div className="flex flex-col gap-4 px-4 py-4">
       {messages.map((msg) => (
@@ -334,76 +380,127 @@ export default function AssistantPage() {
     </div>
   )
 
+  const confirmModal = clearModalOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="bg-bg-surface border border-bg-border rounded-2xl p-6 max-w-sm w-full shadow-xl">
+        <h3 className="text-text-primary font-medium mb-2">Nova conversa</h3>
+        <p className="text-text-muted text-sm mb-6">
+          Deseja iniciar uma nova conversa? O histórico será apagado.
+        </p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={() => setClearModalOpen(false)}
+            className="px-4 py-2 text-sm text-text-muted hover:text-text-primary transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleClearHistory}
+            className="px-4 py-2 text-sm bg-amber text-bg rounded-lg hover:bg-amber-light transition-colors"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   // ─── mobile ────────────────────────────────────────────────────────────────
 
   if (isMobile) {
     return (
-      <div className="flex flex-col h-full">
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
-          {messages.length === 0 ? (
-            <EmptyState onSelect={handleQuickSelect} isMobile />
-          ) : (
-            messageList
+      <>
+        <div className="flex flex-col h-full">
+          {/* Top bar with "Nova conversa" — only when there are messages */}
+          {!isHistoryLoading && messages.length > 0 && (
+            <div className="flex items-center justify-end px-4 py-2 shrink-0 border-b border-bg-border">
+              {newConversationButton}
+            </div>
           )}
-        </div>
 
-        {/* Quick chips (only when there are messages) — always auto-send on mobile */}
-        {messages.length > 0 && !isLoading && (
-          <div className="shrink-0 flex gap-2 overflow-x-auto px-4 py-2 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-            {QUICK_QUESTIONS.map((q) => (
-              <button
-                key={q}
-                onClick={() => handleSend(q)}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs bg-bg-surface border border-bg-border text-text-muted hover:text-text-primary hover:border-amber/40 transition-colors"
-              >
-                {q}
-              </button>
-            ))}
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto">
+            {isHistoryLoading ? (
+              historyLoadingSkeleton
+            ) : messages.length === 0 ? (
+              <EmptyState onSelect={handleQuickSelect} isMobile />
+            ) : (
+              messageList
+            )}
           </div>
-        )}
 
-        {/* Input */}
-        <div className="shrink-0">
-          <ChatInput
-            value={input}
-            onChange={setInput}
-            onSend={() => handleSend()}
-            isLoading={isLoading}
-          />
+          {/* Quick chips (only when there are messages) — always auto-send on mobile */}
+          {!isHistoryLoading && messages.length > 0 && !isLoading && (
+            <div className="shrink-0 flex gap-2 overflow-x-auto px-4 py-2 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+              {QUICK_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => handleSend(q)}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs bg-bg-surface border border-bg-border text-text-muted hover:text-text-primary hover:border-amber/40 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="shrink-0">
+            <ChatInput
+              value={input}
+              onChange={setInput}
+              onSend={() => handleSend()}
+              isLoading={isLoading}
+            />
+          </div>
         </div>
-      </div>
+
+        {confirmModal}
+      </>
     )
   }
 
   // ─── desktop ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full">
-      {/* Chat area */}
-      <div className="flex flex-col flex-1 min-w-0">
-        <div className="flex-1 overflow-y-auto">
-          {messages.length === 0 ? (
-            <EmptyState onSelect={handleQuickSelect} isMobile={false} />
-          ) : (
-            messageList
+    <>
+      <div className="flex h-full">
+        {/* Chat area */}
+        <div className="flex flex-col flex-1 min-w-0">
+          {/* Top bar with "Nova conversa" — only when there are messages */}
+          {!isHistoryLoading && messages.length > 0 && (
+            <div className="flex items-center justify-end px-4 py-2 shrink-0 border-b border-bg-border">
+              {newConversationButton}
+            </div>
           )}
+
+          <div className="flex-1 overflow-y-auto">
+            {isHistoryLoading ? (
+              historyLoadingSkeleton
+            ) : messages.length === 0 ? (
+              <EmptyState onSelect={handleQuickSelect} isMobile={false} />
+            ) : (
+              messageList
+            )}
+          </div>
+
+          <div className="shrink-0">
+            <ChatInput
+              value={input}
+              onChange={setInput}
+              onSend={() => handleSend()}
+              isLoading={isLoading}
+            />
+          </div>
         </div>
 
-        <div className="shrink-0">
-          <ChatInput
-            value={input}
-            onChange={setInput}
-            onSend={() => handleSend()}
-            isLoading={isLoading}
-          />
-        </div>
+        {/* Right panel */}
+        <aside className="w-64 shrink-0 border-l border-bg-border overflow-y-auto p-4">
+          <StatsPanel mes={mes} ano={ano} onQuickSelect={handleQuickSelect} />
+        </aside>
       </div>
 
-      {/* Right panel */}
-      <aside className="w-64 shrink-0 border-l border-bg-border overflow-y-auto p-4">
-        <StatsPanel mes={mes} ano={ano} onQuickSelect={handleQuickSelect} />
-      </aside>
-    </div>
+      {confirmModal}
+    </>
   )
 }

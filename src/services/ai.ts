@@ -7,16 +7,25 @@ interface AiChatResponse {
 export interface HistoricoItem {
   role: 'user' | 'assistant'
   text: string
+  created_at?: string
 }
 
 export const sendMessage = async (
   mensagem: string,
   mes: number,
   ano: number,
-  historico: HistoricoItem[] = [],
 ): Promise<string> => {
-  const { data } = await api.post<AiChatResponse>('/ai/chat', { mensagem, mes, ano, historico })
+  const { data } = await api.post<AiChatResponse>('/ai/chat', { mensagem, mes, ano })
   return data.resposta
+}
+
+export const getHistorico = async (): Promise<HistoricoItem[]> => {
+  const { data } = await api.get<HistoricoItem[]>('/ai/historico')
+  return data
+}
+
+export const clearHistorico = async (): Promise<void> => {
+  await api.delete('/ai/historico')
 }
 
 export const suggestCategory = async (
