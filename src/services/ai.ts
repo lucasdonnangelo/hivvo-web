@@ -8,14 +8,16 @@ export interface HistoricoItem {
   role: 'user' | 'assistant'
   text: string
   created_at?: string
+  sessao_id?: string
 }
 
 export const sendMessage = async (
   mensagem: string,
   mes: number,
   ano: number,
+  sessaoId: string,
 ): Promise<string> => {
-  const { data } = await api.post<AiChatResponse>('/ai/chat', { mensagem, mes, ano })
+  const { data } = await api.post<AiChatResponse>('/ai/chat', { mensagem, mes, ano, sessao_id: sessaoId })
   return data.resposta
 }
 
@@ -39,6 +41,7 @@ export const suggestCategory = async (
       `Dada a transação "${descricao}", responda APENAS com o nome exato de uma dessas categorias: ${categorias.join(', ')}. Nenhuma outra palavra.`,
       now.getMonth() + 1,
       now.getFullYear(),
+      crypto.randomUUID(),
     )
     const suggested = resposta.trim()
     return categorias.find((c) => c.toLowerCase() === suggested.toLowerCase()) ?? null

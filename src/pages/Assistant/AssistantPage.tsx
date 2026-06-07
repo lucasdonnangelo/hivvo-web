@@ -275,6 +275,7 @@ export default function AssistantPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isHistoryLoading, setIsHistoryLoading] = useState(true)
   const [clearModalOpen, setClearModalOpen] = useState(false)
+  const [sessaoId, setSessaoId] = useState(() => crypto.randomUUID())
 
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -284,13 +285,16 @@ export default function AssistantPage() {
     getHistorico()
       .then((items) => {
         if (cancelled) return
-        setMessages(
-          items.map((item) => ({
-            id: crypto.randomUUID(),
-            role: item.role,
-            text: item.text,
-          })),
-        )
+        if (items.length > 0) {
+          if (items[0].sessao_id) setSessaoId(items[0].sessao_id)
+          setMessages(
+            items.map((item) => ({
+              id: crypto.randomUUID(),
+              role: item.role,
+              text: item.text,
+            })),
+          )
+        }
       })
       .catch(() => { /* history load failure is non-fatal — start with empty state */ })
       .finally(() => { if (!cancelled) setIsHistoryLoading(false) })
@@ -312,7 +316,7 @@ export default function AssistantPage() {
     setIsLoading(true)
 
     try {
-      const resposta = await sendMessage(msg, mes, ano)
+      const resposta = await sendMessage(msg, mes, ano, sessaoId)
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: 'assistant', text: resposta },
@@ -332,6 +336,7 @@ export default function AssistantPage() {
   }
 
   const handleClearHistory = () => {
+    setSessaoId(crypto.randomUUID())
     setMessages([])
     setClearModalOpen(false)
   }
