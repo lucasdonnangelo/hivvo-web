@@ -71,6 +71,125 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ---
 
+## Próxima implementação — Assistente IA com Persistência e Memória
+
+### Visão geral do comportamento final
+- Primeira vez no chat → IA se apresenta como Assistente Hivvo
+- Menos de 24h desde a última mensagem → UI mostra histórico, IA tem contexto completo
+- Mais de 24h → UI limpa, IA tem contexto invisível das últimas 50 mensagens
+- Botão "Nova conversa" → limpa UI e banco, IA começa do zero
+
+### FASE 1 — Backend (hivvo-api)
+
+**1.1 — Nova tabela `chat_messages`**
+- id: UUID, primary key, default uuid4
+- usuario_id: FK para usuarios, not null
+- role: string ("user" ou "assistant"), not null
+- text: text, not null
+- created_at: datetime, default utcnow, not null
+- Índices: ix_chat_messages_usuario_id, ix_chat_messages_created_at
+
+**1.2 — Migration Alembic**
+Gerar e aplicar migration para criar a tabela chat_messages.
+
+**1.3 — Novos endpoints**
+
+GET /ai/historico
+- Autentica usuário via JWT
+- Busca mensagens das últimas 24h, ordenadas por created_at ASC
+- Retorna lista de {role, text, created_at}
+
+DELETE /ai/historico
+- Autentica usuário via JWT
+- Deleta todas as mensagens do usuário no banco
+
+**1.4 — Modificar POST /ai/chat**
+1. Receber mensagem do usuário
+2. Salvar mensagem do usuário no banco (role: "user")
+3. Buscar últimas 50 mensagens do usuário no banco (sem filtro de 24h)
+4. Verificar se é primeira vez — COUNT(*) == 1
+5. Montar _build_contents() com as 50 mensagens
+6. Montar _build_system_instruction() com flag primeira_vez
+7. Enviar ao Gemini
+8. Salvar resposta da IA no banco (role: "assistant")
+9. Retornar resposta ao frontend
+
+**1.5 — Modificar _build_system_instruction()**
+Adicionar parâmetro primeira_vez: bool
+
+Se primeira_vez=True:
+"É a primeira vez que este usuário usa o Assistente. Apresente-se como Assistente Hivvo, explique brevemente o que você pode fazer (análise de gastos, parcelas, comparações, planejamento) e convide o usuário a fazer sua primeira pergunta. Seja caloroso mas conciso."
+
+Se primeira_vez=False:
+"Este usuário já usou o Assistente anteriormente. Não se apresente. Cumprimente brevemente apenas se o usuário cumprimentar. Vá direto ao ponto."
+
+### FASE 2 — Frontend (hivvo-web)
+
+**2.1 — Modificar serviço ai.ts**
+- Adicionar getHistorico() → GET /ai/historico
+- Adicionar clearHistorico() → DELETE /ai/historico
+- Modificar sendMessage() → remover parâmetro historico do payload
+
+**2.2 — Modificar AssistantPage.tsx**
+
+Ao montar o componente:
+1. Chamar getHistorico()
+2. Se retornar mensagens → popular estado messages com histórico
+3. Se retornar vazio → UI limpa
+
+Ao enviar mensagem:
+1. Adicionar mensagem ao estado local imediatamente
+2. Chamar sendMessage() sem passar histórico
+3. Adicionar resposta ao estado local
+
+Botão "Nova conversa":
+1. Modal de confirmação: "Deseja iniciar uma nova conversa? O histórico será apagado."
+2. Confirmar → clearHistorico() + reset do estado messages para []
+
+**2.3 — Botão "Nova conversa"**
+- Posição: canto superior direito da área de chat
+- Estilo: discreto, ícone de lápis ou texto pequeno
+
+### FASE 3 — Testes (7 cenários obrigatórios)
+1. Primeiro acesso — enviar "Oi" → IA se apresenta
+2. Segundo acesso — enviar "Boa tarde" → IA cumprimenta sem apresentação
+3. Navegar para outra tela e voltar em menos de 24h → histórico visível
+4. Simular 24h (alterar created_at no banco) → UI limpa, IA com contexto
+5. Perguntar algo referenciando conversa anterior com UI limpa → IA responde com contexto
+6. Clicar "Nova conversa" e confirmar → UI limpa, IA sem contexto anterior
+7. Primeiro acesso após "Nova conversa" → IA se apresenta novamente
+
+### Ordem de execução
+1. hivvo-api — Fase 1 completa
+2. Validar endpoints manualmente
+3. hivvo-web — Fase 2 completa
+4. Fase 3 — testes dos 7 cenários
+
+---
+
+## Revisão da arquitetura — Sessões de chat
+
+A implementação original usava filtro de 24h direto na query. A arquitetura foi revisada para usar o conceito de sessão:
+
+### Mudança no banco
+- Adicionar coluna `sessao_id` (UUID) na tabela `chat_messages`
+- Gerar nova migration Alembic
+
+### Comportamento de sessão
+- Cada "Nova conversa" gera um novo `sessao_id` no frontend e o envia nas próximas mensagens
+- `GET /ai/historico` retorna apenas mensagens da sessão mais recente do usuário
+- Se a última mensagem da sessão mais recente tiver mais de 24h → retorna vazio (UI limpa, nova sessão)
+- Se tiver menos de 24h → retorna mensagens da sessão (UI mostra conversa)
+- `POST /ai/chat` recebe `sessao_id` e salva em cada mensagem
+- IA sempre recebe as últimas 50 mensagens do banco (todas as sessões) como contexto invisível
+
+### Comportamento na prática
+- Volta em menos de 24h → UI mostra sessão mais recente
+- Volta após mais de 24h → UI limpa, nova sessão automática
+- Clica "Nova conversa" → UI limpa, novo `sessao_id` gerado
+
+---
+
 ## Melhorias de UI/UX — Sessão de 01/06/2026 ✅
 
 | # | Melhoria | Commit | Arquivos |
