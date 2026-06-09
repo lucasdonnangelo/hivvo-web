@@ -7,11 +7,11 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ## Estado do Projeto
 
-**Fase atual:** Deploy  
-**Status:** Sessão de polimento pós-UI concluída — 5 bugs corrigidos (formulários, navegação, UX). App funcional e pronto para produção.  
-**Próximo passo imediato:** Deploy do backend no Railway ou Render  
-**Próxima fase:** Registro do domínio hivvo.app + landing page  
-**Última tarefa concluída:** Bug — Botão Exportar fatura desabilitado em fatura vazia (commit `6f6ed86`)
+**Fase atual:** Deploy + UX Fase 3  
+**Status:** Assistente IA com Persistência e Memória implementado (backend + frontend + sessao_id). Botão "Resetar Assistente" em /settings adicionado. Dois itens pendentes de validação aguardam estabilização do Gemini.  
+**Próximo passo imediato:** Validar itens pendentes do Assistente (histórico completo + fluxo 5+ mensagens) quando o Gemini estabilizar; em paralelo iniciar melhorias de UX da Fase 3  
+**Próxima fase:** Melhorias de UX Fase 3 + Deploy  
+**Última tarefa concluída:** feat: adicionar botão Resetar Assistente em /settings (commit `7a5ce86`)
 
 ---
 
@@ -53,7 +53,18 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ## Próximos Passos
 
-### Deploy (etapa atual)
+### Validação pendente (assim que o Gemini estabilizar)
+- Histórico completo ao reabrir (mensagens user + assistant visíveis na UI)
+- Fluxo de 5+ mensagens consecutivas sem erro 503
+
+### UX Fase 3 (próxima implementação)
+- Unificar formulários de criação e edição de transação
+- Widget de parcelas ativas no Dashboard
+- Destacar toggle "Parcelar compra" no formulário de transação
+- Reorganizar seções de Configurações
+- Value proposition no login (texto de apoio abaixo do formulário)
+
+### Deploy (em aberto)
 - **Backend:** publicar `hivvo-api` no Railway ou Render (free tier)
   - Configurar variáveis de ambiente (.env) no painel do serviço
   - Apontar `DATABASE_URL` para o Supabase de produção
@@ -71,7 +82,7 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 
 ---
 
-## Próxima implementação — Assistente IA com Persistência e Memória
+## Assistente IA com Persistência e Memória ✅
 
 ### Visão geral do comportamento final
 - Primeira vez no chat → IA se apresenta como Assistente Hivvo
@@ -79,7 +90,7 @@ Leia os arquivos `docs/Hivvo_Referencia.md` e `docs/SESSAO_ATUAL.md` para entend
 - Mais de 24h → UI limpa, IA tem contexto invisível das últimas 50 mensagens
 - Botão "Nova conversa" → limpa UI e banco, IA começa do zero
 
-### FASE 1 — Backend (hivvo-api)
+### FASE 1 — Backend (hivvo-api) ✅
 
 **1.1 — Nova tabela `chat_messages`**
 - id: UUID, primary key, default uuid4
@@ -123,7 +134,7 @@ Se primeira_vez=True:
 Se primeira_vez=False:
 "Este usuário já usou o Assistente anteriormente. Não se apresente. Cumprimente brevemente apenas se o usuário cumprimentar. Vá direto ao ponto."
 
-### FASE 2 — Frontend (hivvo-web)
+### FASE 2 — Frontend (hivvo-web) ✅
 
 **2.1 — Modificar serviço ai.ts**
 - Adicionar getHistorico() → GET /ai/historico
@@ -150,14 +161,18 @@ Botão "Nova conversa":
 - Posição: canto superior direito da área de chat
 - Estilo: discreto, ícone de lápis ou texto pequeno
 
-### FASE 3 — Testes (7 cenários obrigatórios)
-1. Primeiro acesso — enviar "Oi" → IA se apresenta
-2. Segundo acesso — enviar "Boa tarde" → IA cumprimenta sem apresentação
-3. Navegar para outra tela e voltar em menos de 24h → histórico visível
-4. Simular 24h (alterar created_at no banco) → UI limpa, IA com contexto
-5. Perguntar algo referenciando conversa anterior com UI limpa → IA responde com contexto
-6. Clicar "Nova conversa" e confirmar → UI limpa, IA sem contexto anterior
-7. Primeiro acesso após "Nova conversa" → IA se apresenta novamente
+### FASE 3 — Testes (7 cenários obrigatórios) ✅ parcial
+1. ✅ Primeiro acesso — enviar "Oi" → IA se apresenta
+2. ✅ Segundo acesso — enviar "Boa tarde" → IA cumprimenta sem apresentação
+3. ⏳ Navegar para outra tela e voltar em menos de 24h → histórico visível *(pendente — ver abaixo)*
+4. ✅ Simular 24h (alterar created_at no banco) → UI limpa, IA com contexto
+5. ✅ Perguntar algo referenciando conversa anterior com UI limpa → IA responde com contexto
+6. ✅ Clicar "Nova conversa" e confirmar → UI limpa, IA sem contexto anterior
+7. ✅ Primeiro acesso após "Nova conversa" → IA se apresenta novamente
+
+### Pendente de validação (aguardando Gemini estabilizar)
+- Histórico completo ao reabrir (mensagens user + assistant visíveis na UI)
+- Fluxo de 5+ mensagens consecutivas sem erro 503
 
 ### Ordem de execução
 1. hivvo-api — Fase 1 completa
@@ -455,6 +470,6 @@ hivvo-web/
 
 ---
 
-*Última atualização: 03 de Junho de 2026 — Sessão de polimento: 5 bugs corrigidos (formulários, navegação, UX). Próximo: Deploy (Railway/Render + Vercel + domínio hivvo.app).*  
+*Última atualização: 09 de Junho de 2026 — Assistente IA com Persistência e Memória concluído (backend + frontend + sessao_id). Botão "Resetar Assistente" em /settings. Dois itens pendentes de validação aguardam estabilização do Gemini. Próximo: validação pendente + UX Fase 3.*  
 *Projeto: Hivvo — gestão financeira pessoal com IA*  
 *Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
