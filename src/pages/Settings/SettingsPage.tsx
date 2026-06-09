@@ -12,6 +12,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
 import { updateMe, changePassword, logout } from '../../services/auth'
 import { getAllTransactions } from '../../services/transactions'
+import { clearHistorico } from '../../services/ai'
 
 const pwSchema = z
   .object({
@@ -153,6 +154,23 @@ export default function SettingsPage() {
     } catch {}
     clearAuth()
     navigate('/login', { replace: true })
+  }
+
+  // ── Resetar Assistente ────────────────────────────────────────────────────
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+
+  async function handleResetAssistant() {
+    setIsResetting(true)
+    try {
+      await clearHistorico()
+      setResetModalOpen(false)
+      addToast({ message: 'Assistente resetado com sucesso', type: 'success' })
+    } catch {
+      addToast({ message: 'Erro ao resetar o Assistente. Tente novamente.', type: 'error' })
+    } finally {
+      setIsResetting(false)
+    }
   }
 
   // ── Backup ────────────────────────────────────────────────────────────────
@@ -428,6 +446,18 @@ export default function SettingsPage() {
         </SettingsRow>
       </Section>
 
+      {/* ── Assistente IA ── */}
+      <Section title="Assistente IA">
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
+            Apaga todo o histórico de conversas com o Assistente. Na próxima conversa, a IA não terá memória das interações anteriores e se apresentará como se fosse o primeiro acesso.
+          </p>
+          <Button variant="danger" onClick={() => setResetModalOpen(true)}>
+            Resetar Assistente
+          </Button>
+        </SettingsRow>
+      </Section>
+
       {/* ── Legal ── */}
       <Section title="Legal">
         <SettingsRow>
@@ -513,6 +543,27 @@ export default function SettingsPage() {
     </Modal>
   )
 
+  const resetModal = resetModalOpen && (
+    <Modal
+      title="Resetar Assistente?"
+      onClose={() => setResetModalOpen(false)}
+      footer={
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setResetModalOpen(false)}>
+            Cancelar
+          </Button>
+          <Button variant="danger" isLoading={isResetting} onClick={handleResetAssistant}>
+            Resetar
+          </Button>
+        </div>
+      }
+    >
+      <p className="text-sm text-text-muted leading-relaxed">
+        Esta ação apagará todo o histórico de conversas com a IA. Ela não terá mais memória das suas interações anteriores. Esta ação é irreversível.
+      </p>
+    </Modal>
+  )
+
   const logoutModal = logoutModalOpen && (
     <Modal
       title="Sair da conta"
@@ -539,6 +590,7 @@ export default function SettingsPage() {
       <>
         {addModal}
         {logoutModal}
+        {resetModal}
         <div className="flex flex-col h-full">
           <header className="shrink-0 flex items-center gap-3 px-4 h-14 border-b border-bg-border bg-bg-surface">
             <button
@@ -560,6 +612,7 @@ export default function SettingsPage() {
     <>
       {addModal}
       {logoutModal}
+      {resetModal}
       <div className="p-6 max-w-xl mx-auto">
         <h1 className="text-[22px] font-medium tracking-tight text-text-primary mb-6">
           Configurações
