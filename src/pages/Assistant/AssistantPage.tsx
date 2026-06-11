@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useMonthlyStats } from '../../hooks/useStatistics'
-import { clearHistorico, getHistorico, sendMessage } from '../../services/ai'
+import { getHistorico, sendMessage } from '../../services/ai'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -275,7 +275,7 @@ export default function AssistantPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isHistoryLoading, setIsHistoryLoading] = useState(true)
   const [clearModalOpen, setClearModalOpen] = useState(false)
-  const [sessaoId, setSessaoId] = useState(() => crypto.randomUUID())
+  const [sessaoId, setSessaoId] = useState<string>(() => crypto.randomUUID())
 
   const bottomRef = useRef<HTMLDivElement>(null)
 

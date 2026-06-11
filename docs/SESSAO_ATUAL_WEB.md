@@ -11,8 +11,8 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 
 **Fase atual:** Hardening pré-deploy (frontend)
 **Status:** Frontend feature-complete e funcional. Em 11/06/2026 passou por duas auditorias — código (`AUDITORIA_FRONTEND.md`, 29 achados) e renderizado (log do Claude Chrome). O trabalho ativo é executar o `PLANO_EXECUCAO_WEB.md` antes do deploy.
-**⚠️ Bloqueador imediato:** o **build de produção está quebrado** (`npm run build` falha com 2 erros de TypeScript em `AssistantPage.tsx` — FE-01). O deploy na Vercel falharia hoje. É o primeiro item do plano e é trivial.
-**Próximo passo imediato:** Web-Batch 1 do plano (corrigir build + higiene crítica).
+**✅ Web-Batch 1 concluído (11/06/2026):** build verde (FE-01), hook pre-push com `npm run build` (husky), erro explícito sem `VITE_API_URL` em produção (FE-06), react-router-dom 6.30.4 (FE-03, `npm audit` zerado), botões "Exportar" ocultados (FE-20).
+**Próximo passo imediato:** Web-Batch 2 do `PLANO_EXECUCAO_WEB.md`.
 
 ---
 
@@ -33,9 +33,23 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 
 ---
 
+## Web-Batch 1 — Concluído ✅ (11/06/2026)
+
+| Item | O que foi feito |
+|---|---|
+| FE-01 | `AssistantPage.tsx`: removido import morto `clearHistorico`; `useState<string>(() => crypto.randomUUID())` no `sessaoId`. `npm run build` verde. |
+| FE-01 (guarda) | Husky instalado (`prepare: husky` no package.json); `.husky/pre-push` roda `npm run build` antes de todo push. O `pre-commit` padrão do `husky init` (`npm test`) foi removido — não há script de teste. |
+| FE-06 | `api.ts`: em `import.meta.env.PROD`, `throw` explícito se `VITE_API_URL` ausente (dev mantém fallback localhost). **Efeito colateral conhecido:** build local sem a variável gera bundle reduzido (~282 kB vs ~1.014 kB) porque o bundler elimina código após o throw incondicional — o dist resultante lança erro no load, que é o comportamento desejado. Na Vercel, configurar `VITE_API_URL` torna o bundle normal. |
+| FE-03 | `react-router-dom` 6.30.3 → **6.30.4** (fix do open redirect GHSA-2j2x-hqr9-3h42). `npm audit`: 0 vulnerabilidades. Build verde após update. |
+| FE-20 | Botões "Exportar" sem implementação **ocultados**: `SummaryPage` (const `exportBtn` + 2 usos removidos) e cadeia `CardsPage → InvoicePanel → InvoiceDetail` (`handleExport`, prop `onExport` e botão "Exportar fatura" removidos). **Export PDF de fatura / relatório = feature pós-launch** (re-introduzir os botões junto com a implementação). Obs.: `Hivvo_Referencia.md` §3 ainda lista "exportar fatura em PDF"/"exportar relatório" como implementados — corrigir na próxima sincronização da doc canônica. |
+
+Não tocados (outros batches): FE-08, FE-02 (vercel.json/headers), FE-09 (strict TS) e demais.
+
+---
+
 ## Testes — Estado Real
 
-⚠️ **Não há suíte de testes automatizada no frontend.** Os "Blocos 1–5" foram **testes manuais E2E**. O único gate automatizado é `npm run build` (`tsc -b && vite build`) — e ele está **quebrado** hoje (FE-01). Validação assistida pelo Claude Chrome (testador) complementa os testes manuais.
+⚠️ **Não há suíte de testes automatizada no frontend.** Os "Blocos 1–5" foram **testes manuais E2E**. O único gate automatizado é `npm run build` (`tsc -b && vite build`) — verde desde o Web-Batch 1 e agora aplicado automaticamente via hook pre-push (husky). Validação assistida pelo Claude Chrome (testador) complementa os testes manuais.
 
 | Bloco (manual E2E) | Escopo | Status |
 |---|---|---|
@@ -43,7 +57,7 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 | Bloco 2 | Dashboard e Transações | ✅ |
 | Bloco 3 | Cartões, Faturas e Parcelas | ✅ |
 | Bloco 4 | Assistente IA, CSV, Backup, Configurações | ✅ |
-| Bloco 5 | Build/PWA/qualidade | ✅ (mas o build regrediu — FE-01) |
+| Bloco 5 | Build/PWA/qualidade | ✅ (regressão FE-01 corrigida no Web-Batch 1; pre-push agora impede nova regressão) |
 
 **Pendências de validação runtime** (Chrome não cobriu, ou condições não ocorreram): guarda de rota deslogado + refresh em 401, token de reset na URL (FE-04), layout mobile real (device toolbar), 503 do Gemini / resposta longa quebrando chat, variação com saldo anterior negativo.
 
@@ -51,7 +65,7 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 
 ## Próximos Passos
 
-1. **Hardening pré-deploy (workstream ativo):** executar `PLANO_EXECUCAO_WEB.md` na ordem, começando pelo build (FE-01).
+1. **Hardening pré-deploy (workstream ativo):** executar `PLANO_EXECUCAO_WEB.md` na ordem — Web-Batch 1 ✅; seguir para o Web-Batch 2.
 2. **Deploy (gated):** Vercel — `VITE_API_URL` apontando para o backend (com `/api/v1` quando o backend migrar), headers via `vercel.json`, PWA instalável. **Coordenar a topologia com o backend** (`app.hivvo.app` / `api.hivvo.app`, cookie `Domain=.hivvo.app`).
 3. **UX Fase 3 (pode interlevar pós-deploy):** unificar formulários de transação, destacar toggle "Parcelar compra", reorganizar Configurações, value proposition no login.
 4. **Lançamento:** landing page, Product Hunt/LinkedIn, Posthog, limites do plano gratuito.
@@ -116,5 +130,5 @@ Todas as telas concluídas: Login/Cadastro → Dashboard → Transações → Ad
 
 ---
 
-*Última atualização: 11 de junho de 2026 — Fase migrada para Hardening pré-deploy (frontend) após auditorias de código e do Chrome. Build quebrado (FE-01) é o bloqueador imediato. Plano em `docs/PLANO_EXECUCAO_WEB.md`. FE-08 identificado como causa do mistério do histórico do Assistente.*
+*Última atualização: 11 de junho de 2026 — Web-Batch 1 concluído (build verde + pre-push, FE-06, FE-03, FE-20). Próximo: Web-Batch 2 do `PLANO_EXECUCAO_WEB.md`. FE-08 identificado como causa do mistério do histórico do Assistente (cross-repo, pendente).*
 *Projeto: Hivvo — gestão financeira pessoal com IA · Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
