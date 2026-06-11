@@ -13,7 +13,6 @@ interface InvoiceDetailProps {
   invoiceMeta?: InvoiceListItem
   mes: number
   ano: number
-  onExport: () => void
 }
 
 const MONTHS = [
@@ -38,7 +37,7 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
   )
 }
 
-export default function InvoiceDetail({ detail, mes, ano, onExport }: InvoiceDetailProps) {
+export default function InvoiceDetail({ detail, mes, ano }: InvoiceDetailProps) {
   const isEmpty = detail.parcelas.length === 0 && detail.avulsas.length === 0
 
   return (
@@ -129,21 +128,6 @@ export default function InvoiceDetail({ detail, mes, ano, onExport }: InvoiceDet
         </>
       )}
 
-      {/* Export */}
-      <div className="pt-2 border-t border-bg-border">
-        <button
-          onClick={onExport}
-          disabled={isEmpty}
-          className={`flex items-center gap-2 text-xs transition-colors ${
-            isEmpty
-              ? 'text-text-muted opacity-40 cursor-not-allowed'
-              : 'text-text-muted hover:text-amber'
-          }`}
-        >
-          <span>↓</span>
-          Exportar fatura
-        </button>
-      </div>
     </div>
   )
 }

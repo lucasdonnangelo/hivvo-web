@@ -2,6 +2,12 @@ import axios from 'axios'
 import type { AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  throw new Error(
+    'VITE_API_URL não configurada — obrigatória em build de produção (configure no painel da Vercel)'
+  )
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
   withCredentials: true,

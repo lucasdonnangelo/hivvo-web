@@ -414,15 +414,6 @@ export default function SummaryPage() {
     </div>
   )
 
-  const exportBtn = (
-    <button
-      onClick={() => {/* placeholder */}}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-text-muted border border-bg-border hover:text-text-primary hover:border-amber transition-colors"
-    >
-      ↑ Exportar
-    </button>
-  )
-
   const metricCards = metrics ? (
     <>
       <MetricCard
@@ -479,7 +470,6 @@ export default function SummaryPage() {
             ←
           </button>
           <h1 className="text-base font-medium text-text-primary flex-1">Resumo Detalhado</h1>
-          {exportBtn}
         </div>
 
         <div className="flex flex-col gap-4 p-4">
@@ -546,7 +536,6 @@ export default function SummaryPage() {
         <h1 className="text-base font-medium text-text-primary">Resumo Detalhado</h1>
         <div className="w-56">{periodToggle}</div>
         {periodNav}
-        <div className="ml-auto">{exportBtn}</div>
       </div>
 
       <div className="flex flex-col gap-5 p-6">

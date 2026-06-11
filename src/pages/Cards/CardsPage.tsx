@@ -68,10 +68,9 @@ interface InvoicePanelProps {
   mes: number
   ano: number
   onMonthSelect: (ano: number, mes: number) => void
-  onExport: () => void
 }
 
-function InvoicePanel({ cardId, mes, ano, onMonthSelect, onExport }: InvoicePanelProps) {
+function InvoicePanel({ cardId, mes, ano, onMonthSelect }: InvoicePanelProps) {
   const { data: invoices = [], isLoading: loadingList } = useInvoices(cardId)
   const { data: detail, isLoading: loadingDetail } = useInvoiceDetail(cardId, ano, mes)
 
@@ -109,7 +108,6 @@ function InvoicePanel({ cardId, mes, ano, onMonthSelect, onExport }: InvoicePane
             detail={detail}
             mes={mes}
             ano={ano}
-            onExport={onExport}
           />
         </>
       )}
@@ -197,10 +195,6 @@ export default function CardsPage() {
       },
       onError: () => addToast({ message: 'Erro ao desativar cartão. Tente novamente.', type: 'error' }),
     })
-  }
-
-  const handleExport = () => {
-    console.log('TODO: exportar fatura', effectiveCardId, invoiceAno, invoiceMes)
   }
 
   // ─── loading ───────────────────────────────────────────────────────────────
@@ -348,7 +342,6 @@ export default function CardsPage() {
               mes={invoiceMes}
               ano={invoiceAno}
               onMonthSelect={handleMonthSelect}
-              onExport={handleExport}
             />
           )}
         </div>
@@ -424,7 +417,6 @@ export default function CardsPage() {
             mes={invoiceMes}
             ano={invoiceAno}
             onMonthSelect={handleMonthSelect}
-            onExport={handleExport}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
