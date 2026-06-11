@@ -1,8 +1,8 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { useState } from 'react'
+import { Link, Navigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { resetPassword } from '../../services/auth'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -21,9 +21,17 @@ type FormData = z.infer<typeof schema>
 type Status = 'idle' | 'success' | 'error'
 
 export default function ResetPasswordPage() {
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token')
+  // FE-04: token capturado uma única vez e removido da URL (histórico/referrer)
+  const [token] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('token')
+  )
   const [status, setStatus] = useState<Status>('idle')
+
+  useEffect(() => {
+    if (window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   const {
     register,

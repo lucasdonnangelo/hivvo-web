@@ -12,7 +12,8 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 **Fase atual:** Hardening pré-deploy (frontend)
 **Status:** Frontend feature-complete e funcional. Em 11/06/2026 passou por duas auditorias — código (`AUDITORIA_FRONTEND.md`, 29 achados) e renderizado (log do Claude Chrome). O trabalho ativo é executar o `PLANO_EXECUCAO_WEB.md` antes do deploy.
 **✅ Web-Batch 1 concluído (11/06/2026):** build verde (FE-01), hook pre-push com `npm run build` (husky), erro explícito sem `VITE_API_URL` em produção (FE-06), react-router-dom 6.30.4 (FE-03, `npm audit` zerado), botões "Exportar" ocultados (FE-20).
-**Próximo passo imediato:** Web-Batch 2 do `PLANO_EXECUCAO_WEB.md`.
+**✅ Web-Batch 2 concluído (11/06/2026):** Inter self-hosted via @fontsource (FE-02a), `vercel.json` com headers de segurança (FE-02b), registro do SW confirmado como arquivo externo (FE-02c, sem mudança), token de reset fora da URL (FE-04).
+**Próximo passo imediato:** Web-Batch 3 do `PLANO_EXECUCAO_WEB.md`.
 
 ---
 
@@ -47,6 +48,19 @@ Não tocados (outros batches): FE-08, FE-02 (vercel.json/headers), FE-09 (strict
 
 ---
 
+## Web-Batch 2 — Concluído ✅ (11/06/2026)
+
+| Item | O que foi feito |
+|---|---|
+| FE-02a | Inter self-hosted: `@fontsource/inter` (pesos 400 e 500, woff2 por subset com `unicode-range`, `font-display: swap`), imports em `main.tsx`; removidos os `preconnect` e o `<link>` do Google Fonts do `index.html`. Zero referências a `fonts.googleapis`/`gstatic` no dist. **Nota:** há 16 usos de `font-semibold` (600) no código — o browser sintetiza o 600 a partir do 500 (faux bold). Se o 600 real for desejado, adicionar `import '@fontsource/inter/600.css'`. |
+| FE-02b | `vercel.json` criado: CSP restritiva (`default-src 'self'`, `script-src 'self'`, `style-src 'self' 'unsafe-inline'`, `connect-src 'self' https://api.hivvo.app`, `frame-ancestors 'none'` etc.), `Referrer-Policy: no-referrer`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, HSTS, `Permissions-Policy` mínima; `/sw.js` com `Cache-Control: public, max-age=0, must-revalidate` (anti SW zumbi). **Atenção:** `connect-src` fixa `https://api.hivvo.app` — se a topologia/domínio da API mudar (decisão pendente no gate de deploy), atualizar o `vercel.json` junto com `VITE_API_URL`. |
+| FE-02c | Verificado: vite-plugin-pwa injeta `<script src="/registerSW.js">` (arquivo externo, compatível com `script-src 'self'`) — **nenhuma mudança necessária**; `autoUpdate` mantido. |
+| FE-04 | `ResetPasswordPage`: token capturado uma única vez (initializer do `useState`) e removido da URL no mount (`history.replaceState`); submit usa só o estado; `useSearchParams` removido. Combina com `Referrer-Policy: no-referrer`. Contraparte backend (F-25) fora deste batch. |
+
+**Verificação:** build verde; dist servido com `vite preview` e smoke-test HTTP 200 em `/`, `/sw.js`, `/registerSW.js`, manifest, CSS e fontes; varredura estática: zero scripts inline no HTML, zero URLs externas no CSS. **Pendente de validação manual em browser:** zero violações de CSP no console (os headers só são aplicados na Vercel — `vite preview` não lê `vercel.json`), Recharts renderizando, fluxo de reset com URL limpa.
+
+---
+
 ## Testes — Estado Real
 
 ⚠️ **Não há suíte de testes automatizada no frontend.** Os "Blocos 1–5" foram **testes manuais E2E**. O único gate automatizado é `npm run build` (`tsc -b && vite build`) — verde desde o Web-Batch 1 e agora aplicado automaticamente via hook pre-push (husky). Validação assistida pelo Claude Chrome (testador) complementa os testes manuais.
@@ -65,7 +79,7 @@ Não tocados (outros batches): FE-08, FE-02 (vercel.json/headers), FE-09 (strict
 
 ## Próximos Passos
 
-1. **Hardening pré-deploy (workstream ativo):** executar `PLANO_EXECUCAO_WEB.md` na ordem — Web-Batch 1 ✅; seguir para o Web-Batch 2.
+1. **Hardening pré-deploy (workstream ativo):** executar `PLANO_EXECUCAO_WEB.md` na ordem — Web-Batches 1 e 2 ✅; seguir para o Web-Batch 3.
 2. **Deploy (gated):** Vercel — `VITE_API_URL` apontando para o backend (com `/api/v1` quando o backend migrar), headers via `vercel.json`, PWA instalável. **Coordenar a topologia com o backend** (`app.hivvo.app` / `api.hivvo.app`, cookie `Domain=.hivvo.app`).
 3. **UX Fase 3 (pode interlevar pós-deploy):** unificar formulários de transação, destacar toggle "Parcelar compra", reorganizar Configurações, value proposition no login.
 4. **Lançamento:** landing page, Product Hunt/LinkedIn, Posthog, limites do plano gratuito.
@@ -130,5 +144,5 @@ Todas as telas concluídas: Login/Cadastro → Dashboard → Transações → Ad
 
 ---
 
-*Última atualização: 11 de junho de 2026 — Web-Batch 1 concluído (build verde + pre-push, FE-06, FE-03, FE-20). Próximo: Web-Batch 2 do `PLANO_EXECUCAO_WEB.md`. FE-08 identificado como causa do mistério do histórico do Assistente (cross-repo, pendente).*
+*Última atualização: 11 de junho de 2026 — Web-Batches 1 e 2 concluídos (build verde + pre-push, FE-06, FE-03, FE-20; fonte self-hosted, vercel.json com headers, FE-04). Próximo: Web-Batch 3 do `PLANO_EXECUCAO_WEB.md`. FE-08 identificado como causa do mistério do histórico do Assistente (cross-repo, pendente).*
 *Projeto: Hivvo — gestão financeira pessoal com IA · Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
