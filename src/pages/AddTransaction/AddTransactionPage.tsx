@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
@@ -50,17 +50,6 @@ const schema = z
   })
 
 type FormData = z.infer<typeof schema>
-
-// ─── useDebounce ──────────────────────────────────────────────────────────────
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState<T>(value)
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
-}
 
 // ─── CategoryGrid ─────────────────────────────────────────────────────────────
 
@@ -240,6 +229,7 @@ export default function AddTransactionPage() {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     reset,
     formState: { errors, isValid },
   } = useForm<z.infer<typeof schema>>({
@@ -259,7 +249,7 @@ export default function AddTransactionPage() {
   })
 
   const watched = watch()
-  const { forma_pagamento, parcelado, tipo, descricao } = watched
+  const { forma_pagamento, parcelado, tipo } = watched
   const valorNum = Number(watched.valor) || 0
   const numParcelas = watched.total_parcelas ? Number(watched.total_parcelas) : undefined
 
@@ -277,18 +267,26 @@ export default function AddTransactionPage() {
     !createTx.isPending &&
     (!isCredito || !hasCards || watched.cartao_id != null)
 
-  // AI suggestion via debounced description
-  const debouncedDescricao = useDebounce(descricao, 500)
-  useEffect(() => {
-    if (!debouncedDescricao || debouncedDescricao.length < 3 || !categories.length) {
-      setSuggestedCategory(null)
-      return
-    }
-    suggestCategory(
-      debouncedDescricao,
-      categories.map((c) => c.nome),
-    ).then(setSuggestedCategory)
-  }, [debouncedDescricao]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Sugestão de categoria por IA: dispara apenas no BLUR da descrição (FE-08 —
+  // o endpoint dedicado é stateless, mas a chamada continua custando Gemini).
+  // suggestSeq descarta respostas obsoletas (FE-19): só a do último disparo vale.
+  const suggestSeq = useRef(0)
+  const handleSuggestCategory = () => {
+    const desc = getValues('descricao').trim()
+    if (!desc) return
+    const seq = ++suggestSeq.current
+    const valorAtual = Number(getValues('valor')) || undefined
+    suggestCategory(desc, getValues('tipo'), valorAtual).then((cat) => {
+      if (seq !== suggestSeq.current || !cat) return
+      setSuggestedCategory(cat)
+      // Preenche apenas se o usuário ainda não escolheu — escolha manual
+      // (antes ou durante a chamada) nunca é sobrescrita
+      if (!getValues('categoria')) {
+        setValue('categoria', cat, { shouldValidate: true })
+      }
+    })
+  }
+  const descricaoField = register('descricao')
 
   // Reset cartao + parcelamento when switching away from Crédito
   useEffect(() => {
@@ -343,6 +341,7 @@ export default function AddTransactionPage() {
         parcelado: false,
         total_parcelas: undefined,
       })
+      suggestSeq.current++ // descarta sugestão em voo do form anterior
       setSuggestedCategory(null)
     } catch {
       addToast({ message: 'Erro ao salvar transação. Verifique os dados e tente novamente.', type: 'error' })
@@ -400,7 +399,11 @@ export default function AddTransactionPage() {
         label="Descrição"
         placeholder="Ex: Mercado, Salário..."
         error={errors.descricao?.message}
-        {...register('descricao')}
+        {...descricaoField}
+        onBlur={(e) => {
+          void descricaoField.onBlur(e)
+          handleSuggestCategory()
+        }}
       />
 
       {/* Categoria */}

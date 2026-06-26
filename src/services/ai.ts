@@ -30,21 +30,27 @@ export const clearHistorico = async (): Promise<void> => {
   await api.delete('/ai/historico')
 }
 
+interface SuggestCategoryResponse {
+  categoria: string
+}
+
+// Endpoint dedicado e stateless (FE-08): não passa por /ai/chat, não persiste
+// em chat_messages nem entra na memória do Assistente. O backend monta o
+// prompt com as categorias do usuário (filtradas por tipo) e garante que a
+// resposta é sempre uma categoria conhecida.
 export const suggestCategory = async (
   descricao: string,
-  categorias: string[],
+  tipo: 'receita' | 'despesa',
+  valor?: number,
 ): Promise<string | null> => {
-  if (!descricao || !categorias.length) return null
-  const now = new Date()
+  if (!descricao.trim()) return null
   try {
-    const resposta = await sendMessage(
-      `Dada a transação "${descricao}", responda APENAS com o nome exato de uma dessas categorias: ${categorias.join(', ')}. Nenhuma outra palavra.`,
-      now.getMonth() + 1,
-      now.getFullYear(),
-      crypto.randomUUID(),
-    )
-    const suggested = resposta.trim()
-    return categorias.find((c) => c.toLowerCase() === suggested.toLowerCase()) ?? null
+    const { data } = await api.post<SuggestCategoryResponse>('/ai/suggest-category', {
+      descricao,
+      tipo,
+      ...(valor != null && valor > 0 ? { valor: valor.toFixed(2) } : {}),
+    })
+    return data.categoria
   } catch {
     return null
   }

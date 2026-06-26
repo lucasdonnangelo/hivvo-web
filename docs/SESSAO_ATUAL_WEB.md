@@ -13,6 +13,7 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 **Status:** Frontend feature-complete e funcional. Em 11/06/2026 passou por duas auditorias — código (`AUDITORIA_FRONTEND.md`, 29 achados) e renderizado (log do Claude Chrome). O trabalho ativo é executar o `PLANO_EXECUCAO_WEB.md` antes do deploy.
 **✅ Web-Batch 1 concluído (11/06/2026):** build verde (FE-01), hook pre-push com `npm run build` (husky), erro explícito sem `VITE_API_URL` em produção (FE-06), react-router-dom 6.30.4 (FE-03, `npm audit` zerado), botões "Exportar" ocultados (FE-20).
 **✅ Web-Batch 2 concluído (11/06/2026):** Inter self-hosted via @fontsource (FE-02a), `vercel.json` com headers de segurança (FE-02b), registro do SW confirmado como arquivo externo (FE-02c, sem mudança), token de reset fora da URL (FE-04).
+**✅ Web-Batch 4 concluído (25/06/2026):** sugestão de categoria via endpoint dedicado `POST /ai/suggest-category` (resolve FE-08 no cliente) — removido o caminho antigo que reusava `/ai/chat`/`sendMessage` (origem da poluição do histórico do Assistente); disparo no **blur** da descrição (sem debounce de digitação); envio do `tipo` corrente; guarda de resposta obsoleta via token de sequência (FE-19); sugestão não sobrescreve escolha manual.
 **Próximo passo imediato:** Web-Batch 3 do `PLANO_EXECUCAO_WEB.md`.
 
 ---
@@ -61,6 +62,21 @@ Não tocados (outros batches): FE-08, FE-02 (vercel.json/headers), FE-09 (strict
 
 ---
 
+## Web-Batch 4 — Concluído ✅ (25/06/2026)
+
+Liga o frontend ao endpoint dedicado `POST /ai/suggest-category` (já existente no backend, stateless, sem persistir em `chat_messages`) e **remove o caminho antigo** que reusava `POST /ai/chat` para sugerir categoria — a causa-raiz da poluição do histórico do Assistente (FE-08).
+
+| Item | O que foi feito |
+|---|---|
+| FE-08 (cliente) | `ai.ts`: `suggestCategory(descricao, tipo, valor?)` agora chama `POST /ai/suggest-category` (path relativo, base via `VITE_API_URL`) e retorna `{categoria}`. **Não reusa** `sendMessage` nem `/ai/chat`; não gera `sessao_id` nem persiste no banco. `valor` enviado apenas quando `> 0` (`toFixed(2)`). |
+| FE-08 (página) | `AddTransactionPage`: removida toda a lógica de sugestão via `sendMessage`. Eliminado o `useDebounce` + `useEffect` que disparava a cada digitação. A sugestão agora dispara **no `onBlur`** do campo de descrição, e **só se a descrição não estiver vazia**. Envia o `tipo` corrente (receita/despesa) para o backend filtrar as categorias. |
+| FE-19 | Guarda contra resposta obsoleta: token de sequência `suggestSeq` (useRef). Um disparo novo invalida o anterior — resposta velha **não sobrescreve**. O `suggestSeq` também é incrementado no "Salvar e adicionar outro" para descartar sugestão em voo do form anterior. |
+| Escolha manual | A sugestão só preenche a categoria se o usuário ainda **não** escolheu (`if (!getValues('categoria'))`); uma escolha manual feita antes ou durante a chamada nunca é sobrescrita. O badge "✦ IA" continua marcando a sugestão na grade. |
+
+**Verificação:** `npm run build` verde; grep confirma zero referências a `sendMessage`/`ai/chat` no caminho de sugestão (permanecem apenas no fluxo legítimo do chat do Assistente em `ai.ts`/`AssistantPage.tsx`); disparo no blur, não na digitação. **Não tocados:** FE-08-backend (já feito), headers, `strict` do TS, demais batches.
+
+---
+
 ## Testes — Estado Real
 
 ⚠️ **Não há suíte de testes automatizada no frontend.** Os "Blocos 1–5" foram **testes manuais E2E**. O único gate automatizado é `npm run build` (`tsc -b && vite build`) — verde desde o Web-Batch 1 e agora aplicado automaticamente via hook pre-push (husky). Validação assistida pelo Claude Chrome (testador) complementa os testes manuais.
@@ -91,7 +107,7 @@ Não tocados (outros batches): FE-08, FE-02 (vercel.json/headers), FE-09 (strict
 - `ai.ts`: `getHistorico()` (GET /ai/historico), `sendMessage()` sem histórico no payload, `sessao_id` por conversa.
 - `AssistantPage.tsx`: carrega histórico no mount; append otimista; "Nova conversa" gera novo `sessao_id` (UI limpa).
 - Comportamento: 1ª vez → IA se apresenta; < 24h → mostra sessão; > 24h → UI limpa, contexto invisível de 50 msgs.
-- **Atenção:** o FE-08 contamina esse fluxo (sugestão de categoria gravando no histórico). Resolver antes de validar de novo.
+- **FE-08 resolvido no cliente (Web-Batch 4):** a sugestão de categoria não passa mais por `/ai/chat`; usa o endpoint dedicado stateless `POST /ai/suggest-category`. O fluxo do Assistente não é mais contaminado pela digitação na tela de Adicionar transação. Revalidar o histórico completo ao reabrir o Assistente.
 
 ---
 
@@ -144,5 +160,5 @@ Todas as telas concluídas: Login/Cadastro → Dashboard → Transações → Ad
 
 ---
 
-*Última atualização: 11 de junho de 2026 — Web-Batches 1 e 2 concluídos (build verde + pre-push, FE-06, FE-03, FE-20; fonte self-hosted, vercel.json com headers, FE-04). Próximo: Web-Batch 3 do `PLANO_EXECUCAO_WEB.md`. FE-08 identificado como causa do mistério do histórico do Assistente (cross-repo, pendente).*
+*Última atualização: 25 de junho de 2026 — Web-Batch 4 concluído (FE-08 resolvido no cliente: sugestão de categoria via `POST /ai/suggest-category`, disparo no blur, guarda de stale FE-19; removido o caminho `/ai/chat`/`sendMessage` que poluía o histórico do Assistente). Build verde. Web-Batches 1, 2 e 4 concluídos; próximo: Web-Batch 3 do `PLANO_EXECUCAO_WEB.md`.*
 *Projeto: Hivvo — gestão financeira pessoal com IA · Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
