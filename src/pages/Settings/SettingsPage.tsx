@@ -367,7 +367,7 @@ export default function SettingsPage() {
               {categories.map((cat) =>
                 deletingId !== null && deletingId === cat.id ? (
                   <div
-                    key={cat.id}
+                    key={cat.is_padrao ? `padrao:${cat.tipo}:${cat.nome}` : cat.id}
                     className="flex items-center justify-between gap-2 px-2 py-2 rounded-md bg-danger/5 border border-danger/30"
                   >
                     <span className="text-xs text-text-primary truncate">
@@ -381,11 +381,13 @@ export default function SettingsPage() {
                         Não
                       </button>
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          // só categorias custom têm id (padrão = null e sem ✕)
+                          if (cat.id == null) return
                           deleteMutation.mutate(cat.id, {
                             onSuccess: () => setDeletingId(null),
                           })
-                        }
+                        }}
                         disabled={deleteMutation.isPending}
                         className="text-xs text-danger hover:text-danger/80 font-medium transition-colors disabled:opacity-50"
                       >
@@ -395,14 +397,14 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <div
-                    key={cat.id}
+                    key={cat.is_padrao ? `padrao:${cat.tipo}:${cat.nome}` : cat.id}
                     className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-bg-border/50 transition-colors group"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-base leading-none">{cat.icone}</span>
                       <span className="text-sm text-text-primary truncate">{cat.nome}</span>
                     </div>
-                    {cat.usuario_id !== null && (
+                    {!cat.is_padrao && (
                       <button
                         onClick={() => setDeletingId(cat.id)}
                         className="text-text-muted hover:text-danger transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 text-xs shrink-0"

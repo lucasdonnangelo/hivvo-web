@@ -65,7 +65,7 @@ function CategoryGrid({ categories, selected, suggested, onSelect }: CategoryGri
     <div className="grid grid-cols-4 gap-2">
       {categories.map((cat) => (
         <button
-          key={cat.id}
+          key={cat.is_padrao ? `padrao:${cat.tipo}:${cat.nome}` : cat.id}
           type="button"
           onClick={() => onSelect(cat.nome)}
           className={[
@@ -250,6 +250,9 @@ export default function AddTransactionPage() {
 
   const watched = watch()
   const { forma_pagamento, parcelado, tipo } = watched
+  // Grid de seleção filtrado pelo tipo corrente (client-side, sem refetch).
+  // A tela de Gerenciar categorias (Settings) mostra todas — só o grid filtra.
+  const visibleCategories = categories.filter((c) => c.tipo === tipo)
   const valorNum = Number(watched.valor) || 0
   const numParcelas = watched.total_parcelas ? Number(watched.total_parcelas) : undefined
 
@@ -417,7 +420,7 @@ export default function AddTransactionPage() {
               <div className="h-16 bg-bg-surface rounded-lg animate-pulse" />
             ) : (
               <CategoryGrid
-                categories={categories}
+                categories={visibleCategories}
                 selected={field.value}
                 suggested={suggestedCategory}
                 onSelect={(nome) => field.onChange(nome)}

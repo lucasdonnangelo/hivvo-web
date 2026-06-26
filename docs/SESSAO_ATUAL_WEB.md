@@ -14,7 +14,8 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 **✅ Web-Batch 1 concluído (11/06/2026):** build verde (FE-01), hook pre-push com `npm run build` (husky), erro explícito sem `VITE_API_URL` em produção (FE-06), react-router-dom 6.30.4 (FE-03, `npm audit` zerado), botões "Exportar" ocultados (FE-20).
 **✅ Web-Batch 2 concluído (11/06/2026):** Inter self-hosted via @fontsource (FE-02a), `vercel.json` com headers de segurança (FE-02b), registro do SW confirmado como arquivo externo (FE-02c, sem mudança), token de reset fora da URL (FE-04).
 **✅ Web-Batch 4 concluído (25/06/2026):** sugestão de categoria via endpoint dedicado `POST /ai/suggest-category` (resolve FE-08 no cliente) — removido o caminho antigo que reusava `/ai/chat`/`sendMessage` (origem da poluição do histórico do Assistente); disparo no **blur** da descrição (sem debounce de digitação); envio do `tipo` corrente; guarda de resposta obsoleta via token de sequência (FE-19); sugestão não sobrescreve escolha manual.
-**Próximo passo imediato:** Web-Batch 3 do `PLANO_EXECUCAO_WEB.md`.
+**✅ Web-Batch 3 concluído (26/06/2026):** cluster de categorias resolvido no frontend (`GET /categories` confirmado correto, sem dedupe por id) — key composta estável (`padrao:${tipo}:${nome}` p/ padrão, `id` p/ custom), ✕ exibido só quando `is_padrao === false`, grid de Adicionar filtrado pelo tipo corrente; type `Category` alinhado ao contrato real (removido `usuario_id` fantasma e `cor`; adicionados `tipo`/`is_padrao`/`criado_em`; `id` agora `number | null`).
+**Próximo passo imediato:** próximos itens pré-deploy do `PLANO_EXECUCAO_WEB.md` (FE-09 strict TS / FE-10 / FE-11 conforme priorização).
 
 ---
 
@@ -30,7 +31,7 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 **FE-08 é a causa-raiz do mistério do histórico do Assistente** (o item de validação que vinha "aguardando o Gemini estabilizar"). A sugestão de categoria por IA reutiliza `POST /ai/chat`, que persiste no `chat_messages` — então cada digitação na descrição de transação gravava o prompt interno de sugestão como "mensagem do usuário", poluía a memória de 50 mensagens e podia virar a "sessão mais recente" exibida no chat. O Chrome confirmou: o prompt de sugestão **vaza visivelmente no histórico do Assistente**. Não era instabilidade do Gemini. Fix = endpoint dedicado de sugestão sem persistência (cross-repo).
 
 ### Bugs novos achados pelo Chrome (não estavam na auditoria de código)
-- **Cluster de categorias** (provável raiz compartilhada): categoria "Outros" **duplicada** (mesmo id → flood de ~500 erros de *key collision* no React + tiles repetidas); categorias **padrão exibindo botão de excluir (✕)** — regressão do fix `f55c4df`; categorias de **receita selecionáveis com Tipo = Despesa** (lista não filtrada por tipo). Cross-repo (checar `GET /categories` no backend).
+- **Cluster de categorias** — ✅ **resolvido no Web-Batch 3 (26/06/2026).** A investigação read-only no hivvo-api concluiu que `GET /categories` está **correto**: as 15 padrão são objetos sintéticos com `id=null`/`is_padrao=true` e as duas "Outros" (uma despesa, uma receita) são **legítimas** (não é duplicata-bug). O *key collision* vinha de usar `id=null` como key no React; o ✕ nas padrão vinha de guarda baseada em `usuario_id` (campo que a resposta não tem). Fix frontend: key composta estável + ✕ por `is_padrao` + grid filtrado por tipo. **Não** se fez dedupe por id (colapsaria as padrão).
 - **Barra de limite do cartão referencia o mês de fatura errado** (mostra total de Julho num contexto de Junho corrente). Número de dinheiro errado na tela — provável off-by-one em `fatura_aberta_total`/mês da fatura aberta. Cross-repo (provável backend).
 
 ---
@@ -74,6 +75,21 @@ Liga o frontend ao endpoint dedicado `POST /ai/suggest-category` (já existente 
 | Escolha manual | A sugestão só preenche a categoria se o usuário ainda **não** escolheu (`if (!getValues('categoria'))`); uma escolha manual feita antes ou durante a chamada nunca é sobrescrita. O badge "✦ IA" continua marcando a sugestão na grade. |
 
 **Verificação:** `npm run build` verde; grep confirma zero referências a `sendMessage`/`ai/chat` no caminho de sugestão (permanecem apenas no fluxo legítimo do chat do Assistente em `ai.ts`/`AssistantPage.tsx`); disparo no blur, não na digitação. **Não tocados:** FE-08-backend (já feito), headers, `strict` do TS, demais batches.
+
+---
+
+## Web-Batch 3 — Concluído ✅ (26/06/2026)
+
+Cluster de categorias — **frontend-only**. Investigação read-only no hivvo-api concluiu que `GET /categories` está correto e consistente: 15 padrão sintéticas (`id=null`, `is_padrao=true`), custom com `id` real (`is_padrao=false`), cada item com `tipo`; a resposta **não** inclui `usuario_id`; as duas "Outros" (despesa + receita) são legítimas. **Decisão fixa: NÃO deduplicar por id** (colapsaria as 15 padrão) — a correção é key estável + filtro por tipo.
+
+| Sintoma | O que foi feito |
+|---|---|
+| 1 — *key collision* (id=null em todas as padrão) | Key composta estável em todo `.map` de objeto `Category`: `cat.is_padrao ? `padrao:${cat.tipo}:${cat.nome}` : cat.id`. Aplicado em `AddTransactionPage` (CategoryGrid) e `SettingsPage` (Gerenciar categorias, 2 ramos). As listas de filtro (`TransactionsPage`) e o `<select>` do `EditTransactionModal` já são keyed pelo **nome** (string) — sem colisão, sem mudança. |
+| 2 — ✕ nas categorias padrão (regressão `f55c4df`) | `SettingsPage`: condição do ✕ trocada de `cat.usuario_id !== null` (campo inexistente → sempre `true`) para `!cat.is_padrao`. Excluir aparece só em categoria custom. Guarda extra no handler (`if (cat.id == null) return`) já que `id` agora pode ser null. |
+| 3 — receita selecionável sob Tipo = Despesa | `AddTransactionPage`: grid usa `visibleCategories = categories.filter(c => c.tipo === tipo)` (client-side, sem refetch ao alternar o toggle). **Gerenciar categorias (Settings) não filtra** — lá os dois tipos aparecem. `EditTransactionModal` não filtrado (recebe `string[]` de nomes sem `tipo` e mistura categorias das transações — filtrar arriscaria esconder a categoria atual). |
+| Higiene de tipo | `Category` alinhado ao contrato real: `id: number \| null`, `nome`, `icone`, `tipo`, `ativa`, `is_padrao`, `criado_em`. Removidos `usuario_id` (fantasma, origem do sintoma 2) e `cor` (sem uso). Nenhum uso novo de `usuario_id` introduzido. |
+
+**Verificação:** `npm run build` verde; `grep usuario_id src/` retorna apenas um comentário (zero lógica de UI dependente do campo); key composta em todos os `.map` de objeto `Category`. **Não tocados:** FE-08/sugestão (já feito), headers, `strict` do TS global, demais batches.
 
 ---
 
@@ -160,5 +176,5 @@ Todas as telas concluídas: Login/Cadastro → Dashboard → Transações → Ad
 
 ---
 
-*Última atualização: 25 de junho de 2026 — Web-Batch 4 concluído (FE-08 resolvido no cliente: sugestão de categoria via `POST /ai/suggest-category`, disparo no blur, guarda de stale FE-19; removido o caminho `/ai/chat`/`sendMessage` que poluía o histórico do Assistente). Build verde. Web-Batches 1, 2 e 4 concluídos; próximo: Web-Batch 3 do `PLANO_EXECUCAO_WEB.md`.*
+*Última atualização: 26 de junho de 2026 — Web-Batch 3 concluído (cluster de categorias, frontend-only: key composta estável, ✕ por `is_padrao`, grid filtrado por tipo, type `Category` alinhado ao contrato; sem dedupe por id). Build verde. Web-Batches 1, 2, 3 e 4 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md`.*
 *Projeto: Hivvo — gestão financeira pessoal com IA · Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
