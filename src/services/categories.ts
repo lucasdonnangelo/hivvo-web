@@ -1,12 +1,15 @@
 import api from './api'
 
 export interface Category {
-  id: number
+  // Categorias padrão são objetos sintéticos com id=null e is_padrao=true;
+  // as custom têm id real e is_padrao=false. A resposta NÃO inclui usuario_id.
+  id: number | null
   nome: string
   icone: string
-  cor: string
+  tipo: 'receita' | 'despesa'
   ativa: boolean
-  usuario_id: number | null
+  is_padrao: boolean
+  criado_em: string
 }
 
 export const getCategories = () =>
