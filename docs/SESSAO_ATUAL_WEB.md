@@ -15,6 +15,7 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 **✅ Web-Batch 2 concluído (11/06/2026):** Inter self-hosted via @fontsource (FE-02a), `vercel.json` com headers de segurança (FE-02b), registro do SW confirmado como arquivo externo (FE-02c, sem mudança), token de reset fora da URL (FE-04).
 **✅ Web-Batch 4 concluído (25/06/2026):** sugestão de categoria via endpoint dedicado `POST /ai/suggest-category` (resolve FE-08 no cliente) — removido o caminho antigo que reusava `/ai/chat`/`sendMessage` (origem da poluição do histórico do Assistente); disparo no **blur** da descrição (sem debounce de digitação); envio do `tipo` corrente; guarda de resposta obsoleta via token de sequência (FE-19); sugestão não sobrescreve escolha manual.
 **✅ Web-Batch 3 concluído (26/06/2026):** cluster de categorias resolvido no frontend (`GET /categories` confirmado correto, sem dedupe por id) — key composta estável (`padrao:${tipo}:${nome}` p/ padrão, `id` p/ custom), ✕ exibido só quando `is_padrao === false`, grid de Adicionar filtrado pelo tipo corrente; type `Category` alinhado ao contrato real (removido `usuario_id` fantasma e `cor`; adicionados `tipo`/`is_padrao`/`criado_em`; `id` agora `number | null`).
+**✅ FE-12 concluído (26/06/2026):** invalidação de cache de cartões/faturas após mutação de transação. As 3 mutations (`useCreateTransaction`/`useUpdateTransaction`/`useDeleteTransaction`) passam a invalidar também `['cards']`, `['invoices']`, `['invoice-detail']` e `['installments']` (por prefixo), além das invalidações já existentes de `transactions`/`statistics`. Só invalidação de cache — sem mexer no widget, paginação ou unwrap (demais itens do Web-Batch 8 seguem pendentes).
 **Próximo passo imediato:** próximos itens pré-deploy do `PLANO_EXECUCAO_WEB.md` (FE-09 strict TS / FE-10 / FE-11 conforme priorização).
 
 ---
@@ -176,5 +177,5 @@ Todas as telas concluídas: Login/Cadastro → Dashboard → Transações → Ad
 
 ---
 
-*Última atualização: 26 de junho de 2026 — Web-Batch 3 concluído (cluster de categorias, frontend-only: key composta estável, ✕ por `is_padrao`, grid filtrado por tipo, type `Category` alinhado ao contrato; sem dedupe por id). Build verde. Web-Batches 1, 2, 3 e 4 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md`.*
+*Última atualização: 26 de junho de 2026 — FE-12 concluído (invalidação de cache de cartões/faturas/compromissos nas mutations de transação: +`['cards']`/`['invoices']`/`['invoice-detail']`/`['installments']`). Build verde. Web-Batches 1, 2, 3 e 4 + FE-12 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md`.*
 *Projeto: Hivvo — gestão financeira pessoal com IA · Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
