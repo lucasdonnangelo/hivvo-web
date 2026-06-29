@@ -1,4 +1,5 @@
 import api from './api'
+import { unwrapList } from '../lib/unwrapList'
 
 export interface ParcelaResponse {
   id: number
@@ -21,4 +22,4 @@ export const getInstallments = (params: {
   pago?: boolean
   cancelado?: boolean
   cartao_id?: number
-}) => api.get<ParcelaResponse[]>('/installments', { params }).then((r) => r.data)
+}) => api.get<ParcelaResponse[]>('/installments', { params }).then((r) => unwrapList<ParcelaResponse>(r.data))

@@ -1,4 +1,5 @@
 import api from './api'
+import { unwrapList } from '../lib/unwrapList'
 
 export interface Transaction {
   id: number
@@ -26,10 +27,10 @@ export interface TransactionCreatePayload {
 }
 
 export const getTransactions = (mes: number, ano: number) =>
-  api.get<Transaction[]>('/transactions', { params: { mes, ano } }).then((r) => r.data)
+  api.get<Transaction[]>('/transactions', { params: { mes, ano } }).then((r) => unwrapList<Transaction>(r.data))
 
 export const getAllTransactions = () =>
-  api.get<Transaction[]>('/transactions').then((r) => r.data)
+  api.get<Transaction[]>('/transactions').then((r) => unwrapList<Transaction>(r.data))
 
 export const createTransaction = (payload: TransactionCreatePayload) =>
   api.post<Transaction>('/transactions', payload).then((r) => r.data)

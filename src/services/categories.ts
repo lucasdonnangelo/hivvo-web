@@ -1,4 +1,5 @@
 import api from './api'
+import { unwrapList } from '../lib/unwrapList'
 
 export interface Category {
   // Categorias padrão são objetos sintéticos com id=null e is_padrao=true;
@@ -13,7 +14,7 @@ export interface Category {
 }
 
 export const getCategories = () =>
-  api.get<Category[]>('/categories').then((r) => r.data)
+  api.get<Category[]>('/categories').then((r) => unwrapList<Category>(r.data))
 
 export const createCategory = (nome: string, icone: string) =>
   api.post<Category>('/categories', { nome, icone }).then((r) => r.data)

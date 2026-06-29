@@ -1,4 +1,5 @@
 import api from './api'
+import { unwrapList } from '../lib/unwrapList'
 
 interface AiChatResponse {
   resposta: string
@@ -23,7 +24,7 @@ export const sendMessage = async (
 
 export const getHistorico = async (): Promise<HistoricoItem[]> => {
   const { data } = await api.get<HistoricoItem[]>('/ai/historico')
-  return data
+  return unwrapList<HistoricoItem>(data)
 }
 
 export const clearHistorico = async (): Promise<void> => {

@@ -16,7 +16,8 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 **✅ Web-Batch 4 concluído (25/06/2026):** sugestão de categoria via endpoint dedicado `POST /ai/suggest-category` (resolve FE-08 no cliente) — removido o caminho antigo que reusava `/ai/chat`/`sendMessage` (origem da poluição do histórico do Assistente); disparo no **blur** da descrição (sem debounce de digitação); envio do `tipo` corrente; guarda de resposta obsoleta via token de sequência (FE-19); sugestão não sobrescreve escolha manual.
 **✅ Web-Batch 3 concluído (26/06/2026):** cluster de categorias resolvido no frontend (`GET /categories` confirmado correto, sem dedupe por id) — key composta estável (`padrao:${tipo}:${nome}` p/ padrão, `id` p/ custom), ✕ exibido só quando `is_padrao === false`, grid de Adicionar filtrado pelo tipo corrente; type `Category` alinhado ao contrato real (removido `usuario_id` fantasma e `cor`; adicionados `tipo`/`is_padrao`/`criado_em`; `id` agora `number | null`).
 **✅ FE-12 concluído (26/06/2026):** invalidação de cache de cartões/faturas após mutação de transação. As 3 mutations (`useCreateTransaction`/`useUpdateTransaction`/`useDeleteTransaction`) passam a invalidar também `['cards']`, `['invoices']`, `['invoice-detail']` e `['installments']` (por prefixo), além das invalidações já existentes de `transactions`/`statistics`. Só invalidação de cache — sem mexer no widget, paginação ou unwrap (demais itens do Web-Batch 8 seguem pendentes).
-**Próximo passo imediato:** próximos itens pré-deploy do `PLANO_EXECUCAO_WEB.md` (FE-09 strict TS / FE-10 / FE-11 conforme priorização).
+**✅ Web-Batch 6 / FE-10 concluído (29/06/2026):** unwrap tolerante de contrato. Novo helper `src/lib/unwrapList.ts` (`unwrapList<T>(data): T[]` — aceita array nu OU envelope `{items|data: [...]}`, nunca lança, loga `console.warn` em shape inesperado e devolve `[]`). Aplicado nos 7 retornos de **lista**: `getTransactions`/`getAllTransactions`, `getCards`/`getInvoices`, `getCategories`, `getInstallments`, `getHistorico` (lista simples, qualifica). Endpoints de objeto único não tocados. Zod **não** usado nesta passada (decisão registrada — follow-up). Comportamento idêntico com o contrato de hoje. Paths dos services confirmados **todos relativos** (sem host hardcoded — sem furo para o T-28).
+**Próximo passo imediato:** próximos itens pré-deploy do `PLANO_EXECUCAO_WEB.md` (FE-09 strict TS / FE-11 conforme priorização).
 
 ---
 
@@ -91,6 +92,23 @@ Cluster de categorias — **frontend-only**. Investigação read-only no hivvo-a
 | Higiene de tipo | `Category` alinhado ao contrato real: `id: number \| null`, `nome`, `icone`, `tipo`, `ativa`, `is_padrao`, `criado_em`. Removidos `usuario_id` (fantasma, origem do sintoma 2) e `cor` (sem uso). Nenhum uso novo de `usuario_id` introduzido. |
 
 **Verificação:** `npm run build` verde; `grep usuario_id src/` retorna apenas um comentário (zero lógica de UI dependente do campo); key composta em todos os `.map` de objeto `Category`. **Não tocados:** FE-08/sugestão (já feito), headers, `strict` do TS global, demais batches.
+
+---
+
+## Web-Batch 6 — Concluído ✅ (29/06/2026)
+
+FE-10 — **unwrap tolerante de contrato.** Mudança ADITIVA preparando o frontend para o envelope de paginação do backend (API Batch 8 / `/api/v1`) **sem big-bang**: os services de lista aceitam tanto o contrato atual (array nu) quanto o futuro envelope, e o app continua se comportando IDÊNTICO hoje.
+
+| Item | O que foi feito |
+|---|---|
+| Helper central | `src/lib/unwrapList.ts` — `unwrapList<T>(data: unknown): T[]`. Regras: array nu → retorna o próprio array (mesma referência); `{ items: [...] }` → array interno; `{ data: [...] }` → array interno (variante de envelope); qualquer outra coisa → `console.warn` com o shape + retorna `[]`. **Nunca lança** (tolerância é o ponto — lição T-37: não barrar dado válido). |
+| Services de lista | Aplicado em **7 retornos**: `getTransactions` + `getAllTransactions` ([transactions.ts](../src/services/transactions.ts)); `getCards` + `getInvoices` ([cards.ts](../src/services/cards.ts)); `getCategories` ([categories.ts](../src/services/categories.ts)); `getInstallments` ([installments.ts](../src/services/installments.ts)); `getHistorico` ([ai.ts](../src/services/ai.ts)). Padrão: `.then((r) => unwrapList<T>(r.data))`. Os genéricos preservam os tipos (`Transaction[]` etc.) — nenhum consumidor (hooks/páginas) mudou. |
+| `getHistorico` (ai.ts) | **Incluído.** Verificado que `GET /ai/historico` retorna uma **lista simples** (array flat de `HistoricoItem` = `{ role, text, created_at?, sessao_id? }`), sem shape/envelope próprio — qualifica para o mesmo unwrap tolerante. (Não é o caminho de sugestão de categoria, que é objeto único e fora do escopo.) |
+| NÃO tocados (objeto único) | `getInvoiceDetail`, `createTransaction`/`updateTransaction`, `createCard`/`updateCard`/`deactivateCard`, `createCategory`, e os `delete*`. |
+| Zod | **Não usado nesta passada** (decisão deliberada, permitida pelo batch). Validar lista com Zod agora adicionaria risco de barrar dado válido (T-37) sem ganho, e `strict`/FE-09 é batch separado. **Follow-up:** se desejado, adicionar schemas Zod LENIENTES (`.optional()`/`.nullable()` em campos omitíveis, log em vez de throw) ao redor do `unwrapList` quando o envelope real existir. |
+| Paths relativos (reporte) | Verificado: **todos os paths dos services são relativos** (`/transactions`, `/cards`, `/categories`, `/installments`, `/cards/{id}/invoices`…). A única ocorrência de host é o fallback `http://localhost:8000` da base URL em [api.ts](../src/services/api.ts) (correto). **Sem furo para o T-28** — a migração para `/api/v1` entra só via `VITE_API_URL`. |
+
+**Verificação:** `npm run build` verde. Idempotência com o contrato atual garantida por tipo/referência (`unwrapList([...])` devolve o mesmo array). **Não tocados:** FE-09 (strict TS), paginação real (não existe no backend ainda), demais batches.
 
 ---
 
@@ -177,5 +195,5 @@ Todas as telas concluídas: Login/Cadastro → Dashboard → Transações → Ad
 
 ---
 
-*Última atualização: 26 de junho de 2026 — FE-12 concluído (invalidação de cache de cartões/faturas/compromissos nas mutations de transação: +`['cards']`/`['invoices']`/`['invoice-detail']`/`['installments']`). Build verde. Web-Batches 1, 2, 3 e 4 + FE-12 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md`.*
+*Última atualização: 29 de junho de 2026 — Web-Batch 6 / FE-10 concluído (helper `src/lib/unwrapList.ts`; unwrap tolerante de contrato nos 6 retornos de lista; sem Zod nesta passada; paths confirmados relativos). Build verde. Web-Batches 1, 2, 3, 4, 6 + FE-12 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md` (FE-09 strict TS, FE-11 code splitting).*
 *Projeto: Hivvo — gestão financeira pessoal com IA · Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
