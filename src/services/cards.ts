@@ -1,4 +1,5 @@
 import api from './api'
+import { unwrapList } from '../lib/unwrapList'
 
 export interface Card {
   id: number
@@ -56,7 +57,7 @@ export interface InvoiceDetail {
 }
 
 export const getCards = () =>
-  api.get<Card[]>('/cards').then((r) => r.data)
+  api.get<Card[]>('/cards').then((r) => unwrapList<Card>(r.data))
 
 export const createCard = (payload: CardPayload) =>
   api.post<Card>('/cards', payload).then((r) => r.data)
@@ -71,7 +72,7 @@ export const deleteCard = (id: number) =>
   api.delete(`/cards/${id}`)
 
 export const getInvoices = (cardId: number) =>
-  api.get<InvoiceListItem[]>(`/cards/${cardId}/invoices`).then((r) => r.data)
+  api.get<InvoiceListItem[]>(`/cards/${cardId}/invoices`).then((r) => unwrapList<InvoiceListItem>(r.data))
 
 export const getInvoiceDetail = (cardId: number, ano: number, mes: number) =>
   api.get<InvoiceDetail>(`/cards/${cardId}/invoices/${ano}/${mes}`).then((r) => r.data)
