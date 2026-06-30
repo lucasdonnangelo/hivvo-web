@@ -29,8 +29,11 @@ export interface TransactionCreatePayload {
 export const getTransactions = (mes: number, ano: number) =>
   api.get<Transaction[]>('/transactions', { params: { mes, ano } }).then((r) => unwrapList<Transaction>(r.data))
 
+// Backup/export JSON (SettingsPage): usa o endpoint dedicado SEM teto, pois o
+// GET /transactions ganhou limit default 100 (API Batch 8) — caso contrário o
+// backup sairia truncado. unwrapList preserva a tolerância de contrato (Web-Batch 6).
 export const getAllTransactions = () =>
-  api.get<Transaction[]>('/transactions').then((r) => unwrapList<Transaction>(r.data))
+  api.get<Transaction[]>('/transactions/export').then((r) => unwrapList<Transaction>(r.data))
 
 export const createTransaction = (payload: TransactionCreatePayload) =>
   api.post<Transaction>('/transactions', payload).then((r) => r.data)
