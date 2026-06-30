@@ -1,4 +1,6 @@
+import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
+import RouteFallback from '../components/ui/RouteFallback'
 
 export default function AuthLayout() {
   return (
@@ -10,7 +12,9 @@ export default function AuthLayout() {
             <span className="text-amber">vvo</span>
           </span>
         </div>
-        <Outlet />
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   )

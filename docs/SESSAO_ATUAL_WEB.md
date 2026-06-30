@@ -19,7 +19,8 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 **✅ Web-Batch 6 / FE-10 concluído (29/06/2026):** unwrap tolerante de contrato. Novo helper `src/lib/unwrapList.ts` (`unwrapList<T>(data): T[]` — aceita array nu OU envelope `{items|data: [...]}`, nunca lança, loga `console.warn` em shape inesperado e devolve `[]`). Aplicado nos 7 retornos de **lista**: `getTransactions`/`getAllTransactions`, `getCards`/`getInvoices`, `getCategories`, `getInstallments`, `getHistorico` (lista simples, qualifica). Endpoints de objeto único não tocados. Zod **não** usado nesta passada (decisão registrada — follow-up). Comportamento idêntico com o contrato de hoje. Paths dos services confirmados **todos relativos** (sem host hardcoded — sem furo para o T-28).
 **✅ Web — export do backup apontado para `/transactions/export` (30/06/2026):** fecha a costura do API Batch 8. O backend passou a aplicar `limit` default 100 no `GET /transactions`, o que truncava o backup JSON. `getAllTransactions()` (único consumidor: `SettingsPage.handleExport`, botão "Exportar JSON") agora chama `GET /transactions/export` (sem teto, path relativo), mantendo `unwrapList` no retorno. Nenhum outro caminho afetado — `getTransactions(mes, ano)` e demais services inalterados.
 **✅ FE-09 concluído (30/06/2026):** TypeScript `strict` ligado de verdade — `"strict": true` em `tsconfig.app.json` (cobre `src/`) e `tsconfig.node.json` (cobre `vite.config.ts`), sem desligar nenhuma sub-flag. **`npm run build` verde com 0 erros.** Levantamento: o strict acendeu **zero** erros (verificado com `tsbuildinfo` apagado + `--force` + `-p` direto + build completo; sanity-check confirmou que o `--strict` está ativo). Causa do zero: (1) **zero `any` no `src/`** — strict não é satisfeito de forma vazia; (2) os campos genuinamente nulos já vinham tipados como nulos e **guardados com guarda real** dos batches anteriores (`fatura_aberta_total ?? '0'`, `variacao_* != null ?`, `total_parcelas &&`, `cat.id == null`); (3) os campos monetários sempre-presentes (`valor`, `limite`, `total`, `valor_parcela`) são honestamente `string` não-nulo (contrato §5: `Numeric(15,2)` obrigatório). **0 `!` e 0 `as` introduzidos; 0 pontos monetários alterados** (nenhum precisou — `fatura_aberta_total` já estava com `?? '0'`). Decisão registrada: NÃO inventar `| null` onde o backend não permite. Proteção de runtime contra "backend manda lixo → `NaN`" fica como o **follow-up de Zod leniente** (Web-Batch 6), fora do escopo do FE-09.
-**Próximo passo imediato:** próximos itens pré-deploy do `PLANO_EXECUCAO_WEB.md` (FE-11 code splitting conforme priorização).
+**✅ Web-Batch 7 / FE-11 concluído (30/06/2026):** code-splitting por rota. As 14 páginas viraram `React.lazy(() => import())` em `App.tsx`; o shell (`AuthLayout`/`MobileLayout`/`DesktopLayout` + `ToastContainer` + init) continua **eager**. `<Suspense>` colocado **dentro** de cada layout, ao redor do `<Outlet/>` (fallback `RouteFallback` — spinner centralizado no tema escuro, nunca `null`), então header/tab bar/sidebar não piscam na troca de rota; rotas legais (sem shell) têm `<Suspense>` próprio. Resultado: chunk inicial **1.014,27 kB → 294,63 kB** (gzip 297,60 → 95,72; −68%); **recharts isolado** (chunk de ~317 kB carregado só em Dashboard/Summary) e **react-markdown isolado** (no chunk do Assistant ~126 kB) — quem abre o login não baixa mais nenhum dos dois. PWA: precache subiu de 7 → **35 entradas** (workbox `globPatterns` default inclui todos os `*.js`), então **todos os chunks por rota são precacheados** — offline não quebra por chunk ausente. `manualChunks` não usado (opcional; o split por rota já separa as libs pesadas). Sem mudança de comportamento, lógica ou tipos.
+**Próximo passo imediato:** próximos itens pré-deploy do `PLANO_EXECUCAO_WEB.md` conforme priorização.
 
 ---
 
@@ -147,6 +148,35 @@ TypeScript `strict` habilitado. Mostrar o tsconfig (deliverable): `"strict": tru
 
 ---
 
+## Web-Batch 7 — Concluído ✅ (30/06/2026)
+
+FE-11 — **code-splitting por rota.** Mudança SEM alteração de comportamento: só muda *como* o bundle carrega. Antes: um único `index` de 1.014 kB carregado no boot (recharts + react-markdown inclusos, mesmo para quem só abre o login).
+
+| Item | O que foi feito |
+|---|---|
+| `App.tsx` — lazy | As 14 páginas (`Login`/`Register`/`Forgot`/`Reset`, `Dashboard`, `Transactions`, `Summary`, `Add`, `Cards`, `Assistant`, `Import`, `Settings`, `Terms`, `Privacy`) passaram a `lazy(() => import())`. Shell mantido **eager**: `AuthLayout`, `MobileLayout`, `DesktopLayout`, `ToastContainer`, `useBreakpoint`, stores/services de init. |
+| Suspense dentro do shell | `<Suspense fallback={<RouteFallback/>}>` ao redor **só do `<Outlet/>`** em `MobileLayout`/`DesktopLayout` (dentro do `<main>`) e em `AuthLayout` (dentro do card). Header + tab bar (mobile) / sidebar (desktop) permanecem montados — a navegação não pisca. Rotas legais `/terms` e `/privacy` (sem layout) têm `<Suspense>` próprio. |
+| `RouteFallback` (novo) | `src/components/ui/RouteFallback.tsx` — spinner centralizado (reusa o `Spinner`), `text-text-muted`, `h-full min-h-[40vh]`. **Nunca `null`/tela branca**; respeita o tema escuro e renderiza dentro da área de conteúdo. Reusado nos 3 layouts + rotas legais. |
+| `manualChunks` | **Não usado** (opcional por escopo). O split por rota já isola recharts e react-markdown; não complicar a config. |
+| `vite.config.ts` | **Não tocado.** O `generateSW` (workbox, `autoUpdate`) usa `globPatterns` default que inclui `**/*.js` → todos os novos chunks entram no precache. |
+
+### Tamanhos — antes vs. depois (build com `VITE_API_URL` para comparação justa)
+| | Antes | Depois |
+|---|---|---|
+| Chunk inicial (`index`) | **1.014,27 kB** / gzip **297,60 kB** | **294,63 kB** / gzip **95,72 kB** (−68% gzip) |
+| recharts | no chunk inicial | isolado (`DonutChart` ~317 kB) — só Dashboard/Summary |
+| react-markdown | no chunk inicial | no chunk do Assistant (~126 kB) — só Assistant |
+| libs de form (RHF/zod) | no chunk inicial | chunk compartilhado (`Input` ~98 kB) — só rotas com formulário |
+
+**Carregamento do login (cold boot):** antes baixava os 1.014 kB inteiros; agora baixa só `index` + `LoginPage` (2,4 kB) + chunk de form — **sem recharts e sem react-markdown**. Cada rota baixa seu chunk sob demanda na primeira visita.
+
+### PWA / offline
+Precache subiu de **7 → 35 entradas** (943,59 KiB no build padrão; 1028,11 KiB com o código da API). **Todos os chunks por rota são precacheados** pelo workbox → navegação offline para qualquer rota não quebra por chunk não cacheado. `autoUpdate` mantido.
+
+**Verificação:** `npm run build` verde com e sem `VITE_API_URL`. Fallback de Suspense dentro do shell em todas as rotas (nenhum `null`). **Não tocados:** lógica de negócio, FE-09, tipos, demais batches.
+
+---
+
 ## Testes — Estado Real
 
 ⚠️ **Não há suíte de testes automatizada no frontend.** Os "Blocos 1–5" foram **testes manuais E2E**. O único gate automatizado é `npm run build` (`tsc -b && vite build`) — verde desde o Web-Batch 1 e agora aplicado automaticamente via hook pre-push (husky). Validação assistida pelo Claude Chrome (testador) complementa os testes manuais.
@@ -230,5 +260,5 @@ Todas as telas concluídas: Login/Cadastro → Dashboard → Transações → Ad
 
 ---
 
-*Última atualização: 30 de junho de 2026 — FE-09: TypeScript `strict` ligado (`tsconfig.app.json` + `tsconfig.node.json`), 0 erros, 0 `!`/`as` introduzidos, 0 pontos monetários alterados; `npm run build` verde. Web-Batches 1, 2, 3, 4, 6 + FE-09 + FE-12 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md` (FE-11 code splitting). Proteção de runtime via Zod leniente fica como follow-up do Web-Batch 6.*
+*Última atualização: 30 de junho de 2026 — Web-Batch 7 / FE-11: code-splitting por rota (14 páginas em `React.lazy`, Suspense dentro do shell, `RouteFallback`); chunk inicial 1.014→294 kB (gzip 297→96, −68%), recharts e react-markdown isolados, precache PWA 7→35 entradas (offline ok); `npm run build` verde. Web-Batches 1, 2, 3, 4, 6, 7 + FE-09 + FE-12 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md`. Proteção de runtime via Zod leniente segue como follow-up do Web-Batch 6.*
 *Projeto: Hivvo — gestão financeira pessoal com IA · Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
