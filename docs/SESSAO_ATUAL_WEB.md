@@ -18,7 +18,8 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 **✅ FE-12 concluído (26/06/2026):** invalidação de cache de cartões/faturas após mutação de transação. As 3 mutations (`useCreateTransaction`/`useUpdateTransaction`/`useDeleteTransaction`) passam a invalidar também `['cards']`, `['invoices']`, `['invoice-detail']` e `['installments']` (por prefixo), além das invalidações já existentes de `transactions`/`statistics`. Só invalidação de cache — sem mexer no widget, paginação ou unwrap (demais itens do Web-Batch 8 seguem pendentes).
 **✅ Web-Batch 6 / FE-10 concluído (29/06/2026):** unwrap tolerante de contrato. Novo helper `src/lib/unwrapList.ts` (`unwrapList<T>(data): T[]` — aceita array nu OU envelope `{items|data: [...]}`, nunca lança, loga `console.warn` em shape inesperado e devolve `[]`). Aplicado nos 7 retornos de **lista**: `getTransactions`/`getAllTransactions`, `getCards`/`getInvoices`, `getCategories`, `getInstallments`, `getHistorico` (lista simples, qualifica). Endpoints de objeto único não tocados. Zod **não** usado nesta passada (decisão registrada — follow-up). Comportamento idêntico com o contrato de hoje. Paths dos services confirmados **todos relativos** (sem host hardcoded — sem furo para o T-28).
 **✅ Web — export do backup apontado para `/transactions/export` (30/06/2026):** fecha a costura do API Batch 8. O backend passou a aplicar `limit` default 100 no `GET /transactions`, o que truncava o backup JSON. `getAllTransactions()` (único consumidor: `SettingsPage.handleExport`, botão "Exportar JSON") agora chama `GET /transactions/export` (sem teto, path relativo), mantendo `unwrapList` no retorno. Nenhum outro caminho afetado — `getTransactions(mes, ano)` e demais services inalterados.
-**Próximo passo imediato:** próximos itens pré-deploy do `PLANO_EXECUCAO_WEB.md` (FE-09 strict TS / FE-11 conforme priorização).
+**✅ FE-09 concluído (30/06/2026):** TypeScript `strict` ligado de verdade — `"strict": true` em `tsconfig.app.json` (cobre `src/`) e `tsconfig.node.json` (cobre `vite.config.ts`), sem desligar nenhuma sub-flag. **`npm run build` verde com 0 erros.** Levantamento: o strict acendeu **zero** erros (verificado com `tsbuildinfo` apagado + `--force` + `-p` direto + build completo; sanity-check confirmou que o `--strict` está ativo). Causa do zero: (1) **zero `any` no `src/`** — strict não é satisfeito de forma vazia; (2) os campos genuinamente nulos já vinham tipados como nulos e **guardados com guarda real** dos batches anteriores (`fatura_aberta_total ?? '0'`, `variacao_* != null ?`, `total_parcelas &&`, `cat.id == null`); (3) os campos monetários sempre-presentes (`valor`, `limite`, `total`, `valor_parcela`) são honestamente `string` não-nulo (contrato §5: `Numeric(15,2)` obrigatório). **0 `!` e 0 `as` introduzidos; 0 pontos monetários alterados** (nenhum precisou — `fatura_aberta_total` já estava com `?? '0'`). Decisão registrada: NÃO inventar `| null` onde o backend não permite. Proteção de runtime contra "backend manda lixo → `NaN`" fica como o **follow-up de Zod leniente** (Web-Batch 6), fora do escopo do FE-09.
+**Próximo passo imediato:** próximos itens pré-deploy do `PLANO_EXECUCAO_WEB.md` (FE-11 code splitting conforme priorização).
 
 ---
 
@@ -113,6 +114,39 @@ FE-10 — **unwrap tolerante de contrato.** Mudança ADITIVA preparando o fronte
 
 ---
 
+## FE-09 — Concluído ✅ (30/06/2026)
+
+TypeScript `strict` habilitado. Mostrar o tsconfig (deliverable): `"strict": true` em **`tsconfig.app.json`** (cobre `src/`) e **`tsconfig.node.json`** (cobre `vite.config.ts`). Nenhuma sub-flag desligada. As flags de lint já presentes (`noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`) foram mantidas.
+
+### Contagem de erros que o strict acendeu: **0** (por arquivo e por tipo)
+
+| Sub-flag | Erros |
+|---|---|
+| `strictNullChecks` (possibly null/undefined) | 0 |
+| `noImplicitAny` | 0 |
+| `strictFunctionTypes` / `strictBindCallApply` / `strictPropertyInitialization` | 0 |
+| `noImplicitThis` / `useUnknownInCatchVariables` / `alwaysStrict` | 0 |
+| **Total** | **0** |
+
+### Por que zero (verificado, não é cache nem falso negativo)
+1. **`--strict` comprovadamente ativo:** num arquivo isolado, `function f(x?: string){ return x.toUpperCase() }` acende `TS18048`. Type-check rodado com `tsbuildinfo` apagado, `--force`, `-p tsconfig.app.json` direto e `npm run build` completo — todos exit 0.
+2. **Zero `any` no `src/`** (`: any` / `as any` / `<any>` → nenhuma ocorrência) — strict não é satisfeito de forma vazia.
+3. **Campos legitimamente nulos já tipados como nulos e guardados** (sem `!`, sem `as`): `fatura_aberta_total: string \| null` → `parseFloat(... ?? '0')` ([CardVisual.tsx:22](../src/components/cards/CardVisual.tsx#L22)); `variacao_*: number \| null` → `!= null ? Number() : null` ([statistics.ts:51-53](../src/services/statistics.ts#L51)); `total_parcelas: number \| null` → `tx.parcelado && tx.total_parcelas` ([TransactionItem.tsx:22](../src/components/transaction/TransactionItem.tsx#L22)); `cat.id: number \| null` → `if (cat.id == null) return` ([SettingsPage.tsx:386](../src/pages/Settings/SettingsPage.tsx#L386)).
+4. **Campos monetários sempre-presentes tipados honestamente como não-nulo** (`valor`, `limite`, `total`, `valor_parcela`) — coerente com o contrato (Referência §5: `Numeric(15,2)` obrigatório). Inventei `| null` em nenhum.
+
+### Relatório de verificação
+- Erros corrigidos: **0** (não havia).
+- `!` ou `as` introduzidos: **0**.
+- Pontos monetários tocados: **0** (todos os nulos já tinham guarda real; `fatura_aberta_total` já com `?? '0'`).
+
+### Decisão / follow-up
+- **Decisão fixa:** não tornar `| null` campos que o backend sempre envia (não inventar nulabilidade).
+- **Follow-up (separado, fora do FE-09):** o strict, sozinho, não protege contra "backend omite campo monetário → `NaN`" porque o tipo declara presença. A proteção de runtime viria de **schemas Zod lenientes** ao redor do `unwrapList` — já registrado como follow-up do Web-Batch 6. Não feito aqui (escopo).
+
+**Não tocados:** FE-11 (code splitting), Zod runtime, lógica de negócio, demais batches.
+
+---
+
 ## Testes — Estado Real
 
 ⚠️ **Não há suíte de testes automatizada no frontend.** Os "Blocos 1–5" foram **testes manuais E2E**. O único gate automatizado é `npm run build` (`tsc -b && vite build`) — verde desde o Web-Batch 1 e agora aplicado automaticamente via hook pre-push (husky). Validação assistida pelo Claude Chrome (testador) complementa os testes manuais.
@@ -196,5 +230,5 @@ Todas as telas concluídas: Login/Cadastro → Dashboard → Transações → Ad
 
 ---
 
-*Última atualização: 30 de junho de 2026 — `getAllTransactions` apontado para `GET /transactions/export` (backup completo sem o teto de 100 do API Batch 8); `unwrapList` mantido; nenhum outro caminho afetado. Build verde. Web-Batches 1, 2, 3, 4, 6 + FE-12 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md` (FE-09 strict TS, FE-11 code splitting).*
+*Última atualização: 30 de junho de 2026 — FE-09: TypeScript `strict` ligado (`tsconfig.app.json` + `tsconfig.node.json`), 0 erros, 0 `!`/`as` introduzidos, 0 pontos monetários alterados; `npm run build` verde. Web-Batches 1, 2, 3, 4, 6 + FE-09 + FE-12 concluídos; próximo: itens pré-deploy restantes do `PLANO_EXECUCAO_WEB.md` (FE-11 code splitting). Proteção de runtime via Zod leniente fica como follow-up do Web-Batch 6.*
 *Projeto: Hivvo — gestão financeira pessoal com IA · Repositório FinanceAI original: github.com/lucasdonnangelo/financeai*
