@@ -1,26 +1,31 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { useBreakpoint } from './hooks/useBreakpoint'
+// Shell eager (não pode suspender): layouts + infra de inicialização.
 import AuthLayout from './layouts/AuthLayout'
 import DesktopLayout from './layouts/DesktopLayout'
 import MobileLayout from './layouts/MobileLayout'
-import LoginPage from './pages/Auth/LoginPage'
-import RegisterPage from './pages/Auth/RegisterPage'
-import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage'
-import ResetPasswordPage from './pages/Auth/ResetPasswordPage'
-import AddTransactionPage from './pages/AddTransaction/AddTransactionPage'
-import AssistantPage from './pages/Assistant/AssistantPage'
-import CardsPage from './pages/Cards/CardsPage'
-import DashboardPage from './pages/Dashboard/DashboardPage'
-import ImportPage from './pages/Import/ImportPage'
-import SettingsPage from './pages/Settings/SettingsPage'
-import TransactionsPage from './pages/Transactions/TransactionsPage'
-import SummaryPage from './pages/Transactions/SummaryPage'
 import { getMe } from './services/auth'
 import { useAuthStore } from './store/authStore'
 import ToastContainer from './components/ui/Toast'
-import TermsPage from './pages/Legal/TermsPage'
-import PrivacyPage from './pages/Legal/PrivacyPage'
+import RouteFallback from './components/ui/RouteFallback'
+
+// Conteúdo das rotas em lazy (FE-11): code-splitting por rota. Isola recharts
+// (Dashboard/Summary) e react-markdown (Assistant) do chunk inicial.
+const LoginPage = lazy(() => import('./pages/Auth/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/Auth/RegisterPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/Auth/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/Auth/ResetPasswordPage'))
+const AddTransactionPage = lazy(() => import('./pages/AddTransaction/AddTransactionPage'))
+const AssistantPage = lazy(() => import('./pages/Assistant/AssistantPage'))
+const CardsPage = lazy(() => import('./pages/Cards/CardsPage'))
+const DashboardPage = lazy(() => import('./pages/Dashboard/DashboardPage'))
+const ImportPage = lazy(() => import('./pages/Import/ImportPage'))
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'))
+const TransactionsPage = lazy(() => import('./pages/Transactions/TransactionsPage'))
+const SummaryPage = lazy(() => import('./pages/Transactions/SummaryPage'))
+const TermsPage = lazy(() => import('./pages/Legal/TermsPage'))
+const PrivacyPage = lazy(() => import('./pages/Legal/PrivacyPage'))
 
 function AppLayout() {
   const isMobile = useBreakpoint('md')
@@ -61,8 +66,22 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
 
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route
+          path="/terms"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <TermsPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/privacy"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <PrivacyPage />
+            </Suspense>
+          }
+        />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>

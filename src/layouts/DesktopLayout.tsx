@@ -1,5 +1,7 @@
+import { Suspense } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import RouteFallback from '../components/ui/RouteFallback'
 
 const navItems = [
   { to: '/dashboard',    label: 'Dashboard',   icon: '⊞' },
@@ -60,7 +62,9 @@ export default function DesktopLayout() {
       {/* Main */}
       <div className="flex flex-col flex-1 min-w-0">
         <main className="flex-1 overflow-y-auto">
-          <Outlet />
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

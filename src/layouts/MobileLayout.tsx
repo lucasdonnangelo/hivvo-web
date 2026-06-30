@@ -1,5 +1,7 @@
+import { Suspense } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import RouteFallback from '../components/ui/RouteFallback'
 
 const tabs = [
   { to: '/dashboard',    label: 'Início',      icon: '⊞' },
@@ -35,7 +37,9 @@ export default function MobileLayout() {
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto">
-        <Outlet />
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* Bottom tab bar */}
