@@ -200,16 +200,6 @@ export default function SummaryPage() {
   const [mes, setMes]         = useState(now.getMonth() + 1)
   const [ano, setAno]         = useState(now.getFullYear())
 
-  const isCurrentPeriod = useMemo(() => {
-    if (periodo === 'mes') return mes === now.getMonth() + 1 && ano === now.getFullYear()
-    if (periodo === 'trimestre') {
-      const currentQ = getQuarter(now.getMonth() + 1)
-      const selectedQ = getQuarter(mes)
-      return selectedQ === currentQ && ano === now.getFullYear()
-    }
-    return ano === now.getFullYear()
-  }, [periodo, mes, ano, now])
-
   // ── navigation ──────────────────────────────────────────────────────────────
 
   const goPrev = () => {
@@ -226,7 +216,6 @@ export default function SummaryPage() {
   }
 
   const goNext = () => {
-    if (isCurrentPeriod) return
     if (periodo === 'mes') {
       if (mes === 12) { setMes(1); setAno((a) => a + 1) }
       else setMes((m) => m + 1)
@@ -405,8 +394,7 @@ export default function SummaryPage() {
       </span>
       <button
         onClick={goNext}
-        disabled={isCurrentPeriod}
-        className="w-8 h-8 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        className="w-8 h-8 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors"
         aria-label="Próximo período"
       >
         ›
