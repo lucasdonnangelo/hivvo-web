@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import RouteFallback from '../components/ui/RouteFallback'
 
@@ -19,12 +19,14 @@ export default function DesktopLayout() {
     <div className="flex h-full bg-bg text-text-primary">
       {/* Sidebar — 72px, ícones + labels */}
       <aside className="w-[72px] shrink-0 flex flex-col items-center py-4 gap-1 bg-bg-surface border-r border-bg-border">
-        <span
-          className="text-amber font-medium text-sm mb-4 select-none"
+        <Link
+          to="/dashboard"
           title="Hivvo"
+          aria-label="Ir para o início"
+          className="text-amber font-medium text-sm mb-4 select-none cursor-pointer rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amber"
         >
           H
-        </span>
+        </Link>
 
         <nav className="flex flex-col gap-1 flex-1 w-full px-1">
           {navItems.map((item) => (

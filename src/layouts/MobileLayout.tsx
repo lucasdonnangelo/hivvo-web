@@ -1,11 +1,11 @@
 import { Suspense } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import RouteFallback from '../components/ui/RouteFallback'
 
 const tabs = [
   { to: '/dashboard',    label: 'Início',      icon: '⊞' },
-  { to: '/transactions', label: 'Transações',  icon: '↕' },
+  { to: '/transactions', label: 'Transações',  icon: '⇄' },
   { to: '/add',          label: '',            icon: '+', isFab: true },
   { to: '/cards',        label: 'Cartões',     icon: '▭' },
   { to: '/assistant',    label: 'IA',          icon: '✦' },
@@ -19,10 +19,14 @@ export default function MobileLayout() {
     <div className="flex flex-col h-full bg-bg text-text-primary">
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 h-14 bg-bg-surface border-b border-bg-border">
-        <span className="text-base font-medium tracking-tight select-none">
+        <Link
+          to="/dashboard"
+          aria-label="Ir para o início"
+          className="text-base font-medium tracking-tight select-none cursor-pointer rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amber"
+        >
           <span className="text-text-primary">Hi</span>
           <span className="text-amber">vvo</span>
-        </span>
+        </Link>
         <button
           onClick={() => navigate('/settings')}
           className="relative w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs hover:bg-bg-border/80 transition-colors"
