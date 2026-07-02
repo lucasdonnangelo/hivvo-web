@@ -199,15 +199,12 @@ export default function DashboardPage() {
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [ano, setAno] = useState(now.getFullYear())
 
-  const isCurrentMonth = mes === now.getMonth() + 1 && ano === now.getFullYear()
-
   const prevMonth = () => {
     if (mes === 1) { setMes(12); setAno((a) => a - 1) }
     else setMes((m) => m - 1)
   }
 
   const nextMonth = () => {
-    if (isCurrentMonth) return
     if (mes === 12) { setMes(1); setAno((a) => a + 1) }
     else setMes((m) => m + 1)
   }
@@ -271,8 +268,7 @@ export default function DashboardPage() {
       </span>
       <button
         onClick={nextMonth}
-        disabled={isCurrentMonth}
-        className="w-8 h-8 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        className="w-8 h-8 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors"
         aria-label="Próximo mês"
       >
         ›
