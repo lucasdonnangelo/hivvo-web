@@ -10,8 +10,10 @@ import { useCards } from '../../hooks/useCards'
 import { useCategories } from '../../hooks/useCategories'
 import { useMonthlyStats } from '../../hooks/useStatistics'
 import { useCreateTransaction } from '../../hooks/useTransactions'
+import { useCreateRecorrencia } from '../../hooks/useRecorrencias'
 import { suggestCategory } from '../../services/ai'
 import type { Category } from '../../services/categories'
+import type { RecorrenciaCreate } from '../../services/recorrencias'
 import { useUIStore } from '../../store/uiStore'
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -23,6 +25,26 @@ const selectClass =
 
 const formatBRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+
+// Mês de início DEFAULT pela regra do dia (espelha o backend Fase 3a): se o dia
+// da ocorrência ainda não passou neste mês → mês corrente; senão → mês seguinte
+// (com virada de ano). Fica editável na UI (o "ajustar").
+function defaultInicio(dia: number, h: Date): [number, number] {
+  const m = h.getMonth() + 1
+  const y = h.getFullYear()
+  if (dia >= h.getDate()) return [m, y]
+  if (m === 12) return [1, y + 1]
+  return [m + 1, y]
+}
+
+const toMonthStr = (mes: number, ano: number) =>
+  `${ano}-${String(mes).padStart(2, '0')}`
+
+// "YYYY-MM" → "MM/YYYY" para exibição.
+const formatMesAno = (s: string) => {
+  const [y, m] = s.split('-')
+  return `${m}/${y}`
+}
 
 // ─── schema ───────────────────────────────────────────────────────────────────
 
@@ -43,10 +65,25 @@ const schema = z
       (v) => (v === '' || v === undefined || v === null ? undefined : Number(v)),
       z.number().int().min(2, 'Mínimo 2 parcelas').max(24, 'Máximo 24 parcelas').optional(),
     ),
+    // Recorrência (modo alternativo — troca os campos avulsos).
+    recorrente: z.boolean(),
+    dia_do_mes: z.preprocess(
+      (v) => (v === '' || v === undefined || v === null ? undefined : Number(v)),
+      z.number().int().min(1, 'Dia entre 1 e 31').max(31, 'Dia entre 1 e 31').optional(),
+    ),
+    mes_inicio_str: z.string().optional(),
   })
   .refine((d) => !d.parcelado || (d.total_parcelas != null && d.total_parcelas >= 2), {
     message: 'Informe o número de parcelas',
     path: ['total_parcelas'],
+  })
+  .refine((d) => !d.recorrente || (d.dia_do_mes != null && d.dia_do_mes >= 1 && d.dia_do_mes <= 31), {
+    message: 'Informe o dia do mês',
+    path: ['dia_do_mes'],
+  })
+  .refine((d) => !d.recorrente || /^\d{4}-\d{2}$/.test(d.mes_inicio_str ?? ''), {
+    message: 'Informe o mês de início',
+    path: ['mes_inicio_str'],
   })
 
 type FormData = z.infer<typeof schema>
@@ -104,6 +141,9 @@ interface ImpactPreviewProps {
   numParcelas: number | undefined
   saldoAtual: number | undefined
   allCategories: Category[]
+  recorrente: boolean
+  diaDoMes: number | undefined
+  mesInicioStr: string | undefined
 }
 
 function ImpactPreview({
@@ -115,15 +155,19 @@ function ImpactPreview({
   numParcelas,
   saldoAtual,
   allCategories,
+  recorrente,
+  diaDoMes,
+  mesInicioStr,
 }: ImpactPreviewProps) {
   const isReceita = tipo === 'receita'
   const catObj = allCategories.find((c) => c.nome === categoria)
+  // Parcela e "saldo após" não se aplicam à recorrência (ela se repete todo mês).
   const valorPorParcela =
-    parcelado && numParcelas && numParcelas >= 2 && valor > 0
+    !recorrente && parcelado && numParcelas && numParcelas >= 2 && valor > 0
       ? valor / numParcelas
       : null
   const saldoEstimado =
-    saldoAtual != null && valor > 0
+    !recorrente && saldoAtual != null && valor > 0
       ? saldoAtual + (isReceita ? valor : -valor)
       : null
 
@@ -157,6 +201,12 @@ function ImpactPreview({
             {formatBRL(valorPorParcela)} × {numParcelas}x
           </p>
         )}
+        {recorrente && diaDoMes ? (
+          <p className="text-xs text-text-muted mt-1">
+            Todo dia {diaDoMes}
+            {mesInicioStr ? ` · começa ${formatMesAno(mesInicioStr)}` : ''}
+          </p>
+        ) : null}
       </div>
 
       {descricao ? (
@@ -209,6 +259,7 @@ export default function AddTransactionPage() {
   const { data: allCards = [] } = useCards()
   const { data: stats } = useMonthlyStats(now.getMonth() + 1, now.getFullYear())
   const createTx = useCreateTransaction()
+  const createRec = useCreateRecorrencia()
 
   const addToast = useUIStore((s) => s.addToast)
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
@@ -222,6 +273,16 @@ export default function AddTransactionPage() {
     String(now.getMonth() + 1).padStart(2, '0'),
     String(now.getDate()).padStart(2, '0'),
   ].join('-')
+
+  // Defaults do modo recorrente: dia = hoje; "começa em" = mês default pela regra.
+  const diaHoje = now.getDate()
+  const defaultInicioStr = (() => {
+    const [m, a] = defaultInicio(diaHoje, now)
+    return toMonthStr(m, a)
+  })()
+  // "Começa em" pré-preenchido pela regra do dia, mas editável: uma vez que o
+  // usuário ajusta o campo à mão, paramos de recomputá-lo a partir do dia.
+  const inicioManual = useRef(false)
 
   const {
     control,
@@ -245,11 +306,14 @@ export default function AddTransactionPage() {
       cartao_id: null,
       parcelado: false,
       total_parcelas: undefined,
+      recorrente: false,
+      dia_do_mes: diaHoje,
+      mes_inicio_str: defaultInicioStr,
     },
   })
 
   const watched = watch()
-  const { forma_pagamento, parcelado, tipo } = watched
+  const { forma_pagamento, parcelado, tipo, recorrente } = watched
   // Grid de seleção filtrado pelo tipo corrente (client-side, sem refetch).
   // A tela de Gerenciar categorias (Settings) mostra todas — só o grid filtra.
   const visibleCategories = categories.filter((c) => c.tipo === tipo)
@@ -257,18 +321,25 @@ export default function AddTransactionPage() {
   const numParcelas = watched.total_parcelas ? Number(watched.total_parcelas) : undefined
 
   const isCredito = forma_pagamento === 'Crédito'
-  const showCartao = isCredito
-  const showParcelamento = isCredito && hasCards && watched.cartao_id != null
+  // Cartão/parcelamento só no modo avulso — recorrência não passa por cartão (§3.4).
+  const showCartao = isCredito && !recorrente
+  const showParcelamento = isCredito && !recorrente && hasCards && watched.cartao_id != null
   const valorPorParcela =
     parcelado && numParcelas && numParcelas >= 2 && valorNum > 0
       ? valorNum / numParcelas
       : null
+  // Recorrência nunca é no crédito → oculta "Crédito" da lista nesse modo.
+  const formasDisponiveis = recorrente
+    ? FORMAS_PAGAMENTO.filter((f) => f !== 'Crédito')
+    : FORMAS_PAGAMENTO
 
-  // canSubmit adds the no-cards guard on top of RHF isValid
+  const busy = createTx.isPending || createRec.isPending
+
+  // canSubmit adds the no-cards guard on top of RHF isValid (só no modo avulso)
   const canSubmit =
     isValid &&
-    !createTx.isPending &&
-    (!isCredito || !hasCards || watched.cartao_id != null)
+    !busy &&
+    (recorrente || !isCredito || !hasCards || watched.cartao_id != null)
 
   // Sugestão de categoria por IA: dispara apenas no BLUR da descrição (FE-08 —
   // o endpoint dedicado é stateless, mas a chamada continua custando Gemini).
@@ -290,6 +361,7 @@ export default function AddTransactionPage() {
     })
   }
   const descricaoField = register('descricao')
+  const inicioField = register('mes_inicio_str')
 
   // Reset cartao + parcelamento when switching away from Crédito
   useEffect(() => {
@@ -307,6 +379,31 @@ export default function AddTransactionPage() {
     }
   }, [parcelado]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Recorrente é mutuamente exclusivo com parcelamento/cartão: ligar limpa esses
+  // campos e derruba "Crédito" da forma. Desligar reabilita o prefill de início.
+  useEffect(() => {
+    if (recorrente) {
+      setValue('parcelado', false, { shouldValidate: false })
+      setValue('cartao_id', null, { shouldValidate: false })
+      setValue('total_parcelas', undefined, { shouldValidate: false })
+      if (getValues('forma_pagamento') === 'Crédito') {
+        setValue('forma_pagamento', 'PIX', { shouldValidate: true })
+      }
+    } else {
+      inicioManual.current = false
+    }
+  }, [recorrente]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "Começa em" segue a regra do dia enquanto o usuário não ajustar à mão (o
+  // "ajustar" da UI). Depois de editado, respeitamos a escolha.
+  useEffect(() => {
+    if (!recorrente || inicioManual.current) return
+    const dia = Number(getValues('dia_do_mes'))
+    if (!dia || dia < 1 || dia > 31) return
+    const [m, a] = defaultInicio(dia, now)
+    setValue('mes_inicio_str', toMonthStr(m, a), { shouldValidate: true })
+  }, [recorrente, watched.dia_do_mes]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const buildPayload = (data: FormData) => ({
     tipo: data.tipo,
     valor: parseFloat(String(data.valor).replace(',', '.')).toFixed(2),
@@ -321,18 +418,43 @@ export default function AddTransactionPage() {
       : {}),
   })
 
+  const buildRecorrenciaPayload = (data: FormData): RecorrenciaCreate => {
+    const [ys, ms] = (data.mes_inicio_str ?? '').split('-')
+    return {
+      tipo: data.tipo,
+      valor: parseFloat(String(data.valor).replace(',', '.')).toFixed(2),
+      categoria: data.categoria,
+      forma_pagamento: data.forma_pagamento,
+      dia_do_mes: Number(data.dia_do_mes),
+      descricao: data.descricao,
+      // Enviamos sempre o início do campo (o que o usuário vê é o que vai) — faz
+      // o "ajustar" valer, mesmo quando coincide com o default do backend.
+      mes_inicio: Number(ms),
+      ano_inicio: Number(ys),
+    }
+  }
+
   const onSave = handleSubmit(async (data) => {
     try {
-      await createTx.mutateAsync(buildPayload(data))
+      if (data.recorrente) {
+        await createRec.mutateAsync(buildRecorrenciaPayload(data))
+      } else {
+        await createTx.mutateAsync(buildPayload(data))
+      }
       navigate('/dashboard')
     } catch {
-      addToast({ message: 'Erro ao salvar transação. Verifique os dados e tente novamente.', type: 'error' })
+      addToast({ message: 'Erro ao salvar. Verifique os dados e tente novamente.', type: 'error' })
     }
   })
 
   const onSaveAndAdd = handleSubmit(async (data) => {
     try {
-      await createTx.mutateAsync(buildPayload(data))
+      if (data.recorrente) {
+        await createRec.mutateAsync(buildRecorrenciaPayload(data))
+      } else {
+        await createTx.mutateAsync(buildPayload(data))
+      }
+      inicioManual.current = false
       reset({
         tipo: data.tipo,
         valor: '' as unknown as number,
@@ -343,11 +465,14 @@ export default function AddTransactionPage() {
         cartao_id: null,
         parcelado: false,
         total_parcelas: undefined,
+        recorrente: data.recorrente,
+        dia_do_mes: diaHoje,
+        mes_inicio_str: defaultInicioStr,
       })
       suggestSeq.current++ // descarta sugestão em voo do form anterior
       setSuggestedCategory(null)
     } catch {
-      addToast({ message: 'Erro ao salvar transação. Verifique os dados e tente novamente.', type: 'error' })
+      addToast({ message: 'Erro ao salvar. Verifique os dados e tente novamente.', type: 'error' })
     }
   })
 
@@ -382,6 +507,41 @@ export default function AddTransactionPage() {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+      />
+
+      {/* Recorrente — modo alternativo (troca os campos avulsos) */}
+      <Controller
+        name="recorrente"
+        control={control}
+        render={({ field }) => (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text-primary">Recorrente</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={field.value}
+                onClick={() => field.onChange(!field.value)}
+                className={[
+                  'relative w-10 h-6 rounded-full overflow-hidden transition-colors',
+                  field.value ? 'bg-amber' : 'bg-bg-border',
+                ].join(' ')}
+              >
+                <span
+                  className={[
+                    'absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full transition-transform',
+                    field.value ? 'translate-x-[18px]' : 'translate-x-0.5',
+                  ].join(' ')}
+                />
+              </button>
+            </div>
+            {field.value && (
+              <p className="text-xs text-text-muted">
+                Um lançamento que se repete todo mês.
+              </p>
+            )}
           </div>
         )}
       />
@@ -433,13 +593,40 @@ export default function AddTransactionPage() {
         )}
       />
 
-      {/* Data */}
-      <Input
-        label="Data"
-        type="date"
-        error={errors.data?.message}
-        {...register('data')}
-      />
+      {/* Data — só no modo avulso (recorrência não tem data única) */}
+      {!recorrente && (
+        <Input
+          label="Data"
+          type="date"
+          error={errors.data?.message}
+          {...register('data')}
+        />
+      )}
+
+      {/* Recorrência: dia do mês + mês de início */}
+      {recorrente && (
+        <>
+          <Input
+            label="Dia do mês"
+            type="number"
+            min="1"
+            max="31"
+            placeholder="Ex: 5"
+            error={errors.dia_do_mes?.message}
+            {...register('dia_do_mes')}
+          />
+          <Input
+            label="Começa em"
+            type="month"
+            error={errors.mes_inicio_str?.message}
+            {...inicioField}
+            onChange={(e) => {
+              inicioManual.current = true
+              void inicioField.onChange(e)
+            }}
+          />
+        </>
+      )}
 
       {/* Forma de pagamento */}
       <Controller
@@ -449,7 +636,7 @@ export default function AddTransactionPage() {
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-text-muted">Forma de pagamento</label>
             <div className="flex flex-wrap gap-2">
-              {FORMAS_PAGAMENTO.map((f) => (
+              {formasDisponiveis.map((f) => (
                 <button
                   key={f}
                   type="button"
@@ -579,12 +766,12 @@ export default function AddTransactionPage() {
           <Button
             variant="ghost"
             onClick={onSaveAndAdd}
-            isLoading={createTx.isPending}
+            isLoading={busy}
             disabled={!canSubmit}
           >
             Salvar e adicionar outro
           </Button>
-          <Button onClick={onSave} isLoading={createTx.isPending} disabled={!canSubmit}>
+          <Button onClick={onSave} isLoading={busy} disabled={!canSubmit}>
             Salvar
           </Button>
         </div>
@@ -608,12 +795,12 @@ export default function AddTransactionPage() {
               <Button
                 variant="ghost"
                 onClick={onSaveAndAdd}
-                isLoading={createTx.isPending}
+                isLoading={busy}
                 disabled={!canSubmit}
               >
                 Salvar e adicionar outro
               </Button>
-              <Button onClick={onSave} isLoading={createTx.isPending} disabled={!canSubmit}>
+              <Button onClick={onSave} isLoading={busy} disabled={!canSubmit}>
                 Salvar
               </Button>
             </div>
@@ -628,6 +815,9 @@ export default function AddTransactionPage() {
             numParcelas={numParcelas}
             saldoAtual={stats?.saldo != null ? Number(stats.saldo) : undefined}
             allCategories={categories}
+            recorrente={recorrente}
+            diaDoMes={watched.dia_do_mes ? Number(watched.dia_do_mes) : undefined}
+            mesInicioStr={watched.mes_inicio_str}
           />
         </div>
       </div>
