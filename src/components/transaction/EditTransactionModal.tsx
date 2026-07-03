@@ -69,8 +69,9 @@ export default function EditTransactionModal({
           <div className="rounded-md bg-amber/10 border border-amber/30 px-4 py-3">
             <p className="text-sm font-medium text-amber">Transação parcelada</p>
             <p className="text-xs text-text-muted mt-1">
-              Esta é uma transação parcelada. Para editar as parcelas, acesse{' '}
-              <span className="text-text-primary">Gerenciar Parcelas</span>.
+              Transações parceladas não podem ser editadas diretamente — as parcelas
+              já foram distribuídas ao longo dos meses. Para alterá-la, exclua esta
+              transação e registre novamente.
             </p>
           </div>
           <div className="flex flex-col gap-3">
