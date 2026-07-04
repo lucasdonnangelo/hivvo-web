@@ -8,6 +8,8 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import { useCategories, useCreateCategory, useDeleteCategory } from '../../hooks/useCategories'
+import { useRecorrencias, useUpdateRecorrencia, useDeleteRecorrencia } from '../../hooks/useRecorrencias'
+import type { Recorrencia, RecorrenciaUpdate } from '../../services/recorrencias'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
 import { updateMe, changePassword, logout } from '../../services/auth'
@@ -28,6 +30,15 @@ const pwSchema = z
 type PwForm = z.infer<typeof pwSchema>
 
 const QUICK_EMOJIS = ['🍔','🚗','🏠','💊','📚','🎮','👕','📱','✈️','🐾','💰','💻','📈','🎯','📦']
+
+// Recorrência não passa por cartão (§3.4) → sem "Crédito".
+const FORMAS_RECORRENCIA = ['Débito', 'PIX', 'Dinheiro', 'TED/DOC']
+
+const formatBRL = (v: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+
+const recFieldClass =
+  'w-full rounded-md bg-bg border border-bg-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-amber transition-colors'
 
 function extractEmojiAndName(text: string): { icone: string; nome: string } {
   if (!text) return { icone: '📦', nome: '' }
@@ -227,6 +238,76 @@ export default function SettingsPage() {
     })
   }
 
+  // ── Recorrências ──────────────────────────────────────────────────────────
+  const { data: recorrencias = [], isLoading: recsLoading } = useRecorrencias()
+  const updateRecMutation = useUpdateRecorrencia()
+  const deleteRecMutation = useDeleteRecorrencia()
+
+  const [editingRec, setEditingRec] = useState<Recorrencia | null>(null)
+  const [recDescricao, setRecDescricao] = useState('')
+  const [recValor, setRecValor] = useState('')
+  const [recCategoria, setRecCategoria] = useState('')
+  const [recDia, setRecDia] = useState('')
+  const [recForma, setRecForma] = useState('')
+  const [recError, setRecError] = useState('')
+  const [deletingRecId, setDeletingRecId] = useState<string | null>(null)
+
+  function openEditRec(rec: Recorrencia) {
+    setEditingRec(rec)
+    setRecDescricao(rec.descricao)
+    setRecValor(rec.valor_vigente ?? '')
+    setRecCategoria(rec.categoria)
+    setRecDia(String(rec.dia_do_mes))
+    setRecForma(rec.forma_pagamento)
+    setRecError('')
+  }
+
+  // Valor vigente atual (se houver) para comparar com o editado.
+  const recValorAtual =
+    editingRec?.valor_vigente != null ? Number(editingRec.valor_vigente) : null
+  const recValorNovo = recValor.trim() ? parseFloat(recValor.replace(',', '.')) : NaN
+  // Envia valor quando: mudou de um vigente conhecido, OU não havia vigente
+  // (rec com início futuro — o backend substitui in place, sem versionar).
+  const recValorChanged =
+    !isNaN(recValorNovo) &&
+    (recValorAtual == null || recValorNovo.toFixed(2) !== recValorAtual.toFixed(2))
+  // A nota de versionamento só faz sentido ao ALTERAR um valor vigente existente.
+  const showVersionNote =
+    recValorAtual != null && !isNaN(recValorNovo) && recValorNovo.toFixed(2) !== recValorAtual.toFixed(2)
+
+  function handleSaveRec() {
+    if (!editingRec) return
+    const desc = recDescricao.trim()
+    if (desc.length < 2) {
+      setRecError('Descrição: mínimo 2 caracteres.')
+      return
+    }
+    const dia = Number(recDia)
+    if (!Number.isInteger(dia) || dia < 1 || dia > 31) {
+      setRecError('Dia do mês entre 1 e 31.')
+      return
+    }
+    if (isNaN(recValorNovo) || recValorNovo <= 0) {
+      setRecError('Valor deve ser maior que zero.')
+      return
+    }
+    // Metadados são retroativos (backend usa exclude_unset); valor só quando muda.
+    const payload: RecorrenciaUpdate = {
+      descricao: desc,
+      categoria: recCategoria,
+      dia_do_mes: dia,
+      forma_pagamento: recForma,
+    }
+    if (recValorChanged) payload.valor = recValorNovo.toFixed(2)
+    updateRecMutation.mutate(
+      { id: editingRec.id, payload },
+      {
+        onSuccess: () => setEditingRec(null),
+        onError: () => setRecError('Erro ao salvar. Tente novamente.'),
+      },
+    )
+  }
+
   // ── Content ───────────────────────────────────────────────────────────────
 
   const content = (
@@ -421,6 +502,95 @@ export default function SettingsPage() {
         </SettingsRow>
       </Section>
 
+      {/* ── Recorrências ── */}
+      <Section title="Recorrências">
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
+            Receitas e despesas que se repetem todo mês.
+          </p>
+
+          {recsLoading ? (
+            <div className="flex flex-col gap-2">
+              {[0, 1].map((i) => (
+                <div key={i} className="h-11 rounded-md bg-bg-border animate-pulse" />
+              ))}
+            </div>
+          ) : recorrencias.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-4 text-center">
+              <p className="text-sm text-text-muted">
+                Nenhuma recorrência cadastrada. Crie uma ao adicionar um lançamento recorrente.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {recorrencias.map((rec) =>
+                deletingRecId === rec.id ? (
+                  <div
+                    key={rec.id}
+                    className="flex flex-col gap-2 px-3 py-2.5 rounded-md bg-danger/5 border border-danger/30"
+                  >
+                    <p className="text-xs text-text-primary">
+                      Encerrar <span className="font-medium">{rec.descricao}</span>?
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      A recorrência para de gerar a partir deste mês. O histórico dos meses anteriores é mantido.
+                    </p>
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => setDeletingRecId(null)}
+                        className="text-xs text-text-muted hover:text-text-primary transition-colors"
+                      >
+                        Não
+                      </button>
+                      <button
+                        onClick={() =>
+                          deleteRecMutation.mutate(rec.id, {
+                            onSuccess: () => setDeletingRecId(null),
+                          })
+                        }
+                        disabled={deleteRecMutation.isPending}
+                        className="text-xs text-danger hover:text-danger/80 font-medium transition-colors disabled:opacity-50"
+                      >
+                        {deleteRecMutation.isPending ? '…' : 'Sim, encerrar'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={rec.id}
+                    className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-bg-border/50 transition-colors group"
+                  >
+                    <button
+                      onClick={() => openEditRec(rec)}
+                      className="flex flex-col min-w-0 text-left flex-1"
+                    >
+                      <span className="text-sm text-text-primary truncate">
+                        {rec.descricao} ·{' '}
+                        <span className={rec.tipo === 'receita' ? 'text-success' : 'text-danger'}>
+                          {rec.valor_vigente != null
+                            ? `${formatBRL(Number(rec.valor_vigente))}/mês`
+                            : '—'}
+                        </span>
+                      </span>
+                      <span className="text-xs text-text-muted">
+                        {rec.tipo === 'receita' ? 'Receita' : 'Despesa'} · todo dia {rec.dia_do_mes}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setDeletingRecId(rec.id)}
+                      className="text-text-muted hover:text-danger transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 text-xs shrink-0"
+                      aria-label={`Encerrar ${rec.descricao}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+        </SettingsRow>
+      </Section>
+
       {/* ── Importar dados ── */}
       <Section title="Importar dados">
         <SettingsRow>
@@ -545,6 +715,115 @@ export default function SettingsPage() {
     </Modal>
   )
 
+  const editRecModal = editingRec && (() => {
+    const catNames = categories
+      .filter((c) => c.ativa && c.tipo === editingRec.tipo)
+      .map((c) => c.nome)
+    const catOptions = catNames.includes(recCategoria) ? catNames : [recCategoria, ...catNames]
+    const formaOptions = FORMAS_RECORRENCIA.includes(recForma)
+      ? FORMAS_RECORRENCIA
+      : [recForma, ...FORMAS_RECORRENCIA]
+    return (
+      <Modal
+        title="Editar recorrência"
+        onClose={() => setEditingRec(null)}
+        footer={
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => setEditingRec(null)}>
+              Cancelar
+            </Button>
+            <Button isLoading={updateRecMutation.isPending} onClick={handleSaveRec}>
+              Salvar
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-text-muted" htmlFor="rec-descricao">Descrição</label>
+            <input
+              id="rec-descricao"
+              type="text"
+              value={recDescricao}
+              onChange={(e) => {
+                setRecDescricao(e.target.value)
+                if (recError) setRecError('')
+              }}
+              className={recFieldClass}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-text-muted" htmlFor="rec-valor">Valor (R$)</label>
+            <input
+              id="rec-valor"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={recValor}
+              onChange={(e) => {
+                setRecValor(e.target.value)
+                if (recError) setRecError('')
+              }}
+              className={recFieldClass}
+            />
+            {showVersionNote && (
+              <p className="text-xs text-text-muted">
+                A alteração de valor vale a partir deste mês. Os meses anteriores mantêm o valor anterior.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-text-muted" htmlFor="rec-categoria">Categoria</label>
+            <select
+              id="rec-categoria"
+              value={recCategoria}
+              onChange={(e) => setRecCategoria(e.target.value)}
+              className={recFieldClass}
+            >
+              {catOptions.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-text-muted" htmlFor="rec-dia">Dia do mês</label>
+            <input
+              id="rec-dia"
+              type="number"
+              min="1"
+              max="31"
+              value={recDia}
+              onChange={(e) => {
+                setRecDia(e.target.value)
+                if (recError) setRecError('')
+              }}
+              className={recFieldClass}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-text-muted" htmlFor="rec-forma">Forma de pagamento</label>
+            <select
+              id="rec-forma"
+              value={recForma}
+              onChange={(e) => setRecForma(e.target.value)}
+              className={recFieldClass}
+            >
+              {formaOptions.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+
+          {recError && <p className="text-xs text-danger">{recError}</p>}
+        </div>
+      </Modal>
+    )
+  })()
+
   const resetModal = resetModalOpen && (
     <Modal
       title="Resetar Assistente?"
@@ -591,6 +870,7 @@ export default function SettingsPage() {
     return (
       <>
         {addModal}
+        {editRecModal}
         {logoutModal}
         {resetModal}
         <div className="flex flex-col h-full">
@@ -613,6 +893,7 @@ export default function SettingsPage() {
   return (
     <>
       {addModal}
+      {editRecModal}
       {logoutModal}
       {resetModal}
       <div className="p-6 max-w-xl mx-auto">
