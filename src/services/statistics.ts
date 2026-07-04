@@ -6,6 +6,14 @@ export interface CategoriaStats {
   percentual: number
 }
 
+// Uma leitura do mês corrente pelo dia de hoje (§1.3.1): realizado (dia <= hoje)
+// ou a-vir (dia > hoje). Em mês não-corrente: realizado == projeção, a_vir zerado.
+export interface LeituraMes {
+  receitas: number
+  despesas: number
+  saldo: number
+}
+
 export interface MonthlyStats {
   mes: number
   ano: number
@@ -16,6 +24,9 @@ export interface MonthlyStats {
   variacao_despesas: number | null
   variacao_saldo?: number | null
   categorias: CategoriaStats[]
+  // Decomposição do mês corrente (aditivo; o topo continua sendo a projeção).
+  realizado: LeituraMes
+  a_vir: LeituraMes
 }
 
 export interface MesEvolucao {
@@ -42,6 +53,14 @@ function parseCat(c: CategoriaStats): CategoriaStats {
   return { ...c, total: Number(c.total), percentual: Number(c.percentual) }
 }
 
+function parseLeitura(l: LeituraMes): LeituraMes {
+  return {
+    receitas: Number(l.receitas),
+    despesas: Number(l.despesas),
+    saldo: Number(l.saldo),
+  }
+}
+
 function parseMonthly(d: MonthlyStats): MonthlyStats {
   return {
     ...d,
@@ -52,6 +71,8 @@ function parseMonthly(d: MonthlyStats): MonthlyStats {
     variacao_despesas: d.variacao_despesas != null ? Number(d.variacao_despesas) : null,
     variacao_saldo: d.variacao_saldo != null ? Number(d.variacao_saldo) : null,
     categorias: d.categorias.map(parseCat),
+    realizado: parseLeitura(d.realizado),
+    a_vir: parseLeitura(d.a_vir),
   }
 }
 
