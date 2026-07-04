@@ -68,3 +68,15 @@ export const updateRecorrencia = (id: string, payload: RecorrenciaUpdate) =>
 
 export const deleteRecorrencia = (id: string) =>
   api.delete(`/recorrencias/${id}`)
+
+// ── Operações de ERRO (§3.1.2) — distintas das normais (encerrar/alterar) ──────
+
+// Hard delete: remove a recorrência e TODAS as vigências (some do histórico e da
+// projeção). Distinto do encerrar (soft) — usar só quando criada por engano.
+export const deleteRecorrenciaPermanente = (id: string) =>
+  api.delete(`/recorrencias/${id}/permanente`)
+
+// Corrige o valor retroativamente (reescreve em todos os meses). Só permitido com
+// vigência única (erro fresco) — o backend responde 409 se houver múltiplas.
+export const corrigirValorRecorrencia = (id: string, valor: string) =>
+  api.patch<RecorrenciaDetail>(`/recorrencias/${id}/corrigir-valor`, { valor }).then((r) => r.data)

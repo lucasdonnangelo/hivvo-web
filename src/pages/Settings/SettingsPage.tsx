@@ -8,7 +8,14 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import { useCategories, useCreateCategory, useDeleteCategory } from '../../hooks/useCategories'
-import { useRecorrencias, useUpdateRecorrencia, useDeleteRecorrencia } from '../../hooks/useRecorrencias'
+import {
+  useRecorrencias,
+  useUpdateRecorrencia,
+  useDeleteRecorrencia,
+  useDeleteRecorrenciaPermanente,
+  useCorrigirValorRecorrencia,
+  useRecorrenciaDetail,
+} from '../../hooks/useRecorrencias'
 import type { Recorrencia, RecorrenciaUpdate } from '../../services/recorrencias'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
@@ -242,6 +249,8 @@ export default function SettingsPage() {
   const { data: recorrencias = [], isLoading: recsLoading } = useRecorrencias()
   const updateRecMutation = useUpdateRecorrencia()
   const deleteRecMutation = useDeleteRecorrencia()
+  const corrigirRecMutation = useCorrigirValorRecorrencia()
+  const hardDeleteRecMutation = useDeleteRecorrenciaPermanente()
 
   const [editingRec, setEditingRec] = useState<Recorrencia | null>(null)
   const [recDescricao, setRecDescricao] = useState('')
@@ -251,6 +260,14 @@ export default function SettingsPage() {
   const [recForma, setRecForma] = useState('')
   const [recError, setRecError] = useState('')
   const [deletingRecId, setDeletingRecId] = useState<string | null>(null)
+  // Intenção ao mudar o valor (§3.1.2): "alterar" (versionado) vs "corrigir" (erro).
+  const [recValorIntent, setRecValorIntent] = useState<'alterar' | 'corrigir'>('alterar')
+  // Confirmação do apagar permanentemente (troca o conteúdo do modal de editar).
+  const [confirmingHardDelete, setConfirmingHardDelete] = useState(false)
+
+  // Detalhe do rec em edição: precisamos de vigencias.length p/ gating do corrigir.
+  const { data: editingDetail } = useRecorrenciaDetail(editingRec?.id ?? null)
+  const vigenciasCount = editingDetail?.vigencias.length
 
   function openEditRec(rec: Recorrencia) {
     setEditingRec(rec)
@@ -260,6 +277,13 @@ export default function SettingsPage() {
     setRecDia(String(rec.dia_do_mes))
     setRecForma(rec.forma_pagamento)
     setRecError('')
+    setRecValorIntent('alterar')
+    setConfirmingHardDelete(false)
+  }
+
+  function closeEditRec() {
+    setEditingRec(null)
+    setConfirmingHardDelete(false)
   }
 
   // Valor vigente atual (se houver) para comparar com o editado.
@@ -271,11 +295,19 @@ export default function SettingsPage() {
   const recValorChanged =
     !isNaN(recValorNovo) &&
     (recValorAtual == null || recValorNovo.toFixed(2) !== recValorAtual.toFixed(2))
-  // A nota de versionamento só faz sentido ao ALTERAR um valor vigente existente.
-  const showVersionNote =
-    recValorAtual != null && !isNaN(recValorNovo) && recValorNovo.toFixed(2) !== recValorAtual.toFixed(2)
+  // "Corrigir valor" só com vigência única (erro fresco — §3.1.2).
+  const podeCorrigir = vigenciasCount === 1
+  // Metadados mudaram? (para decidir se, no fluxo "corrigir", também vai um PATCH normal)
+  const recMetadadosChanged = editingRec
+    ? recDescricao.trim() !== editingRec.descricao ||
+      recCategoria !== editingRec.categoria ||
+      Number(recDia) !== editingRec.dia_do_mes ||
+      recForma !== editingRec.forma_pagamento
+    : false
 
-  function handleSaveRec() {
+  const recSaving = updateRecMutation.isPending || corrigirRecMutation.isPending
+
+  async function handleSaveRec() {
     if (!editingRec) return
     const desc = recDescricao.trim()
     if (desc.length < 2) {
@@ -291,21 +323,55 @@ export default function SettingsPage() {
       setRecError('Valor deve ser maior que zero.')
       return
     }
-    // Metadados são retroativos (backend usa exclude_unset); valor só quando muda.
-    const payload: RecorrenciaUpdate = {
+    const metaPayload: RecorrenciaUpdate = {
       descricao: desc,
       categoria: recCategoria,
       dia_do_mes: dia,
       forma_pagamento: recForma,
     }
+
+    // Intenção "corrigir" (§3.1.2 — foi erro): reescreve o valor em TODOS os meses.
+    // Corrigir PRIMEIRO (é o passo que pode 409): se falhar, nada foi escrito —
+    // sem estado parcial nem toast de sucesso competindo. Metadados (se mudaram)
+    // vão depois, via PATCH normal.
+    if (recValorChanged && recValorIntent === 'corrigir' && podeCorrigir) {
+      try {
+        await corrigirRecMutation.mutateAsync({ id: editingRec.id, valor: recValorNovo.toFixed(2) })
+        if (recMetadadosChanged) {
+          await updateRecMutation.mutateAsync({ id: editingRec.id, payload: metaPayload })
+        }
+        closeEditRec()
+      } catch (err: unknown) {
+        // 409 (múltiplas vigências) ou outro erro → mensagem explícita de que o
+        // valor não foi corrigido, seguida do detalhe do backend (quando houver).
+        const detail = (err as { response?: { data?: { detail?: unknown } } })
+          ?.response?.data?.detail
+        const backend =
+          typeof detail === 'string' && detail.trim() ? ` ${detail}` : ''
+        addToast({ message: `O valor não foi corrigido.${backend}`, type: 'error' })
+      }
+      return
+    }
+
+    // Intenção normal "alterar" (versionado) + metadados num único PATCH.
+    // Metadados retroativos (backend usa exclude_unset); valor só quando muda.
+    const payload: RecorrenciaUpdate = { ...metaPayload }
     if (recValorChanged) payload.valor = recValorNovo.toFixed(2)
     updateRecMutation.mutate(
       { id: editingRec.id, payload },
       {
-        onSuccess: () => setEditingRec(null),
+        onSuccess: () => closeEditRec(),
         onError: () => setRecError('Erro ao salvar. Tente novamente.'),
       },
     )
+  }
+
+  function handleHardDeleteRec() {
+    if (!editingRec) return
+    hardDeleteRecMutation.mutate(editingRec.id, {
+      onSuccess: () => closeEditRec(),
+      onError: () => addToast({ message: 'Erro ao apagar. Tente novamente.', type: 'error' }),
+    })
   }
 
   // ── Content ───────────────────────────────────────────────────────────────
@@ -533,7 +599,7 @@ export default function SettingsPage() {
                       Encerrar <span className="font-medium">{rec.descricao}</span>?
                     </p>
                     <p className="text-xs text-text-muted">
-                      A recorrência para de gerar a partir deste mês. O histórico dos meses anteriores é mantido.
+                      Encerrar mantém o histórico e para de gerar a partir deste mês. Se esta recorrência foi criada por engano e você quer removê-la completamente (inclusive do passado), use Editar → Apagar permanentemente.
                     </p>
                     <div className="flex items-center justify-end gap-3">
                       <button
@@ -723,18 +789,55 @@ export default function SettingsPage() {
     const formaOptions = FORMAS_RECORRENCIA.includes(recForma)
       ? FORMAS_RECORRENCIA
       : [recForma, ...FORMAS_RECORRENCIA]
+
+    // ── Confirmação do apagar permanentemente (troca o conteúdo do modal) ──
+    if (confirmingHardDelete) {
+      return (
+        <Modal
+          title="Apagar permanentemente?"
+          onClose={closeEditRec}
+          footer={
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setConfirmingHardDelete(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                isLoading={hardDeleteRecMutation.isPending}
+                onClick={handleHardDeleteRec}
+              >
+                Apagar permanentemente
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-sm text-text-muted leading-relaxed">
+            Isto remove a recorrência e todo o histórico dela, inclusive de meses passados. Use apenas se foi criada por engano. Esta ação não pode ser desfeita.
+          </p>
+        </Modal>
+      )
+    }
+
     return (
       <Modal
         title="Editar recorrência"
-        onClose={() => setEditingRec(null)}
+        onClose={closeEditRec}
         footer={
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => setEditingRec(null)}>
-              Cancelar
-            </Button>
-            <Button isLoading={updateRecMutation.isPending} onClick={handleSaveRec}>
-              Salvar
-            </Button>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => setConfirmingHardDelete(true)}
+              className="text-xs text-danger hover:text-danger/80 transition-colors"
+            >
+              Apagar permanentemente
+            </button>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={closeEditRec}>
+                Cancelar
+              </Button>
+              <Button isLoading={recSaving} onClick={handleSaveRec}>
+                Salvar
+              </Button>
+            </div>
           </div>
         }
       >
@@ -767,10 +870,39 @@ export default function SettingsPage() {
               }}
               className={recFieldClass}
             />
-            {showVersionNote && (
-              <p className="text-xs text-text-muted">
-                A alteração de valor vale a partir deste mês. Os meses anteriores mantêm o valor anterior.
-              </p>
+            {recValorChanged && (
+              <div className="flex flex-col gap-1.5 mt-0.5">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={recValorIntent === 'alterar'}
+                    onChange={() => setRecValorIntent('alterar')}
+                    className="accent-amber mt-0.5"
+                  />
+                  <span className="flex flex-col">
+                    <span className="text-xs text-text-primary">Alterar valor</span>
+                    <span className="text-xs text-text-muted">
+                      A partir deste mês. Os meses anteriores mantêm o valor anterior.
+                    </span>
+                  </span>
+                </label>
+                {podeCorrigir && (
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={recValorIntent === 'corrigir'}
+                      onChange={() => setRecValorIntent('corrigir')}
+                      className="accent-amber mt-0.5"
+                    />
+                    <span className="flex flex-col">
+                      <span className="text-xs text-text-primary">Corrigir valor</span>
+                      <span className="text-xs text-text-muted">
+                        Foi erro de digitação. Aplica a todos os meses, inclusive passados.
+                      </span>
+                    </span>
+                  </label>
+                )}
+              </div>
             )}
           </div>
 
