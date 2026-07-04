@@ -72,9 +72,12 @@ interface MetricCardProps {
   color: 'neutral' | 'success' | 'danger'
   variacao?: number | null
   variacaoInverted?: boolean
+  // §1.3.1 — decomposição do mês corrente (realizado / a-vir). Só passada quando
+  // há algo a vir; caso contrário o card mostra apenas o principal (projeção).
+  decomposition?: { realizado: number; aVir: number }
 }
 
-function MetricCard({ label, value, color, variacao, variacaoInverted = false }: MetricCardProps) {
+function MetricCard({ label, value, color, variacao, variacaoInverted = false, decomposition }: MetricCardProps) {
   const valueClass =
     color === 'success' ? 'text-success' :
     color === 'danger'  ? 'text-danger'  :
@@ -93,6 +96,16 @@ function MetricCard({ label, value, color, variacao, variacaoInverted = false }:
       <p className={`text-xl font-medium ${valueClass}`}>{formatBRL(value)}</p>
       {variacaoText && (
         <p className={`text-xs mt-1 ${variacaoClass}`}>{variacaoText} vs mês ant.</p>
+      )}
+      {decomposition && (
+        <div className="mt-2 flex flex-col gap-0.5">
+          <p className="text-xs text-text-muted">
+            Já realizado: <span className="text-text-primary">{formatBRL(decomposition.realizado)}</span>
+          </p>
+          <p className="text-xs text-text-muted">
+            A vir este mês: <span className="text-text-primary">{formatBRL(decomposition.aVir)}</span>
+          </p>
+        </div>
       )}
     </div>
   )
@@ -290,13 +303,30 @@ export default function DashboardPage() {
   const saldoColor: MetricCardProps['color'] =
     stats.saldo > 0 ? 'success' : stats.saldo < 0 ? 'danger' : 'neutral'
 
+  // §1.3.1 — no mês corrente o principal é a PROJEÇÃO (estável, não oscila com o
+  // dia); a decomposição realizado/a-vir só aparece quando há algo a vir. Colapsa
+  // naturalmente em mês não-corrente (backend zera a_vir) e no fim do mês corrente
+  // (quando tudo já ocorreu). Gate por magnitude de receitas/despesas — não por
+  // saldo, que pode ser 0 mesmo havendo movimentos a vir que se anulam.
+  const isCurrentMonth = mes === now.getMonth() + 1 && ano === now.getFullYear()
+  const saldoLabel = isCurrentMonth ? `Projeção de ${MONTHS[mes - 1]}` : 'Saldo do Mês'
+  const showDecomposition = stats.a_vir.receitas > 0 || stats.a_vir.despesas > 0
+  const saldoDecomposition = showDecomposition
+    ? { realizado: stats.realizado.saldo, aVir: stats.a_vir.saldo }
+    : undefined
+
   // ── mobile ──────────────────────────────────────────────────────────────
   if (isMobile) {
     return (
       <div className="flex flex-col gap-4 p-4">
         {monthNav}
 
-        <MetricCard label="Saldo do Mês" value={stats.saldo} color={saldoColor} />
+        <MetricCard
+          label={saldoLabel}
+          value={stats.saldo}
+          color={saldoColor}
+          decomposition={saldoDecomposition}
+        />
 
         <div className="grid grid-cols-2 gap-3">
           <MetricCard
@@ -353,7 +383,12 @@ export default function DashboardPage() {
       {monthNav}
 
       <div className="grid grid-cols-3 gap-4">
-        <MetricCard label="Saldo do Mês" value={stats.saldo} color={saldoColor} />
+        <MetricCard
+          label={saldoLabel}
+          value={stats.saldo}
+          color={saldoColor}
+          decomposition={saldoDecomposition}
+        />
         <MetricCard
           label="Receitas"
           value={stats.receitas}
