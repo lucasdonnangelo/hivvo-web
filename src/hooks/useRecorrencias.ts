@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  corrigirValorRecorrencia,
   createRecorrencia,
   deleteRecorrencia,
+  deleteRecorrenciaPermanente,
+  getRecorrencia,
   getRecorrencias,
   updateRecorrencia,
   type RecorrenciaCreate,
@@ -14,6 +17,17 @@ export function useRecorrencias(incluirEncerradas = false) {
     queryKey: ['recorrencias', incluirEncerradas],
     queryFn: () => getRecorrencias(incluirEncerradas),
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+// Detalhe com vigencias[] — o modal de editar usa a contagem de vigências para
+// decidir se "corrigir valor" (só com vigência única, §3.1.2) pode ser oferecido.
+export function useRecorrenciaDetail(id: string | null) {
+  return useQuery({
+    queryKey: ['recorrencias', 'detail', id],
+    queryFn: () => getRecorrencia(id!),
+    enabled: !!id,
+    staleTime: 60 * 1000,
   })
 }
 
@@ -62,6 +76,33 @@ export function useDeleteRecorrencia() {
     onSuccess: () => {
       invalidateProjecao(qc)
       useUIStore.getState().addToast({ message: 'Recorrência removida', type: 'success' })
+    },
+  })
+}
+
+// ── Operações de ERRO (§3.1.2) ────────────────────────────────────────────────
+
+export function useDeleteRecorrenciaPermanente() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteRecorrenciaPermanente(id),
+    onSuccess: () => {
+      invalidateProjecao(qc)
+      useUIStore.getState().addToast({ message: 'Recorrência apagada permanentemente', type: 'success' })
+    },
+  })
+}
+
+// Sem onError aqui: o componente trata o 409 (múltiplas vigências) com toast da
+// mensagem do backend, mantendo o modal aberto.
+export function useCorrigirValorRecorrencia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, valor }: { id: string; valor: string }) =>
+      corrigirValorRecorrencia(id, valor),
+    onSuccess: () => {
+      invalidateProjecao(qc)
+      useUIStore.getState().addToast({ message: 'Valor corrigido', type: 'success' })
     },
   })
 }
