@@ -213,7 +213,7 @@ export default function TransactionsPage() {
   const totalSummary = (
     <div className="flex items-center gap-2">
       <span className="text-xs text-text-muted">
-        {filteredTx.length} transaç{filteredTx.length !== 1 ? 'ões' : 'ão'}
+        {filteredTx.length} transaç{filteredTx.length !== 1 ? 'ões' : 'ão'} registrada{filteredTx.length !== 1 ? 's' : ''}
       </span>
       <span
         className={`text-sm font-medium ${
@@ -234,11 +234,13 @@ export default function TransactionsPage() {
             <span className="text-amber text-lg">◇</span>
           </div>
           <p className="text-text-primary font-medium">
-            {transactions.length === 0 ? 'Sem transações' : 'Nenhum resultado'}
+            {transactions.length === 0
+              ? `Nenhuma transação registrada em ${MONTHS[mes - 1]} ${ano}`
+              : 'Nenhum resultado'}
           </p>
           <p className="text-text-muted text-sm mt-1">
             {transactions.length === 0
-              ? `Nenhuma movimentação em ${MONTHS[mes - 1]} ${ano}`
+              ? 'Você não registrou transações avulsas neste mês. Parcelas de compras anteriores que vencem aqui aparecem no Dashboard e no Resumo.'
               : 'Tente ajustar os filtros ou a busca'}
           </p>
           {hasActiveFilters && transactions.length > 0 && (
