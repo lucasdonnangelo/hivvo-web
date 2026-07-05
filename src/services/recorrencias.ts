@@ -25,7 +25,15 @@ export interface Recorrencia {
   data_criacao: string
   // Valor da vigência do mês corrente (null se nada vige — encerrada ou início
   // futuro), para a listagem mostrar "salário: R$X" sem abrir o detalhe.
+  // Continua sendo a base do gating "corrigir" e da comparação de valor.
   valor_vigente: string | null
+  // Valor a EXIBIR na gestão: vige hoje OU a vigência futura mais próxima (nunca
+  // vazio para início futuro). Null só quando encerrada (nada a mostrar → "—").
+  valor_exibicao: string | null
+  // Mês/ano de início quando o valor_exibicao é de uma vigência FUTURA (para
+  // rotular "a partir de ago/2026"); null quando o valor já vige hoje.
+  mes_exibicao: number | null
+  ano_exibicao: number | null
 }
 
 export interface RecorrenciaDetail extends Recorrencia {

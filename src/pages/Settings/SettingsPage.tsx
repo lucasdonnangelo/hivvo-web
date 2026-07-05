@@ -44,6 +44,8 @@ const FORMAS_RECORRENCIA = ['Débito', 'PIX', 'Dinheiro', 'TED/DOC']
 const formatBRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 
+const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
 const recFieldClass =
   'w-full rounded-md bg-bg border border-bg-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-amber transition-colors'
 
@@ -272,7 +274,7 @@ export default function SettingsPage() {
   function openEditRec(rec: Recorrencia) {
     setEditingRec(rec)
     setRecDescricao(rec.descricao)
-    setRecValor(rec.valor_vigente ?? '')
+    setRecValor(rec.valor_exibicao ?? '')
     setRecCategoria(rec.categoria)
     setRecDia(String(rec.dia_do_mes))
     setRecForma(rec.forma_pagamento)
@@ -286,12 +288,14 @@ export default function SettingsPage() {
     setConfirmingHardDelete(false)
   }
 
-  // Valor vigente atual (se houver) para comparar com o editado.
+  // Valor exibido/carregado no campo (o mesmo do prefill) para comparar com o
+  // editado. Base = valor_exibicao: p/ início futuro é a vigência futura, então
+  // digitar o mesmo valor NÃO conta como mudança (evita versionar à toa).
   const recValorAtual =
-    editingRec?.valor_vigente != null ? Number(editingRec.valor_vigente) : null
+    editingRec?.valor_exibicao != null ? Number(editingRec.valor_exibicao) : null
   const recValorNovo = recValor.trim() ? parseFloat(recValor.replace(',', '.')) : NaN
-  // Envia valor quando: mudou de um vigente conhecido, OU não havia vigente
-  // (rec com início futuro — o backend substitui in place, sem versionar).
+  // Envia valor quando: mudou de um valor conhecido, OU não havia base
+  // (só encerrada — o backend substitui in place, sem versionar).
   const recValorChanged =
     !isNaN(recValorNovo) &&
     (recValorAtual == null || recValorNovo.toFixed(2) !== recValorAtual.toFixed(2))
@@ -633,8 +637,10 @@ export default function SettingsPage() {
                       <span className="text-sm text-text-primary truncate">
                         {rec.descricao} ·{' '}
                         <span className={rec.tipo === 'receita' ? 'text-success' : 'text-danger'}>
-                          {rec.valor_vigente != null
-                            ? `${formatBRL(Number(rec.valor_vigente))}/mês`
+                          {rec.valor_exibicao != null
+                            ? rec.mes_exibicao != null && rec.ano_exibicao != null
+                              ? `${formatBRL(Number(rec.valor_exibicao))}/mês · a partir de ${MONTHS_SHORT[rec.mes_exibicao - 1]}/${rec.ano_exibicao}`
+                              : `${formatBRL(Number(rec.valor_exibicao))}/mês`
                             : '—'}
                         </span>
                       </span>
