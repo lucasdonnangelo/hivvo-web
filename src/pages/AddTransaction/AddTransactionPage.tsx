@@ -46,6 +46,22 @@ const formatMesAno = (s: string) => {
   return `${m}/${y}`
 }
 
+// Mensagem de erro do backend (FastAPI): string, array de erros (usa .msg) ou
+// objeto; cai no genérico quando não há detail (rede, 500 sem corpo). Espelha o
+// helper do SettingsPage/RegisterPage (FE-15: extrair p/ util compartilhado).
+function extractDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0]
+    if (first && typeof first === 'object' && 'msg' in first) {
+      return String((first as { msg: unknown }).msg)
+    }
+    return String(first)
+  }
+  if (detail && typeof detail === 'object') return JSON.stringify(detail)
+  return 'Erro ao salvar. Verifique os dados e tente novamente.'
+}
+
 // ─── schema ───────────────────────────────────────────────────────────────────
 
 const schema = z
@@ -284,6 +300,21 @@ export default function AddTransactionPage() {
   // usuário ajusta o campo à mão, paramos de recomputá-lo a partir do dia.
   const inicioManual = useRef(false)
 
+  // Mês corrente — fonte ÚNICA para o `min` do input, a validação do submit e o
+  // aviso inline (nada de recalcular "hoje" em quatro lugares divergentes).
+  const minMesInicio = toMonthStr(now.getMonth() + 1, now.getFullYear())
+  const mesCorrenteLabel = new Intl.DateTimeFormat('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  }).format(now)
+  const mensagemInicioAnterior = `O início não pode ser anterior a ${mesCorrenteLabel}.`
+  // "Começa em" anterior ao mês corrente? (formato zero-padded → comparação
+  // lexicográfica equivale à cronológica). Usado no submit (B) e no aviso (C).
+  const inicioAnteriorAoCorrente = (s: string | undefined) =>
+    !!s && /^\d{4}-\d{2}$/.test(s) && s < minMesInicio
+  // Aviso inline mostrado após o blur do campo (feedback antes do submit).
+  const [inicioInvalido, setInicioInvalido] = useState(false)
+
   const {
     control,
     register,
@@ -391,6 +422,7 @@ export default function AddTransactionPage() {
       }
     } else {
       inicioManual.current = false
+      setInicioInvalido(false)
     }
   }, [recorrente]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -435,6 +467,11 @@ export default function AddTransactionPage() {
   }
 
   const onSave = handleSubmit(async (data) => {
+    if (data.recorrente && inicioAnteriorAoCorrente(data.mes_inicio_str)) {
+      setInicioInvalido(true)
+      addToast({ message: mensagemInicioAnterior, type: 'error' })
+      return
+    }
     try {
       if (data.recorrente) {
         await createRec.mutateAsync(buildRecorrenciaPayload(data))
@@ -442,12 +479,19 @@ export default function AddTransactionPage() {
         await createTx.mutateAsync(buildPayload(data))
       }
       navigate('/dashboard')
-    } catch {
-      addToast({ message: 'Erro ao salvar. Verifique os dados e tente novamente.', type: 'error' })
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })
+        ?.response?.data?.detail
+      addToast({ message: extractDetail(detail), type: 'error' })
     }
   })
 
   const onSaveAndAdd = handleSubmit(async (data) => {
+    if (data.recorrente && inicioAnteriorAoCorrente(data.mes_inicio_str)) {
+      setInicioInvalido(true)
+      addToast({ message: mensagemInicioAnterior, type: 'error' })
+      return
+    }
     try {
       if (data.recorrente) {
         await createRec.mutateAsync(buildRecorrenciaPayload(data))
@@ -455,6 +499,7 @@ export default function AddTransactionPage() {
         await createTx.mutateAsync(buildPayload(data))
       }
       inicioManual.current = false
+      setInicioInvalido(false)
       reset({
         tipo: data.tipo,
         valor: '' as unknown as number,
@@ -471,8 +516,10 @@ export default function AddTransactionPage() {
       })
       suggestSeq.current++ // descarta sugestão em voo do form anterior
       setSuggestedCategory(null)
-    } catch {
-      addToast({ message: 'Erro ao salvar. Verifique os dados e tente novamente.', type: 'error' })
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })
+        ?.response?.data?.detail
+      addToast({ message: extractDetail(detail), type: 'error' })
     }
   })
 
@@ -618,12 +665,23 @@ export default function AddTransactionPage() {
           <Input
             label="Começa em"
             type="month"
-            min={toMonthStr(now.getMonth() + 1, now.getFullYear())}
-            error={errors.mes_inicio_str?.message}
+            min={minMesInicio}
+            error={
+              errors.mes_inicio_str?.message ??
+              (inicioInvalido ? mensagemInicioAnterior : undefined)
+            }
             {...inicioField}
             onChange={(e) => {
               inicioManual.current = true
               void inicioField.onChange(e)
+              // Some assim que o valor volta a ser válido (não brigar com a digitação).
+              if (inicioInvalido && !inicioAnteriorAoCorrente(e.target.value)) {
+                setInicioInvalido(false)
+              }
+            }}
+            onBlur={(e) => {
+              void inicioField.onBlur(e)
+              setInicioInvalido(inicioAnteriorAoCorrente(e.target.value))
             }}
           />
         </>
