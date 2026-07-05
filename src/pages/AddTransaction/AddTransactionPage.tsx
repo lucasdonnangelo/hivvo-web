@@ -618,6 +618,7 @@ export default function AddTransactionPage() {
           <Input
             label="Começa em"
             type="month"
+            min={toMonthStr(now.getMonth() + 1, now.getFullYear())}
             error={errors.mes_inicio_str?.message}
             {...inicioField}
             onChange={(e) => {
