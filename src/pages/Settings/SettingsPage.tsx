@@ -648,13 +648,22 @@ export default function SettingsPage() {
                         {rec.tipo === 'receita' ? 'Receita' : 'Despesa'} · todo dia {rec.dia_do_mes}
                       </span>
                     </button>
-                    <button
-                      onClick={() => setDeletingRecId(rec.id)}
-                      className="text-text-muted hover:text-danger transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 text-xs shrink-0"
-                      aria-label={`Encerrar ${rec.descricao}`}
-                    >
-                      ✕
-                    </button>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => openEditRec(rec)}
+                        className="w-7 h-7 flex items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-bg-border transition-colors text-sm"
+                        aria-label={`Editar ${rec.descricao}`}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => setDeletingRecId(rec.id)}
+                        className="w-7 h-7 flex items-center justify-center rounded text-text-muted hover:text-danger hover:bg-bg-border transition-colors text-xs"
+                        aria-label={`Encerrar ${rec.descricao}`}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 ),
               )}
