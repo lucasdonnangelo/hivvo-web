@@ -296,23 +296,44 @@ export default function AddTransactionPage() {
     const [m, a] = defaultInicio(diaHoje, now)
     return toMonthStr(m, a)
   })()
-  // "Começa em" pré-preenchido pela regra do dia, mas editável: uma vez que o
-  // usuário ajusta o campo à mão, paramos de recomputá-lo a partir do dia.
+  // "Começa em" pré-preenchido pela regra do dia (defaultInicioStr) e livremente
+  // editável. `inicioManual` marca que o usuário ajustou o campo à mão (NÃO
+  // empurramos o mês automaticamente — decisão de produto: o app não troca a
+  // escolha do usuário; quem protege contra ocorrência no passado é o aviso).
   const inicioManual = useRef(false)
 
-  // Mês corrente — fonte ÚNICA para o `min` do input, a validação do submit e o
-  // aviso inline (nada de recalcular "hoje" em quatro lugares divergentes).
+  // `min` do input — barreira do MÊS no seletor (bloqueia meses passados).
   const minMesInicio = toMonthStr(now.getMonth() + 1, now.getFullYear())
-  const mesCorrenteLabel = new Intl.DateTimeFormat('pt-BR', {
-    month: 'long',
-    year: 'numeric',
-  }).format(now)
-  const mensagemInicioAnterior = `O início não pode ser anterior a ${mesCorrenteLabel}.`
-  // "Começa em" anterior ao mês corrente? (formato zero-padded → comparação
-  // lexicográfica equivale à cronológica). Usado no submit (B) e no aviso (C).
-  const inicioAnteriorAoCorrente = (s: string | undefined) =>
-    !!s && /^\d{4}-\d{2}$/.test(s) && s < minMesInicio
-  // Aviso inline mostrado após o blur do campo (feedback antes do submit).
+  // Hoje à meia-noite (sem hora) — base ÚNICA de comparação da 1ª ocorrência.
+  const hoje0 = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  // A 1ª ocorrência (mês/ano do "Começa em" + dia_do_mes, com clamp de mês curto
+  // espelhando o backend) está no passado? `<` estrito — == hoje é válido, coerente
+  // com o backend. Checagem de UX (feedback antes do submit); a VERDADE é o backend.
+  const primeiraOcorrenciaNoPassado = (
+    mesInicioStr: string | undefined,
+    diaDoMes: number | string | undefined,
+  ): boolean => {
+    const dia = Number(diaDoMes)
+    if (!mesInicioStr || !/^\d{4}-\d{2}$/.test(mesInicioStr) || !dia) return false
+    const [ano, mes] = mesInicioStr.split('-').map(Number)
+    const ultimoDia = new Date(ano, mes, 0).getDate() // dia 0 do mês seguinte = último deste
+    const diaClamp = Math.min(dia, ultimoDia)
+    return new Date(ano, mes - 1, diaClamp) < hoje0
+  }
+  // Mensagem do aviso/toast — nomeia o dia e o mês da ocorrência que já passou.
+  const mensagemOcorrenciaPassada = (
+    diaDoMes: number | string | undefined,
+    mesInicioStr: string | undefined,
+  ): string => {
+    const dia = Number(diaDoMes)
+    const [ano, mes] = (mesInicioStr ?? '').split('-').map(Number)
+    const mesNome =
+      Number.isFinite(ano) && Number.isFinite(mes)
+        ? new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date(ano, mes - 1, 1))
+        : ''
+    return `A primeira ocorrência (dia ${dia} de ${mesNome}) já passou. Escolha um dia futuro ou comece no próximo mês.`
+  }
+  // Aviso inline mostrado após o blur do "Começa em" / mudança do dia (feedback antes do submit).
   const [inicioInvalido, setInicioInvalido] = useState(false)
 
   const {
@@ -393,6 +414,7 @@ export default function AddTransactionPage() {
   }
   const descricaoField = register('descricao')
   const inicioField = register('mes_inicio_str')
+  const diaField = register('dia_do_mes')
 
   // Reset cartao + parcelamento when switching away from Crédito
   useEffect(() => {
@@ -426,16 +448,6 @@ export default function AddTransactionPage() {
     }
   }, [recorrente]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // "Começa em" segue a regra do dia enquanto o usuário não ajustar à mão (o
-  // "ajustar" da UI). Depois de editado, respeitamos a escolha.
-  useEffect(() => {
-    if (!recorrente || inicioManual.current) return
-    const dia = Number(getValues('dia_do_mes'))
-    if (!dia || dia < 1 || dia > 31) return
-    const [m, a] = defaultInicio(dia, now)
-    setValue('mes_inicio_str', toMonthStr(m, a), { shouldValidate: true })
-  }, [recorrente, watched.dia_do_mes]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const buildPayload = (data: FormData) => ({
     tipo: data.tipo,
     valor: parseFloat(String(data.valor).replace(',', '.')).toFixed(2),
@@ -467,10 +479,17 @@ export default function AddTransactionPage() {
   }
 
   const onSave = handleSubmit(async (data) => {
-    if (data.recorrente && inicioAnteriorAoCorrente(data.mes_inicio_str)) {
-      setInicioInvalido(true)
-      addToast({ message: mensagemInicioAnterior, type: 'error' })
-      return
+    if (data.recorrente) {
+      // Recompute fresco (item 4): aviso exibido e bloqueio usam o MESMO cálculo.
+      const passado = primeiraOcorrenciaNoPassado(data.mes_inicio_str, data.dia_do_mes)
+      setInicioInvalido(passado)
+      if (passado) {
+        addToast({
+          message: mensagemOcorrenciaPassada(data.dia_do_mes, data.mes_inicio_str),
+          type: 'error',
+        })
+        return
+      }
     }
     try {
       if (data.recorrente) {
@@ -487,10 +506,16 @@ export default function AddTransactionPage() {
   })
 
   const onSaveAndAdd = handleSubmit(async (data) => {
-    if (data.recorrente && inicioAnteriorAoCorrente(data.mes_inicio_str)) {
-      setInicioInvalido(true)
-      addToast({ message: mensagemInicioAnterior, type: 'error' })
-      return
+    if (data.recorrente) {
+      const passado = primeiraOcorrenciaNoPassado(data.mes_inicio_str, data.dia_do_mes)
+      setInicioInvalido(passado)
+      if (passado) {
+        addToast({
+          message: mensagemOcorrenciaPassada(data.dia_do_mes, data.mes_inicio_str),
+          type: 'error',
+        })
+        return
+      }
     }
     try {
       if (data.recorrente) {
@@ -660,7 +685,14 @@ export default function AddTransactionPage() {
             max="31"
             placeholder="Ex: 5"
             error={errors.dia_do_mes?.message}
-            {...register('dia_do_mes')}
+            {...diaField}
+            onChange={(e) => {
+              void diaField.onChange(e)
+              // O dia também define a 1ª ocorrência → reavalia o aviso ao mudar.
+              setInicioInvalido(
+                primeiraOcorrenciaNoPassado(getValues('mes_inicio_str'), e.target.value),
+              )
+            }}
           />
           <Input
             label="Começa em"
@@ -668,20 +700,25 @@ export default function AddTransactionPage() {
             min={minMesInicio}
             error={
               errors.mes_inicio_str?.message ??
-              (inicioInvalido ? mensagemInicioAnterior : undefined)
+              (inicioInvalido
+                ? mensagemOcorrenciaPassada(watched.dia_do_mes, watched.mes_inicio_str)
+                : undefined)
             }
             {...inicioField}
             onChange={(e) => {
               inicioManual.current = true
               void inicioField.onChange(e)
-              // Some assim que o valor volta a ser válido (não brigar com a digitação).
-              if (inicioInvalido && !inicioAnteriorAoCorrente(e.target.value)) {
+              // Some assim que a 1ª ocorrência volta a ser válida (não brigar com a digitação).
+              if (
+                inicioInvalido &&
+                !primeiraOcorrenciaNoPassado(e.target.value, getValues('dia_do_mes'))
+              ) {
                 setInicioInvalido(false)
               }
             }}
             onBlur={(e) => {
               void inicioField.onBlur(e)
-              setInicioInvalido(inicioAnteriorAoCorrente(e.target.value))
+              setInicioInvalido(primeiraOcorrenciaNoPassado(e.target.value, getValues('dia_do_mes')))
             }}
           />
         </>
