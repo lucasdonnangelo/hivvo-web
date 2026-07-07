@@ -27,6 +27,11 @@ export interface MonthlyStats {
   // Decomposição do mês corrente (aditivo; o topo continua sendo a projeção).
   realizado: LeituraMes
   a_vir: LeituraMes
+  // Fase 3b — leitura de CONSUMO (regime de caixa): despesa/saldo distintos do
+  // fluxo (topo); receita é idêntica. Opcionais: o backend 3b está commitado mas
+  // pode não estar no ar ainda, então a resposta pode não trazer estes campos.
+  consumo?: LeituraMes
+  categorias_consumo?: CategoriaStats[]
 }
 
 export interface MesEvolucao {
@@ -73,6 +78,8 @@ function parseMonthly(d: MonthlyStats): MonthlyStats {
     categorias: d.categorias.map(parseCat),
     realizado: parseLeitura(d.realizado),
     a_vir: parseLeitura(d.a_vir),
+    consumo: d.consumo ? parseLeitura(d.consumo) : undefined,
+    categorias_consumo: d.categorias_consumo?.map(parseCat),
   }
 }
 
