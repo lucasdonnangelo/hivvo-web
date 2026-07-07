@@ -9,8 +9,8 @@ Leia `docs/Hivvo_Referencia.md` (canônica, espelhada com o hivvo-api), `docs/SE
 
 ## Estado do Projeto
 
-**Fase atual:** Hardening pré-deploy (frontend)
-**Status:** Frontend feature-complete e funcional. Em 11/06/2026 passou por duas auditorias — código (`AUDITORIA_FRONTEND.md`, 29 achados) e renderizado (log do Claude Chrome). O trabalho ativo é executar o `PLANO_EXECUCAO_WEB.md` antes do deploy.
+**Fase atual:** Fase 3 da projeção (telas — frontend), pós-deploy.
+**Status:** Frontend feature-complete e no ar (Vercel, app.hivvo.app). Hardening pré-deploy (Web-Batches 1–7 + T-28) concluído; recorrência completa de ponta a ponta (criar + gerenciar + operações de erro + validações §1.3.1/§3.1.2). Tudo commitado e pushado em `origin/master` (working tree clean, 06/jul). Próximo: **Fase 3 — as lentes** (3b toggle fluxo/consumo, 3c Resumo, 3d faturas futuras por cartão).
 **✅ Web-Batch 1 concluído (11/06/2026):** build verde (FE-01), hook pre-push com `npm run build` (husky), erro explícito sem `VITE_API_URL` em produção (FE-06), react-router-dom 6.30.4 (FE-03, `npm audit` zerado), botões "Exportar" ocultados (FE-20).
 **✅ Web-Batch 2 concluído (11/06/2026):** Inter self-hosted via @fontsource (FE-02a), `vercel.json` com headers de segurança (FE-02b), registro do SW confirmado como arquivo externo (FE-02c, sem mudança), token de reset fora da URL (FE-04).
 **✅ Web-Batch 4 concluído (25/06/2026):** sugestão de categoria via endpoint dedicado `POST /ai/suggest-category` (resolve FE-08 no cliente) — removido o caminho antigo que reusava `/ai/chat`/`sendMessage` (origem da poluição do histórico do Assistente); disparo no **blur** da descrição (sem debounce de digitação); envio do `tipo` corrente; guarda de resposta obsoleta via token de sequência (FE-19); sugestão não sobrescreve escolha manual.
