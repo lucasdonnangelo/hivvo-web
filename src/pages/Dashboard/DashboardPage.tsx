@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
-import { useMonthlyStats } from '../../hooks/useStatistics'
+import { useMonthlyStats, useDefaultMonth } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useUpcomingInstallments } from '../../hooks/useInstallments'
 import { useCards } from '../../hooks/useCards'
@@ -210,21 +210,39 @@ function CommitmentsCard({
 export default function DashboardPage() {
   const isMobile = useBreakpoint('md')
   const now = new Date()
-  const [mes, setMes] = useState(now.getMonth() + 1)
-  const [ano, setAno] = useState(now.getFullYear())
+  // mes/ano começam null: o mês inicial é definido pelo /statistics/default-month
+  // (abaixo), não pelo mês corrente. Enquanto null, o Dashboard fica em bootstrap.
+  const [mes, setMes] = useState<number | null>(null)
+  const [ano, setAno] = useState<number | null>(null)
 
   // Preferência de UI (persistida) — fluxo ("A pagar") vs consumo ("Gasto").
   const view = useDashboardStore((s) => s.view)
   const setView = useDashboardStore((s) => s.setView)
 
+  // Mês default de abertura (server-state). Chamado 1× antes de fixar o mês do
+  // primeiro /monthly, pra saber em que mês abrir por visão.
+  const { data: defaultMonth, isLoading: defaultLoading } = useDefaultMonth()
+
+  // Fixa o mês INICIAL uma única vez, quando o default resolve: o mês da VISÃO ativa
+  // (fluxo se "A pagar", consumo se "Gasto"). Só age com mes === null → trocar o
+  // toggle depois NÃO reposiciona (o default governa só a abertura).
+  useEffect(() => {
+    if (mes != null || !defaultMonth) return
+    const target = view === 'consumo' ? defaultMonth.consumo : defaultMonth.fluxo
+    setMes(target.mes)
+    setAno(target.ano)
+  }, [defaultMonth, view, mes])
+
   const prevMonth = () => {
-    if (mes === 1) { setMes(12); setAno((a) => a - 1) }
-    else setMes((m) => m - 1)
+    if (mes == null || ano == null) return
+    if (mes === 1) { setMes(12); setAno(ano - 1) }
+    else setMes(mes - 1)
   }
 
   const nextMonth = () => {
-    if (mes === 12) { setMes(1); setAno((a) => a + 1) }
-    else setMes((m) => m + 1)
+    if (mes == null || ano == null) return
+    if (mes === 12) { setMes(1); setAno(ano + 1) }
+    else setMes(mes + 1)
   }
 
   const { data: stats, isLoading: statsLoading, isError } = useMonthlyStats(mes, ano)
@@ -265,6 +283,13 @@ export default function DashboardPage() {
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
       .slice(0, 5)
   }, [transactions])
+
+  // Bootstrap: enquanto o /default-month não resolve (mes/ano ainda null), mostra o
+  // carregamento normal do Dashboard — nunca pisca o mês corrente pra depois pular.
+  // Também narrowa mes/ano para number no resto da função.
+  if (defaultLoading || mes == null || ano == null) {
+    return <SkeletonDashboard isMobile={isMobile} />
+  }
 
   const isEmpty =
     !isLoading && stats !== undefined && stats.receitas === 0 && stats.despesas === 0

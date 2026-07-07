@@ -52,6 +52,21 @@ export interface CategoriasResponse {
   total_despesas: number
 }
 
+// Mês em que o Dashboard deve ABRIR, por visão (§ default-month). O backend decide:
+//  - fluxo ("A pagar"): mês corrente se há histórico, senão o 1º mês com fluxo (ou o
+//    mês seguinte se não há fluxo) — evita abrir num "corrente vazio" pro usuário novo.
+//  - consumo ("Gasto"): sempre o mês corrente.
+// Governa só a abertura; a navegação por mês depois é livre (client-side).
+export interface DefaultMonth {
+  mes: number
+  ano: number
+}
+
+export interface DefaultMonthResponse {
+  fluxo: DefaultMonth
+  consumo: DefaultMonth
+}
+
 // ── parsers: backend returns Decimal fields as strings ─────────────────────────
 
 function parseCat(c: CategoriaStats): CategoriaStats {
@@ -119,3 +134,7 @@ export const getCategoryStats = (params: { mes?: number; ano: number }) =>
   api
     .get<CategoriasResponse>('/statistics/categories', { params })
     .then((r) => parseCategories(r.data))
+
+// mes/ano são inteiros — sem parse de Decimal.
+export const getDefaultMonth = () =>
+  api.get<DefaultMonthResponse>('/statistics/default-month').then((r) => r.data)
