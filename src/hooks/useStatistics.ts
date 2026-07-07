@@ -3,13 +3,26 @@ import {
   getMonthlyStats,
   getYearlyStats,
   getCategoryStats,
+  getDefaultMonth,
 } from '../services/statistics'
 import type { CategoriaStats } from '../services/statistics'
 
-export function useMonthlyStats(mes: number, ano: number) {
+// mes/ano podem ser null enquanto o Dashboard espera o /default-month resolver —
+// nesse caso a query fica desabilitada (não dispara /monthly com mês indefinido).
+export function useMonthlyStats(mes: number | null, ano: number | null) {
   return useQuery({
     queryKey: ['statistics', 'monthly', mes, ano],
-    queryFn: () => getMonthlyStats(mes, ano),
+    queryFn: () => getMonthlyStats(mes as number, ano as number),
+    enabled: mes != null && ano != null,
+  })
+}
+
+// Mês default de abertura do Dashboard (server-state). Chamado 1× antes de fixar o
+// mês do primeiro /monthly; governa só a abertura, não trava a navegação.
+export function useDefaultMonth() {
+  return useQuery({
+    queryKey: ['statistics', 'default-month'],
+    queryFn: getDefaultMonth,
   })
 }
 

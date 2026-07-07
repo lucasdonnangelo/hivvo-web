@@ -9,10 +9,13 @@ import {
 } from '../services/transactions'
 import { useUIStore } from '../store/uiStore'
 
-export function useTransactions(mes: number, ano: number) {
+// mes/ano podem ser null enquanto o Dashboard espera o /default-month resolver —
+// nesse caso a query fica desabilitada.
+export function useTransactions(mes: number | null, ano: number | null) {
   return useQuery({
     queryKey: ['transactions', mes, ano],
-    queryFn: () => getTransactions(mes, ano),
+    queryFn: () => getTransactions(mes as number, ano as number),
+    enabled: mes != null && ano != null,
   })
 }
 
