@@ -15,10 +15,10 @@ export interface Card {
 
 export interface CardPayload {
   nome: string
-  limite: number
-  dia_fechamento: number
-  dia_vencimento: number
-  mes_offset_vencimento: number
+  limite: number | null
+  dia_fechamento: number | null
+  dia_vencimento: number | null
+  mes_offset_vencimento: number | null
   tipo: 'Crédito' | 'Débito' | 'Ambos'
   ativo?: boolean
 }
