@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
-import { useMonthlyStats, useDefaultMonth } from '../../hooks/useStatistics'
+import { useMonthlyStats } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useUpcomingInstallments } from '../../hooks/useInstallments'
 import { useCards } from '../../hooks/useCards'
-import { useDashboardStore, type DashboardView } from '../../store/dashboardStore'
 import type { Transaction } from '../../services/transactions'
 import DonutChart from '../../components/charts/DonutChart'
 import OnboardingBanner from '../../components/ui/OnboardingBanner'
@@ -36,11 +35,12 @@ function SkeletonDashboard({ isMobile }: { isMobile: boolean }) {
   if (isMobile) {
     return (
       <div className="flex flex-col gap-4 p-4">
-        <div className="h-8 bg-bg-surface rounded-md animate-pulse" />
-        <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
+        <div className="h-10 bg-bg-surface rounded-md animate-pulse" />
         <div className="grid grid-cols-2 gap-3">
-          <div className="h-20 bg-bg-surface rounded-lg animate-pulse" />
-          <div className="h-20 bg-bg-surface rounded-lg animate-pulse" />
+          <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
+          <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
+          <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
+          <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
         </div>
         <div className="h-28 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-72 bg-bg-surface rounded-lg animate-pulse" />
@@ -50,8 +50,9 @@ function SkeletonDashboard({ isMobile }: { isMobile: boolean }) {
   }
   return (
     <div className="flex flex-col gap-4 p-6">
-      <div className="h-8 w-52 bg-bg-surface rounded-md animate-pulse" />
-      <div className="grid grid-cols-3 gap-4">
+      <div className="h-10 w-52 bg-bg-surface rounded-md animate-pulse" />
+      <div className="grid grid-cols-4 gap-4">
+        <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
@@ -73,12 +74,15 @@ interface MetricCardProps {
   color: 'neutral' | 'success' | 'danger'
   variacao?: number | null
   variacaoInverted?: boolean
-  // §1.3.1 — decomposição do mês corrente (realizado / a-vir). Só passada quando
-  // há algo a vir; caso contrário o card mostra apenas o principal (projeção).
+  // Leve destaque visual (número-resposta): usado no card SALDO do Bloco 1.
+  emphasis?: boolean
+  // Decomposição do mês corrente (realizado / a-vir). No Bloco 1 vive no card
+  // A PAGAR (fluxo): só passada quando há algo a vir; caso contrário o card
+  // mostra apenas o principal (o valor cheio de fluxo do mês).
   decomposition?: { realizado: number; aVir: number }
 }
 
-function MetricCard({ label, value, color, variacao, variacaoInverted = false, decomposition }: MetricCardProps) {
+function MetricCard({ label, value, color, variacao, variacaoInverted = false, emphasis = false, decomposition }: MetricCardProps) {
   const valueClass =
     color === 'success' ? 'text-success' :
     color === 'danger'  ? 'text-danger'  :
@@ -92,9 +96,11 @@ function MetricCard({ label, value, color, variacao, variacaoInverted = false, d
       : variacao > 0 ? 'text-success' : 'text-danger'
 
   return (
-    <div className="bg-bg-surface rounded-lg p-4">
+    <div className={`bg-bg-surface rounded-lg p-4 ${emphasis ? 'ring-1 ring-bg-border' : ''}`}>
       <p className="text-xs text-text-muted mb-1">{label}</p>
-      <p className={`text-xl font-medium ${valueClass}`}>{formatBRL(value)}</p>
+      <p className={`${emphasis ? 'text-2xl font-semibold' : 'text-xl font-medium'} ${valueClass}`}>
+        {formatBRL(value)}
+      </p>
       {variacaoText && (
         <p className={`text-xs mt-1 ${variacaoClass}`}>{variacaoText} vs mês ant.</p>
       )}
@@ -160,6 +166,8 @@ interface CommitmentsEntry {
   total: number
 }
 
+// Placeholder do futuro Bloco 2 ("Sua projeção"): mantém a visão de futuro em pé
+// entre o Batch 2 e o Batch 3. Será substituído pelo Bloco 2 real no Batch 3.
 function CommitmentsCard({
   data,
   isLoading,
@@ -209,41 +217,12 @@ function CommitmentsCard({
 
 export default function DashboardPage() {
   const isMobile = useBreakpoint('md')
+
+  // Bloco 1 "Seu mês" — âncora no mês corrente, FIXO (sem navegação de mês). Todos
+  // os dados do bloco vêm de UMA chamada /monthly deste mês.
   const now = new Date()
-  // mes/ano começam null: o mês inicial é definido pelo /statistics/default-month
-  // (abaixo), não pelo mês corrente. Enquanto null, o Dashboard fica em bootstrap.
-  const [mes, setMes] = useState<number | null>(null)
-  const [ano, setAno] = useState<number | null>(null)
-
-  // Preferência de UI (persistida) — fluxo ("A pagar") vs consumo ("Gasto").
-  const view = useDashboardStore((s) => s.view)
-  const setView = useDashboardStore((s) => s.setView)
-
-  // Mês default de abertura (server-state). Chamado 1× antes de fixar o mês do
-  // primeiro /monthly, pra saber em que mês abrir por visão.
-  const { data: defaultMonth, isLoading: defaultLoading } = useDefaultMonth()
-
-  // Fixa o mês INICIAL uma única vez, quando o default resolve: o mês da VISÃO ativa
-  // (fluxo se "A pagar", consumo se "Gasto"). Só age com mes === null → trocar o
-  // toggle depois NÃO reposiciona (o default governa só a abertura).
-  useEffect(() => {
-    if (mes != null || !defaultMonth) return
-    const target = view === 'consumo' ? defaultMonth.consumo : defaultMonth.fluxo
-    setMes(target.mes)
-    setAno(target.ano)
-  }, [defaultMonth, view, mes])
-
-  const prevMonth = () => {
-    if (mes == null || ano == null) return
-    if (mes === 1) { setMes(12); setAno(ano - 1) }
-    else setMes(mes - 1)
-  }
-
-  const nextMonth = () => {
-    if (mes == null || ano == null) return
-    if (mes === 12) { setMes(1); setAno(ano + 1) }
-    else setMes(mes + 1)
-  }
+  const mes = now.getMonth() + 1
+  const ano = now.getFullYear()
 
   const { data: stats, isLoading: statsLoading, isError } = useMonthlyStats(mes, ano)
   const { data: transactions, isLoading: txLoading } = useTransactions(mes, ano)
@@ -252,10 +231,10 @@ export default function DashboardPage() {
 
   const isLoading = statsLoading || txLoading
 
+  // Placeholder do Bloco 2 (Compromissos futuros): próximos 3 meses de fluxo.
   const upcomingMonths = useMemo(() => {
-    const today = new Date()
-    const curMes = today.getMonth() + 1
-    const curAno = today.getFullYear()
+    const curMes = mes
+    const curAno = ano
     return [0, 1, 2].map((offset) => {
       const totalMonth = curMes - 1 + offset
       return {
@@ -263,7 +242,7 @@ export default function DashboardPage() {
         ano: curAno + Math.floor(totalMonth / 12),
       }
     })
-  }, [])
+  }, [mes, ano])
 
   const upcomingData = useMemo(
     () =>
@@ -284,58 +263,16 @@ export default function DashboardPage() {
       .slice(0, 5)
   }, [transactions])
 
-  // Bootstrap: enquanto o /default-month não resolve (mes/ano ainda null), mostra o
-  // carregamento normal do Dashboard — nunca pisca o mês corrente pra depois pular.
-  // Também narrowa mes/ano para number no resto da função.
-  if (defaultLoading || mes == null || ano == null) {
-    return <SkeletonDashboard isMobile={isMobile} />
-  }
-
   const isEmpty =
     !isLoading && stats !== undefined && stats.receitas === 0 && stats.despesas === 0
 
   const showOnboarding =
     !isLoading && (transactions ?? []).length === 0 && cards.length === 0
 
-  const monthNav = (
-    <div className="flex items-center justify-between">
-      <button
-        onClick={prevMonth}
-        className="w-8 h-8 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors"
-        aria-label="Mês anterior"
-      >
-        ‹
-      </button>
-      <span className="text-sm font-medium text-text-primary">
-        {MONTHS[mes - 1]} {ano}
-      </span>
-      <button
-        onClick={nextMonth}
-        className="w-8 h-8 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors"
-        aria-label="Próximo mês"
-      >
-        ›
-      </button>
-    </div>
-  )
-
-  // Toggle in-line espelhando o "Mês/Tri/Ano" do Resumo (mesmos tokens/estrutura).
-  const viewToggle = (
-    <div className="flex items-center bg-bg-surface rounded-lg p-1 gap-1">
-      {(['fluxo', 'consumo'] as DashboardView[]).map((v) => (
-        <button
-          key={v}
-          onClick={() => setView(v)}
-          className={[
-            'flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
-            view === v
-              ? 'bg-amber text-bg'
-              : 'text-text-muted hover:text-text-primary',
-          ].join(' ')}
-        >
-          {v === 'fluxo' ? 'A pagar' : 'Gasto'}
-        </button>
-      ))}
+  const header = (
+    <div>
+      <h1 className="text-lg font-medium text-text-primary">Seu mês</h1>
+      <p className="text-sm text-text-muted">{MONTHS[mes - 1]} {ano}</p>
     </div>
   )
 
@@ -350,68 +287,85 @@ export default function DashboardPage() {
     )
   }
 
-  // Fase 3b — leitura ativa. Só entra em consumo se a preferência for 'consumo' E
-  // o backend 3b já entregar o campo (degrade sem throw enquanto não está no ar).
-  // A truthiness de `consumo` narrowa o tipo sem `!`/`as`.
-  const consumo = view === 'consumo' ? stats.consumo ?? null : null
-  const isConsumo = consumo !== null
-
-  // Receita é IGUAL nas duas visões; só despesa/saldo mudam (D2).
-  const receitasValue = consumo ? consumo.receitas : stats.receitas
-  const despesasValue = consumo ? consumo.despesas : stats.despesas
-  const saldoValue = consumo ? consumo.saldo : stats.saldo
-  const donutCategorias = consumo ? stats.categorias_consumo ?? [] : stats.categorias
+  // Bloco 1 — os quatro campos, todos do /monthly do mês corrente:
+  //  RECEITAS = receitas (topo).
+  //  DESPESAS = consumo.despesas (lente CONSUMO — o que gastou/comprou no mês).
+  //  A PAGAR  = despesas (topo/fluxo — o que vence e sai da conta no mês).
+  //  SALDO    = saldo (topo; já é receitas − a pagar).
+  // `consumo` é opcional no contrato (3b pode não estar no ar); em produção existe.
+  // Degrada sem crash caindo no fluxo, e o donut cai para lista vazia.
+  const despesasConsumo = stats.consumo?.despesas ?? stats.despesas
+  const donutCategorias = stats.categorias_consumo ?? []
 
   const saldoColor: MetricCardProps['color'] =
-    saldoValue > 0 ? 'success' : saldoValue < 0 ? 'danger' : 'neutral'
+    stats.saldo > 0 ? 'success' : stats.saldo < 0 ? 'danger' : 'neutral'
 
-  // §1.3.1 — no mês corrente o principal é a PROJEÇÃO (estável, não oscila com o
-  // dia); a decomposição realizado/a-vir só aparece quando há algo a vir. Colapsa
-  // naturalmente em mês não-corrente (backend zera a_vir) e no fim do mês corrente
-  // (quando tudo já ocorreu). Gate por magnitude de receitas/despesas — não por
-  // saldo, que pode ser 0 mesmo havendo movimentos a vir que se anulam.
-  // Consumo é regime de caixa: não tem decomposição realizado/a-vir (conceito de
-  // fluxo — D2); título "Gasto · [mês]" ciente do mês navegado.
-  const isCurrentMonth = mes === now.getMonth() + 1 && ano === now.getFullYear()
-  const saldoLabel = isConsumo
-    ? `Gasto · ${MONTHS[mes - 1]}`
-    : isCurrentMonth
-      ? `Projeção de ${MONTHS[mes - 1]}`
-      : 'Saldo do Mês'
-  const showDecomposition =
-    !isConsumo && (stats.a_vir.receitas > 0 || stats.a_vir.despesas > 0)
-  const saldoDecomposition = showDecomposition
-    ? { realizado: stats.realizado.saldo, aVir: stats.a_vir.saldo }
-    : undefined
+  // A PAGAR carrega a decomposição realizado/a-vir (§1.3.1), migrada do card Saldo:
+  // "já saiu X, ainda sai Y este mês". Só quando há algo a vir de despesa — colapsa
+  // no fim do mês (tudo já venceu) e some naturalmente em mês não-corrente.
+  const aPagarDecomposition =
+    stats.a_vir.despesas > 0
+      ? { realizado: stats.realizado.despesas, aVir: stats.a_vir.despesas }
+      : undefined
+
+  const receitasCard = (
+    <MetricCard
+      label="Receitas"
+      value={stats.receitas}
+      color="success"
+      variacao={stats.variacao_receitas}
+    />
+  )
+  const despesasCard = (
+    <MetricCard label="Despesas" value={despesasConsumo} color="danger" />
+  )
+  const aPagarCard = (
+    <MetricCard
+      label="A pagar"
+      value={stats.despesas}
+      color="neutral"
+      variacao={stats.variacao_despesas}
+      variacaoInverted
+      decomposition={aPagarDecomposition}
+    />
+  )
+  const saldoCard = (
+    <MetricCard label="Saldo" value={stats.saldo} color={saldoColor} emphasis />
+  )
+
+  const donutSection = (
+    <div className="bg-bg-surface rounded-lg p-4">
+      <h2 className="text-sm font-medium text-text-primary mb-3">
+        Gastos por categoria · {MONTHS[mes - 1]}
+      </h2>
+      <DonutChart data={donutCategorias} />
+    </div>
+  )
+
+  const transactionsSection = (
+    <div className="bg-bg-surface rounded-lg p-4">
+      <h2 className="text-sm font-medium text-text-primary mb-3">Últimas transações</h2>
+      {recentTransactions.length === 0 ? (
+        <p className="text-text-muted text-sm py-4 text-center">
+          Nenhuma transação encontrada.
+        </p>
+      ) : (
+        recentTransactions.map((tx) => <TransactionItem key={tx.id} tx={tx} />)
+      )}
+    </div>
+  )
 
   // ── mobile ──────────────────────────────────────────────────────────────
   if (isMobile) {
     return (
       <div className="flex flex-col gap-4 p-4">
-        {monthNav}
-        {viewToggle}
-
-        <MetricCard
-          label={saldoLabel}
-          value={saldoValue}
-          color={saldoColor}
-          decomposition={saldoDecomposition}
-        />
+        {header}
 
         <div className="grid grid-cols-2 gap-3">
-          <MetricCard
-            label="Receitas"
-            value={receitasValue}
-            color="success"
-            variacao={stats.variacao_receitas}
-          />
-          <MetricCard
-            label="Despesas"
-            value={despesasValue}
-            color="danger"
-            variacao={isConsumo ? null : stats.variacao_despesas}
-            variacaoInverted
-          />
+          {receitasCard}
+          {despesasCard}
+          {aPagarCard}
+          {saldoCard}
         </div>
 
         <CommitmentsCard data={upcomingData} isLoading={parcelasLoading} />
@@ -422,25 +376,8 @@ export default function DashboardPage() {
           <EmptyState mes={mes} ano={ano} />
         ) : (
           <>
-            <div className="bg-bg-surface rounded-lg p-4">
-              <h2 className="text-sm font-medium text-text-primary mb-3">
-                Gastos por categoria
-              </h2>
-              <DonutChart data={donutCategorias} />
-            </div>
-
-            <div className="bg-bg-surface rounded-lg p-4">
-              <h2 className="text-sm font-medium text-text-primary mb-3">
-                Últimas transações
-              </h2>
-              {recentTransactions.length === 0 ? (
-                <p className="text-text-muted text-sm py-4 text-center">
-                  Nenhuma transação encontrada.
-                </p>
-              ) : (
-                recentTransactions.map((tx) => <TransactionItem key={tx.id} tx={tx} />)
-              )}
-            </div>
+            {donutSection}
+            {transactionsSection}
           </>
         )}
       </div>
@@ -450,29 +387,13 @@ export default function DashboardPage() {
   // ── desktop ─────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-4 p-6">
-      {monthNav}
-      <div className="w-56">{viewToggle}</div>
+      {header}
 
-      <div className="grid grid-cols-3 gap-4">
-        <MetricCard
-          label={saldoLabel}
-          value={saldoValue}
-          color={saldoColor}
-          decomposition={saldoDecomposition}
-        />
-        <MetricCard
-          label="Receitas"
-          value={receitasValue}
-          color="success"
-          variacao={stats.variacao_receitas}
-        />
-        <MetricCard
-          label="Despesas"
-          value={despesasValue}
-          color="danger"
-          variacao={isConsumo ? null : stats.variacao_despesas}
-          variacaoInverted
-        />
+      <div className="grid grid-cols-4 gap-4">
+        {receitasCard}
+        {despesasCard}
+        {aPagarCard}
+        {saldoCard}
       </div>
 
       {showOnboarding && <OnboardingBanner />}
@@ -483,7 +404,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-[45%_1fr] gap-4">
           <div className="bg-bg-surface rounded-lg p-6">
             <h2 className="text-sm font-medium text-text-primary mb-4">
-              Gastos por categoria
+              Gastos por categoria · {MONTHS[mes - 1]}
             </h2>
             <DonutChart data={donutCategorias} />
           </div>
