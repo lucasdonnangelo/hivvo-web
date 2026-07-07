@@ -4,6 +4,7 @@ import { useMonthlyStats } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useUpcomingInstallments } from '../../hooks/useInstallments'
 import { useCards } from '../../hooks/useCards'
+import { useDashboardStore, type DashboardView } from '../../store/dashboardStore'
 import type { Transaction } from '../../services/transactions'
 import DonutChart from '../../components/charts/DonutChart'
 import OnboardingBanner from '../../components/ui/OnboardingBanner'
@@ -212,6 +213,10 @@ export default function DashboardPage() {
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [ano, setAno] = useState(now.getFullYear())
 
+  // Preferência de UI (persistida) — fluxo ("A pagar") vs consumo ("Gasto").
+  const view = useDashboardStore((s) => s.view)
+  const setView = useDashboardStore((s) => s.setView)
+
   const prevMonth = () => {
     if (mes === 1) { setMes(12); setAno((a) => a - 1) }
     else setMes((m) => m - 1)
@@ -289,6 +294,26 @@ export default function DashboardPage() {
     </div>
   )
 
+  // Toggle in-line espelhando o "Mês/Tri/Ano" do Resumo (mesmos tokens/estrutura).
+  const viewToggle = (
+    <div className="flex items-center bg-bg-surface rounded-lg p-1 gap-1">
+      {(['fluxo', 'consumo'] as DashboardView[]).map((v) => (
+        <button
+          key={v}
+          onClick={() => setView(v)}
+          className={[
+            'flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+            view === v
+              ? 'bg-amber text-bg'
+              : 'text-text-muted hover:text-text-primary',
+          ].join(' ')}
+        >
+          {v === 'fluxo' ? 'A pagar' : 'Gasto'}
+        </button>
+      ))}
+    </div>
+  )
+
   if (isLoading) return <SkeletonDashboard isMobile={isMobile} />
 
   if (isError || !stats) {
@@ -300,17 +325,36 @@ export default function DashboardPage() {
     )
   }
 
+  // Fase 3b — leitura ativa. Só entra em consumo se a preferência for 'consumo' E
+  // o backend 3b já entregar o campo (degrade sem throw enquanto não está no ar).
+  // A truthiness de `consumo` narrowa o tipo sem `!`/`as`.
+  const consumo = view === 'consumo' ? stats.consumo ?? null : null
+  const isConsumo = consumo !== null
+
+  // Receita é IGUAL nas duas visões; só despesa/saldo mudam (D2).
+  const receitasValue = consumo ? consumo.receitas : stats.receitas
+  const despesasValue = consumo ? consumo.despesas : stats.despesas
+  const saldoValue = consumo ? consumo.saldo : stats.saldo
+  const donutCategorias = consumo ? stats.categorias_consumo ?? [] : stats.categorias
+
   const saldoColor: MetricCardProps['color'] =
-    stats.saldo > 0 ? 'success' : stats.saldo < 0 ? 'danger' : 'neutral'
+    saldoValue > 0 ? 'success' : saldoValue < 0 ? 'danger' : 'neutral'
 
   // §1.3.1 — no mês corrente o principal é a PROJEÇÃO (estável, não oscila com o
   // dia); a decomposição realizado/a-vir só aparece quando há algo a vir. Colapsa
   // naturalmente em mês não-corrente (backend zera a_vir) e no fim do mês corrente
   // (quando tudo já ocorreu). Gate por magnitude de receitas/despesas — não por
   // saldo, que pode ser 0 mesmo havendo movimentos a vir que se anulam.
+  // Consumo é regime de caixa: não tem decomposição realizado/a-vir (conceito de
+  // fluxo — D2); título "Gasto · [mês]" ciente do mês navegado.
   const isCurrentMonth = mes === now.getMonth() + 1 && ano === now.getFullYear()
-  const saldoLabel = isCurrentMonth ? `Projeção de ${MONTHS[mes - 1]}` : 'Saldo do Mês'
-  const showDecomposition = stats.a_vir.receitas > 0 || stats.a_vir.despesas > 0
+  const saldoLabel = isConsumo
+    ? `Gasto · ${MONTHS[mes - 1]}`
+    : isCurrentMonth
+      ? `Projeção de ${MONTHS[mes - 1]}`
+      : 'Saldo do Mês'
+  const showDecomposition =
+    !isConsumo && (stats.a_vir.receitas > 0 || stats.a_vir.despesas > 0)
   const saldoDecomposition = showDecomposition
     ? { realizado: stats.realizado.saldo, aVir: stats.a_vir.saldo }
     : undefined
@@ -320,10 +364,11 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col gap-4 p-4">
         {monthNav}
+        {viewToggle}
 
         <MetricCard
           label={saldoLabel}
-          value={stats.saldo}
+          value={saldoValue}
           color={saldoColor}
           decomposition={saldoDecomposition}
         />
@@ -331,15 +376,15 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-3">
           <MetricCard
             label="Receitas"
-            value={stats.receitas}
+            value={receitasValue}
             color="success"
             variacao={stats.variacao_receitas}
           />
           <MetricCard
             label="Despesas"
-            value={stats.despesas}
+            value={despesasValue}
             color="danger"
-            variacao={stats.variacao_despesas}
+            variacao={isConsumo ? null : stats.variacao_despesas}
             variacaoInverted
           />
         </div>
@@ -356,7 +401,7 @@ export default function DashboardPage() {
               <h2 className="text-sm font-medium text-text-primary mb-3">
                 Gastos por categoria
               </h2>
-              <DonutChart data={stats.categorias} />
+              <DonutChart data={donutCategorias} />
             </div>
 
             <div className="bg-bg-surface rounded-lg p-4">
@@ -381,25 +426,26 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-4 p-6">
       {monthNav}
+      <div className="w-56">{viewToggle}</div>
 
       <div className="grid grid-cols-3 gap-4">
         <MetricCard
           label={saldoLabel}
-          value={stats.saldo}
+          value={saldoValue}
           color={saldoColor}
           decomposition={saldoDecomposition}
         />
         <MetricCard
           label="Receitas"
-          value={stats.receitas}
+          value={receitasValue}
           color="success"
           variacao={stats.variacao_receitas}
         />
         <MetricCard
           label="Despesas"
-          value={stats.despesas}
+          value={despesasValue}
           color="danger"
-          variacao={stats.variacao_despesas}
+          variacao={isConsumo ? null : stats.variacao_despesas}
           variacaoInverted
         />
       </div>
@@ -414,7 +460,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-medium text-text-primary mb-4">
               Gastos por categoria
             </h2>
-            <DonutChart data={stats.categorias} />
+            <DonutChart data={donutCategorias} />
           </div>
 
           <div className="flex flex-col gap-4">
