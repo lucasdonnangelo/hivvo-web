@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
-import { useMonthlyStats } from '../../hooks/useStatistics'
+import { useMonthlyStats, useProjection } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
-import { useUpcomingInstallments } from '../../hooks/useInstallments'
 import { useCards } from '../../hooks/useCards'
 import type { Transaction } from '../../services/transactions'
+import type { ProjectionMonth } from '../../services/statistics'
 import DonutChart from '../../components/charts/DonutChart'
 import OnboardingBanner from '../../components/ui/OnboardingBanner'
 
@@ -28,6 +28,10 @@ const formatVariacao = (v: number | null | undefined): string | null => {
   const sign = v > 0 ? '+' : ''
   return `${sign}${v.toFixed(1).replace('.', ',')}%`
 }
+
+// Cor do saldo por sinal — coerente com o card SALDO do Bloco 1 (zero = neutro).
+const saldoColorClass = (v: number) =>
+  v > 0 ? 'text-success' : v < 0 ? 'text-danger' : 'text-text-primary'
 
 // ─── sub-components ─────────────────────────────────────────────────────────
 
@@ -160,53 +164,89 @@ function EmptyState({ mes, ano }: { mes: number; ano: number }) {
   )
 }
 
-interface CommitmentsEntry {
-  mes: number
-  ano: number
-  total: number
+// ─── Bloco 2 "Sua projeção" ──────────────────────────────────────────────────
+
+// Mês destacado (series[0] = mês default por construção): o saldo previsto é o
+// número-herói (coerente com o SALDO do Bloco 1); receitas/a-pagar como apoio.
+function ProjectionHighlight({ m }: { m: ProjectionMonth }) {
+  return (
+    <div className="bg-bg-surface rounded-lg p-5 ring-1 ring-amber">
+      <p className="text-xs text-amber font-medium mb-2">
+        Em destaque · {MONTHS[m.mes - 1]} {m.ano}
+      </p>
+      <p className="text-xs text-text-muted">Saldo previsto</p>
+      <p className={`text-2xl font-semibold ${saldoColorClass(m.saldo)}`}>{formatBRL(m.saldo)}</p>
+      <div className="grid grid-cols-2 gap-4 mt-3">
+        <div>
+          <p className="text-xs text-text-muted mb-0.5">Receitas</p>
+          <p className="text-sm font-medium text-success">{formatBRL(m.receitas)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-text-muted mb-0.5">A pagar</p>
+          <p className="text-sm font-medium text-text-primary">{formatBRL(m.a_pagar)}</p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
-// Placeholder do futuro Bloco 2 ("Sua projeção"): mantém a visão de futuro em pé
-// entre o Batch 2 e o Batch 3. Será substituído pelo Bloco 2 real no Batch 3.
-function CommitmentsCard({
-  data,
-  isLoading,
-}: {
-  data: CommitmentsEntry[]
-  isLoading: boolean
-}) {
-  const grandTotal = data.reduce((s, d) => s + d.total, 0)
+// Linha compacta de um mês da projeção. Dois níveis (mobile-safe): mês + saldo
+// (o número-resposta) em cima; receitas/a-pagar de apoio embaixo. Meses zerados
+// aparecem — a série é contínua.
+function ProjectionRow({ m }: { m: ProjectionMonth }) {
   return (
-    <div className="bg-bg-surface rounded-lg p-4">
-      <h2 className="text-sm font-medium text-text-primary mb-3">Compromissos futuros</h2>
+    <div className="py-2.5 border-b border-bg-border last:border-0">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-text-primary">
+          {MONTHS[m.mes - 1]} <span className="text-text-muted">{m.ano}</span>
+        </span>
+        <span className={`text-sm font-medium ${saldoColorClass(m.saldo)}`}>
+          {formatBRL(m.saldo)}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 mt-0.5 text-xs text-text-muted">
+        <span className="text-success">+{formatBRL(m.receitas)}</span>
+        <span>−{formatBRL(m.a_pagar)} a pagar</span>
+      </div>
+    </div>
+  )
+}
+
+function ProjectionBlock({
+  series,
+  isLoading,
+  isError,
+}: {
+  series: ProjectionMonth[] | undefined
+  isLoading: boolean
+  isError: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <h2 className="text-lg font-medium text-text-primary">Sua projeção</h2>
+        <p className="text-sm text-text-muted">Próximos 12 meses</p>
+      </div>
+
       {isLoading ? (
-        <div className="flex flex-col gap-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-8 bg-bg-border rounded-md animate-pulse" />
-          ))}
-          <div className="border-t border-bg-border mt-1 pt-2">
-            <div className="h-8 bg-bg-border rounded-md animate-pulse" />
-          </div>
+        <>
+          <div className="h-32 bg-bg-surface rounded-lg animate-pulse" />
+          <div className="h-64 bg-bg-surface rounded-lg animate-pulse" />
+        </>
+      ) : isError || !series || series.length === 0 ? (
+        <div className="bg-bg-surface rounded-lg p-4">
+          <p className="text-text-muted text-sm">Sem projeção disponível.</p>
         </div>
       ) : (
         <>
-          <div className="flex flex-col">
-            {data.map(({ mes, ano, total }) => (
-              <div
-                key={`${mes}-${ano}`}
-                className="flex items-center justify-between py-2 border-b border-bg-border last:border-0"
-              >
-                <span className="text-sm text-text-muted">
-                  {MONTHS[mes - 1]} {ano}
-                </span>
-                <span className="text-sm font-medium text-amber">{formatBRL(total)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between pt-3 mt-1">
-            <span className="text-xs font-medium text-text-muted">Total 3 meses</span>
-            <span className="text-base font-medium text-amber">{formatBRL(grandTotal)}</span>
-          </div>
+          <ProjectionHighlight m={series[0]} />
+          {series.length > 1 && (
+            <div className="bg-bg-surface rounded-lg p-4">
+              {series.slice(1).map((m) => (
+                <ProjectionRow key={`${m.ano}-${m.mes}`} m={m} />
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -226,35 +266,17 @@ export default function DashboardPage() {
 
   const { data: stats, isLoading: statsLoading, isError } = useMonthlyStats(mes, ano)
   const { data: transactions, isLoading: txLoading } = useTransactions(mes, ano)
-  const { data: parcelas = [], isLoading: parcelasLoading } = useUpcomingInstallments()
   const { data: cards = [] } = useCards()
 
+  // Bloco 2 "Sua projeção" — 12 meses de fluxo, começando no mês default (série[0]).
+  // Query independente do /monthly: não trava a página nem o Bloco 1.
+  const {
+    data: projection,
+    isLoading: projectionLoading,
+    isError: projectionError,
+  } = useProjection(12)
+
   const isLoading = statsLoading || txLoading
-
-  // Placeholder do Bloco 2 (Compromissos futuros): próximos 3 meses de fluxo.
-  const upcomingMonths = useMemo(() => {
-    const curMes = mes
-    const curAno = ano
-    return [0, 1, 2].map((offset) => {
-      const totalMonth = curMes - 1 + offset
-      return {
-        mes: (totalMonth % 12) + 1,
-        ano: curAno + Math.floor(totalMonth / 12),
-      }
-    })
-  }, [mes, ano])
-
-  const upcomingData = useMemo(
-    () =>
-      upcomingMonths.map(({ mes: m, ano: a }) => ({
-        mes: m,
-        ano: a,
-        total: parcelas
-          .filter((p) => p.fatura_mes === m && p.fatura_ano === a)
-          .reduce((sum, p) => sum + parseFloat(p.valor_parcela), 0),
-      })),
-    [parcelas, upcomingMonths],
-  )
 
   const recentTransactions = useMemo(() => {
     if (!transactions) return []
@@ -355,6 +377,14 @@ export default function DashboardPage() {
     </div>
   )
 
+  const projectionSection = (
+    <ProjectionBlock
+      series={projection?.series}
+      isLoading={projectionLoading}
+      isError={projectionError}
+    />
+  )
+
   // ── mobile ──────────────────────────────────────────────────────────────
   if (isMobile) {
     return (
@@ -368,8 +398,6 @@ export default function DashboardPage() {
           {saldoCard}
         </div>
 
-        <CommitmentsCard data={upcomingData} isLoading={parcelasLoading} />
-
         {showOnboarding && <OnboardingBanner />}
 
         {isEmpty ? (
@@ -380,6 +408,8 @@ export default function DashboardPage() {
             {transactionsSection}
           </>
         )}
+
+        {projectionSection}
       </div>
     )
   }
@@ -409,21 +439,20 @@ export default function DashboardPage() {
             <DonutChart data={donutCategorias} />
           </div>
 
-          <div className="flex flex-col gap-4">
-            <CommitmentsCard data={upcomingData} isLoading={parcelasLoading} />
-            <div className="bg-bg-surface rounded-lg p-6 flex-1">
-              <h2 className="text-sm font-medium text-text-primary mb-4">
-                Últimas transações
-              </h2>
-              {recentTransactions.length === 0 ? (
-                <p className="text-text-muted text-sm">Nenhuma transação encontrada.</p>
-              ) : (
-                recentTransactions.map((tx) => <TransactionItem key={tx.id} tx={tx} />)
-              )}
-            </div>
+          <div className="bg-bg-surface rounded-lg p-6">
+            <h2 className="text-sm font-medium text-text-primary mb-4">
+              Últimas transações
+            </h2>
+            {recentTransactions.length === 0 ? (
+              <p className="text-text-muted text-sm">Nenhuma transação encontrada.</p>
+            ) : (
+              recentTransactions.map((tx) => <TransactionItem key={tx.id} tx={tx} />)
+            )}
           </div>
         </div>
       )}
+
+      {projectionSection}
     </div>
   )
 }
