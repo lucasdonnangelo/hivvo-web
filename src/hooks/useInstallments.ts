@@ -8,11 +8,3 @@ export function useInstallments(mes: number, ano: number) {
     staleTime: 2 * 60 * 1000,
   })
 }
-
-export function useUpcomingInstallments() {
-  return useQuery({
-    queryKey: ['installments', 'upcoming'],
-    queryFn: () => getInstallments({ pago: false, cancelado: false }),
-    staleTime: 2 * 60 * 1000,
-  })
-}

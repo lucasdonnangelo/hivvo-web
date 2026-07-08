@@ -3,7 +3,7 @@ import {
   getMonthlyStats,
   getYearlyStats,
   getCategoryStats,
-  getDefaultMonth,
+  getProjection,
 } from '../services/statistics'
 import type { CategoriaStats } from '../services/statistics'
 
@@ -17,12 +17,12 @@ export function useMonthlyStats(mes: number | null, ano: number | null) {
   })
 }
 
-// Mês default de abertura do Dashboard (server-state). Chamado 1× antes de fixar o
-// mês do primeiro /monthly; governa só a abertura, não trava a navegação.
-export function useDefaultMonth() {
+// Projeção do Bloco 2 do Dashboard (server-state): 12 meses de fluxo à frente,
+// já começando no mês default (series[0]). Query independente do /monthly.
+export function useProjection(meses = 12) {
   return useQuery({
-    queryKey: ['statistics', 'default-month'],
-    queryFn: getDefaultMonth,
+    queryKey: ['statistics', 'projection', meses],
+    queryFn: () => getProjection(meses),
   })
 }
 

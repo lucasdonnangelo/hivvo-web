@@ -52,19 +52,20 @@ export interface CategoriasResponse {
   total_despesas: number
 }
 
-// Mês em que o Dashboard deve ABRIR, por visão (§ default-month). O backend decide:
-//  - fluxo ("A pagar"): mês corrente se há histórico, senão o 1º mês com fluxo (ou o
-//    mês seguinte se não há fluxo) — evita abrir num "corrente vazio" pro usuário novo.
-//  - consumo ("Gasto"): sempre o mês corrente.
-// Governa só a abertura; a navegação por mês depois é livre (client-side).
-export interface DefaultMonth {
+// Projeção do Dashboard (Bloco 2 "Sua projeção"): 12 meses à frente de fluxo.
+// series[0] = mês default por construção do backend (o 1º mês com fluxo, ou o
+// corrente se há histórico) — o card destacado; series[1..] = próximos meses.
+// receitas/a_pagar/saldo são fluxo (o que entra, o que vence, o previsto na conta).
+export interface ProjectionMonth {
   mes: number
   ano: number
+  receitas: number
+  a_pagar: number
+  saldo: number
 }
 
-export interface DefaultMonthResponse {
-  fluxo: DefaultMonth
-  consumo: DefaultMonth
+export interface ProjectionResponse {
+  series: ProjectionMonth[]
 }
 
 // ── parsers: backend returns Decimal fields as strings ─────────────────────────
@@ -118,6 +119,16 @@ function parseCategories(d: CategoriasResponse): CategoriasResponse {
   }
 }
 
+function parseProjectionMonth(m: ProjectionMonth): ProjectionMonth {
+  return {
+    mes: m.mes,
+    ano: m.ano,
+    receitas: Number(m.receitas),
+    a_pagar: Number(m.a_pagar),
+    saldo: Number(m.saldo),
+  }
+}
+
 // ── API calls ──────────────────────────────────────────────────────────────────
 
 export const getMonthlyStats = (mes: number, ano: number) =>
@@ -135,6 +146,7 @@ export const getCategoryStats = (params: { mes?: number; ano: number }) =>
     .get<CategoriasResponse>('/statistics/categories', { params })
     .then((r) => parseCategories(r.data))
 
-// mes/ano são inteiros — sem parse de Decimal.
-export const getDefaultMonth = () =>
-  api.get<DefaultMonthResponse>('/statistics/default-month').then((r) => r.data)
+export const getProjection = (meses = 12) =>
+  api
+    .get<ProjectionResponse>('/statistics/projection', { params: { meses } })
+    .then((r) => ({ series: r.data.series.map(parseProjectionMonth) }))
