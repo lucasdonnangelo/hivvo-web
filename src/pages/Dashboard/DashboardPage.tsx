@@ -77,16 +77,11 @@ interface MetricCardProps {
   value: number
   color: 'neutral' | 'success' | 'danger'
   variacao?: number | null
-  variacaoInverted?: boolean
   // Leve destaque visual (número-resposta): usado no card SALDO do Bloco 1.
   emphasis?: boolean
-  // Decomposição do mês corrente (realizado / a-vir). No Bloco 1 vive no card
-  // A PAGAR (fluxo): só passada quando há algo a vir; caso contrário o card
-  // mostra apenas o principal (o valor cheio de fluxo do mês).
-  decomposition?: { realizado: number; aVir: number }
 }
 
-function MetricCard({ label, value, color, variacao, variacaoInverted = false, emphasis = false, decomposition }: MetricCardProps) {
+function MetricCard({ label, value, color, variacao, emphasis = false }: MetricCardProps) {
   const valueClass =
     color === 'success' ? 'text-success' :
     color === 'danger'  ? 'text-danger'  :
@@ -95,9 +90,7 @@ function MetricCard({ label, value, color, variacao, variacaoInverted = false, e
   const variacaoText = formatVariacao(variacao)
   const variacaoClass =
     variacao == null ? '' :
-    variacaoInverted
-      ? variacao > 0 ? 'text-danger' : 'text-success'
-      : variacao > 0 ? 'text-success' : 'text-danger'
+    variacao > 0 ? 'text-success' : 'text-danger'
 
   return (
     <div className={`bg-bg-surface rounded-lg p-4 ${emphasis ? 'ring-1 ring-bg-border' : ''}`}>
@@ -107,16 +100,6 @@ function MetricCard({ label, value, color, variacao, variacaoInverted = false, e
       </p>
       {variacaoText && (
         <p className={`text-xs mt-1 ${variacaoClass}`}>{variacaoText} vs mês ant.</p>
-      )}
-      {decomposition && (
-        <div className="mt-2 flex flex-col gap-0.5">
-          <p className="text-xs text-text-muted">
-            Já realizado: <span className="text-text-primary">{formatBRL(decomposition.realizado)}</span>
-          </p>
-          <p className="text-xs text-text-muted">
-            A vir este mês: <span className="text-text-primary">{formatBRL(decomposition.aVir)}</span>
-          </p>
-        </div>
       )}
     </div>
   )
@@ -183,7 +166,7 @@ function ProjectionHighlight({ m }: { m: ProjectionMonth }) {
         </div>
         <div>
           <p className="text-xs text-text-muted mb-0.5">A pagar</p>
-          <p className="text-sm font-medium text-text-primary">{formatBRL(m.a_pagar)}</p>
+          <p className="text-sm font-medium text-danger">{formatBRL(m.despesas)}</p>
         </div>
       </div>
     </div>
@@ -206,7 +189,7 @@ function ProjectionRow({ m }: { m: ProjectionMonth }) {
       </div>
       <div className="flex items-center gap-3 mt-0.5 text-xs text-text-muted">
         <span className="text-success">+{formatBRL(m.receitas)}</span>
-        <span>−{formatBRL(m.a_pagar)} a pagar</span>
+        <span className="text-danger">−{formatBRL(m.despesas)} a pagar</span>
       </div>
     </div>
   )
@@ -312,8 +295,9 @@ export default function DashboardPage() {
   // Bloco 1 — os quatro campos, todos do /monthly do mês corrente:
   //  RECEITAS = receitas (topo).
   //  DESPESAS = consumo.despesas (lente CONSUMO — o que gastou/comprou no mês).
-  //  A PAGAR  = despesas (topo/fluxo — o que vence e sai da conta no mês).
-  //  SALDO    = saldo (topo; já é receitas − a pagar).
+  //  A PAGAR  = a_pagar (fluxo ESTRITO — só o crédito que vence e ainda NÃO saiu;
+  //             à vista/PIX/recorrência ficam fora). Card limpo, sem sublinha.
+  //  SALDO    = saldo (topo; caixa projetado de fim de mês).
   // `consumo` é opcional no contrato (3b pode não estar no ar); em produção existe.
   // Degrada sem crash caindo no fluxo, e o donut cai para lista vazia.
   const despesasConsumo = stats.consumo?.despesas ?? stats.despesas
@@ -321,14 +305,6 @@ export default function DashboardPage() {
 
   const saldoColor: MetricCardProps['color'] =
     stats.saldo > 0 ? 'success' : stats.saldo < 0 ? 'danger' : 'neutral'
-
-  // A PAGAR carrega a decomposição realizado/a-vir (§1.3.1), migrada do card Saldo:
-  // "já saiu X, ainda sai Y este mês". Só quando há algo a vir de despesa — colapsa
-  // no fim do mês (tudo já venceu) e some naturalmente em mês não-corrente.
-  const aPagarDecomposition =
-    stats.a_vir.despesas > 0
-      ? { realizado: stats.realizado.despesas, aVir: stats.a_vir.despesas }
-      : undefined
 
   const receitasCard = (
     <MetricCard
@@ -342,14 +318,7 @@ export default function DashboardPage() {
     <MetricCard label="Despesas" value={despesasConsumo} color="danger" />
   )
   const aPagarCard = (
-    <MetricCard
-      label="A pagar"
-      value={stats.despesas}
-      color="neutral"
-      variacao={stats.variacao_despesas}
-      variacaoInverted
-      decomposition={aPagarDecomposition}
-    />
+    <MetricCard label="A pagar" value={stats.a_pagar} color="danger" />
   )
   const saldoCard = (
     <MetricCard label="Saldo" value={stats.saldo} color={saldoColor} emphasis />

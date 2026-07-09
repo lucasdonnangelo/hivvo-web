@@ -20,6 +20,11 @@ export interface MonthlyStats {
   receitas: number
   despesas: number
   saldo: number
+  // FLUXO estrito "a pagar" (Bloco 1 do Dashboard): só o que VENCE e ainda NÃO
+  // saiu — crédito a vencer. À vista/PIX/recorrência (que saem por competência do
+  // mês) ficam FORA. Distinto de `despesas` (fluxo integral do mês). Exclusivo do
+  // Bloco 1; ver a nota em ProjectionMonth sobre por que o Bloco 2 NÃO usa este campo.
+  a_pagar: number
   variacao_receitas: number | null
   variacao_despesas: number | null
   variacao_saldo?: number | null
@@ -53,13 +58,22 @@ export interface CategoriasResponse {
 }
 
 // Projeção do Dashboard (Bloco 2 "Sua projeção"): 12 meses à frente de fluxo.
-// series[0] = mês default por construção do backend (o 1º mês com fluxo, ou o
-// corrente se há histórico) — o card destacado; series[1..] = próximos meses.
-// receitas/a_pagar/saldo são fluxo (o que entra, o que vence, o previsto na conta).
+// series[0] = 1º mês FUTURO com fluxo (o backend nunca devolve o mês corrente
+// aqui) — o card "Em destaque"; series[1..] = próximos meses.
+//
+// Campos = fluxo. O Bloco 2 exibe `despesas` (fluxo INTEGRAL do mês) sob o rótulo
+// "a pagar" — NÃO o `a_pagar` estrito, embora ambos existam no contrato. Razão
+// (sutileza que parece inconsistência à primeira vista): o eixo "já saiu vs. a
+// vencer" só existe no MÊS CORRENTE. No futuro nada saiu ainda, então fluxo
+// integral == tudo a pagar. Usar o `a_pagar` estrito (que exclui recorrência/PIX/
+// à vista) esconderia aluguel/assinaturas e quebraria a aritmética do saldo
+// (saldo = receitas − despesas). O `a_pagar` estrito é exclusivo do Bloco 1, onde
+// convive com o card DESPESAS e o mês corrente tem a distinção realizado/a-vir.
 export interface ProjectionMonth {
   mes: number
   ano: number
   receitas: number
+  despesas: number
   a_pagar: number
   saldo: number
 }
@@ -88,6 +102,7 @@ function parseMonthly(d: MonthlyStats): MonthlyStats {
     receitas: Number(d.receitas),
     despesas: Number(d.despesas),
     saldo: Number(d.saldo),
+    a_pagar: Number(d.a_pagar),
     variacao_receitas: d.variacao_receitas != null ? Number(d.variacao_receitas) : null,
     variacao_despesas: d.variacao_despesas != null ? Number(d.variacao_despesas) : null,
     variacao_saldo: d.variacao_saldo != null ? Number(d.variacao_saldo) : null,
@@ -124,6 +139,7 @@ function parseProjectionMonth(m: ProjectionMonth): ProjectionMonth {
     mes: m.mes,
     ano: m.ano,
     receitas: Number(m.receitas),
+    despesas: Number(m.despesas),
     a_pagar: Number(m.a_pagar),
     saldo: Number(m.saldo),
   }
