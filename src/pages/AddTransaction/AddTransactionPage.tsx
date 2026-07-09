@@ -297,10 +297,9 @@ export default function AddTransactionPage() {
     return toMonthStr(m, a)
   })()
   // "Começa em" pré-preenchido pela regra do dia (defaultInicioStr) e livremente
-  // editável. `inicioManual` marca que o usuário ajustou o campo à mão (NÃO
-  // empurramos o mês automaticamente — decisão de produto: o app não troca a
-  // escolha do usuário; quem protege contra ocorrência no passado é o aviso).
-  const inicioManual = useRef(false)
+  // editável (NÃO empurramos o mês automaticamente — decisão de produto: o app
+  // não troca a escolha do usuário; quem protege contra ocorrência no passado é
+  // o aviso).
 
   // `min` do input — barreira do MÊS no seletor (bloqueia meses passados).
   const minMesInicio = toMonthStr(now.getMonth() + 1, now.getFullYear())
@@ -342,9 +341,11 @@ export default function AddTransactionPage() {
     handleSubmit,
     watch,
     setValue,
+    setError,
+    clearErrors,
     getValues,
     reset,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema) as Resolver<z.infer<typeof schema>>,
     mode: 'onChange',
@@ -387,11 +388,10 @@ export default function AddTransactionPage() {
 
   const busy = createTx.isPending || createRec.isPending
 
-  // canSubmit adds the no-cards guard on top of RHF isValid (só no modo avulso)
-  const canSubmit =
-    isValid &&
-    !busy &&
-    (recorrente || !isCredito || !hasCards || watched.cartao_id != null)
+  // O botão Salvar NUNCA fica disabled em silêncio: só trava durante o request
+  // (`busy`). A validação roda no clique (handleSubmit) e mostra o que falta em
+  // cada campo — inclusive a exigência de cartão no crédito (checada no submit
+  // via setError, não como disabled). Assim o usuário sempre sabe o que resolver.
 
   // Sugestão de categoria por IA: dispara apenas no BLUR da descrição (FE-08 —
   // o endpoint dedicado é stateless, mas a chamada continua custando Gemini).
@@ -404,11 +404,16 @@ export default function AddTransactionPage() {
     const valorAtual = Number(getValues('valor')) || undefined
     suggestCategory(desc, getValues('tipo'), valorAtual).then((cat) => {
       if (seq !== suggestSeq.current || !cat) return
-      setSuggestedCategory(cat)
-      // Preenche apenas se o usuário ainda não escolheu — escolha manual
-      // (antes ou durante a chamada) nunca é sobrescrita
-      if (!getValues('categoria')) {
+      // Só marca/aplica a sugestão quando ela DE FATO entra no estado: (1) o
+      // usuário ainda não escolheu (escolha manual nunca é sobrescrita) e (2) a
+      // categoria existe no grid do tipo corrente. Assim o selo "✦ IA" nunca
+      // pinta uma categoria que não está selecionada nem seleciona algo fora do
+      // grid visível — destaque e estado ficam sempre sincronizados.
+      const tipoAtual = getValues('tipo')
+      const existeNoTipo = categories.some((c) => c.tipo === tipoAtual && c.nome === cat)
+      if (!getValues('categoria') && existeNoTipo) {
         setValue('categoria', cat, { shouldValidate: true })
+        setSuggestedCategory(cat)
       }
     })
   }
@@ -443,7 +448,6 @@ export default function AddTransactionPage() {
         setValue('forma_pagamento', 'PIX', { shouldValidate: true })
       }
     } else {
-      inicioManual.current = false
       setInicioInvalido(false)
     }
   }, [recorrente]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -478,6 +482,12 @@ export default function AddTransactionPage() {
     }
   }
 
+  // Crédito com cartões cadastrados exige escolher um cartão. Não é regra do Zod
+  // (depende de `hasCards`, dado de runtime) — é validada no submit e vira erro
+  // VISÍVEL no campo, nunca uma trava silenciosa do botão.
+  const cartaoObrigatorioNaoEscolhido = (data: FormData) =>
+    !data.recorrente && data.forma_pagamento === 'Crédito' && hasCards && data.cartao_id == null
+
   const onSave = handleSubmit(async (data) => {
     if (data.recorrente) {
       // Recompute fresco (item 4): aviso exibido e bloqueio usam o MESMO cálculo.
@@ -490,6 +500,10 @@ export default function AddTransactionPage() {
         })
         return
       }
+    }
+    if (cartaoObrigatorioNaoEscolhido(data)) {
+      setError('cartao_id', { type: 'manual', message: 'Selecione um cartão' })
+      return
     }
     try {
       if (data.recorrente) {
@@ -517,13 +531,16 @@ export default function AddTransactionPage() {
         return
       }
     }
+    if (cartaoObrigatorioNaoEscolhido(data)) {
+      setError('cartao_id', { type: 'manual', message: 'Selecione um cartão' })
+      return
+    }
     try {
       if (data.recorrente) {
         await createRec.mutateAsync(buildRecorrenciaPayload(data))
       } else {
         await createTx.mutateAsync(buildPayload(data))
       }
-      inicioManual.current = false
       setInicioInvalido(false)
       reset({
         tipo: data.tipo,
@@ -706,7 +723,6 @@ export default function AddTransactionPage() {
             }
             {...inicioField}
             onChange={(e) => {
-              inicioManual.current = true
               void inicioField.onChange(e)
               // Some assim que a 1ª ocorrência volta a ser válida (não brigar com a digitação).
               if (
@@ -768,9 +784,11 @@ export default function AddTransactionPage() {
               ) : (
                 <select
                   value={field.value ?? ''}
-                  onChange={(e) =>
-                    field.onChange(e.target.value ? Number(e.target.value) : null)
-                  }
+                  onChange={(e) => {
+                    const v = e.target.value ? Number(e.target.value) : null
+                    field.onChange(v)
+                    if (v != null) clearErrors('cartao_id')
+                  }}
                   className={selectClass}
                 >
                   <option value="">Selecione um cartão</option>
@@ -780,6 +798,9 @@ export default function AddTransactionPage() {
                     </option>
                   ))}
                 </select>
+              )}
+              {errors.cartao_id && (
+                <p className="text-xs text-danger">{errors.cartao_id.message}</p>
               )}
             </div>
           )}
@@ -863,11 +884,11 @@ export default function AddTransactionPage() {
             variant="ghost"
             onClick={onSaveAndAdd}
             isLoading={busy}
-            disabled={!canSubmit}
+            disabled={busy}
           >
             Salvar e adicionar outro
           </Button>
-          <Button onClick={onSave} isLoading={busy} disabled={!canSubmit}>
+          <Button onClick={onSave} isLoading={busy} disabled={busy}>
             Salvar
           </Button>
         </div>
@@ -892,11 +913,11 @@ export default function AddTransactionPage() {
                 variant="ghost"
                 onClick={onSaveAndAdd}
                 isLoading={busy}
-                disabled={!canSubmit}
+                disabled={busy}
               >
                 Salvar e adicionar outro
               </Button>
-              <Button onClick={onSave} isLoading={busy} disabled={!canSubmit}>
+              <Button onClick={onSave} isLoading={busy} disabled={busy}>
                 Salvar
               </Button>
             </div>
