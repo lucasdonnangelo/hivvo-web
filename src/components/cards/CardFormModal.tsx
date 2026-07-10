@@ -10,21 +10,27 @@ import type { Card, CardPayload } from '../../services/cards'
 const schema = z
   .object({
     nome: z.string().min(1, 'Nome obrigatório').max(40),
-    limite: z.coerce.number().optional(),
+    // Limite é OPCIONAL (cartões premium/black podem não ter limite pré-definido;
+    // o backend aceita null). `preprocess` mapeia campo vazio '' → undefined ANTES
+    // do coerce — sem isso, z.coerce.number('') viraria 0 e enviaria 0 em vez de null.
+    limite: z.preprocess(
+      (v) => (v === '' || v === undefined || v === null ? undefined : v),
+      z.coerce.number().optional(),
+    ),
     tipo: z.enum(['Crédito', 'Débito', 'Ambos']),
     dia_fechamento: z.coerce.number().int().optional(),
     dia_vencimento: z.coerce.number().int().optional(),
     mes_offset_vencimento: z.coerce.number().int().optional(),
   })
   // Débito não tem fatura: limite / dias / offset não são exigidos.
-  // Para Crédito e Ambos, mantemos as mesmas regras de antes.
+  // Para Crédito e Ambos, os DIAS continuam obrigatórios; o LIMITE é opcional
+  // (só validado quando preenchido).
   .superRefine((val, ctx) => {
     if (val.tipo === 'Débito') return
 
-    if (val.limite === undefined || isNaN(val.limite)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['limite'], message: 'Valor inválido' })
-    } else if (val.limite <= 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['limite'], message: 'Informe um limite' })
+    // Limite opcional: vazio (undefined) passa; se preenchido, precisa ser > 0.
+    if (val.limite !== undefined && !isNaN(val.limite) && val.limite <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['limite'], message: 'Informe um limite válido' })
     }
 
     if (val.dia_fechamento === undefined || isNaN(val.dia_fechamento)) {
@@ -79,8 +85,11 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
       nome: '',
       limite: undefined,
       tipo: 'Crédito',
-      dia_fechamento: 1,
-      dia_vencimento: 10,
+      // Sem default de dia: campos VAZIOS obrigam o usuário a preencher com os
+      // dados reais do cartão. Um default plausível-mas-errado (1/10) passaria sem
+      // conferência e jogaria TODAS as faturas — e a projeção — no mês errado.
+      dia_fechamento: undefined,
+      dia_vencimento: undefined,
       mes_offset_vencimento: 0,
     },
   })
@@ -92,7 +101,7 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
     if (card) {
       reset({
         nome: card.nome,
-        limite: parseFloat(card.limite),
+        limite: card.limite != null ? parseFloat(card.limite) : undefined,
         tipo: card.tipo,
         dia_fechamento: card.dia_fechamento,
         dia_vencimento: card.dia_vencimento,
@@ -161,31 +170,35 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
         {!isDebito && (
           <>
             <Input
-              label="Limite (R$)"
+              label="Limite (R$) — opcional"
               type="number"
               step="0.01"
               min="0"
+              placeholder="Deixe vazio se não houver limite"
               error={errors.limite?.message}
               {...register('limite')}
             />
 
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Dia fechamento"
-                type="number"
-                min="1"
-                max="28"
-                error={errors.dia_fechamento?.message}
-                {...register('dia_fechamento')}
-              />
-              <Input
-                label="Dia vencimento"
-                type="number"
-                min="1"
-                max="28"
-                error={errors.dia_vencimento?.message}
-                {...register('dia_vencimento')}
-              />
+            <div className="flex flex-col gap-1.5">
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Dia fechamento"
+                  type="number"
+                  min="1"
+                  max="28"
+                  error={errors.dia_fechamento?.message}
+                  {...register('dia_fechamento')}
+                />
+                <Input
+                  label="Dia vencimento"
+                  type="number"
+                  min="1"
+                  max="28"
+                  error={errors.dia_vencimento?.message}
+                  {...register('dia_vencimento')}
+                />
+              </div>
+              <p className="text-xs text-text-muted">Confira na fatura do seu cartão.</p>
             </div>
 
             {/* mes_offset */}

@@ -4,7 +4,9 @@ import { unwrapList } from '../lib/unwrapList'
 export interface Card {
   id: number
   nome: string
-  limite: string
+  // null quando o cartão não tem limite pré-definido (premium/black). A UI que
+  // exibe o limite (CardVisual) degrada sem barra/percentual nesse caso.
+  limite: string | null
   dia_fechamento: number
   dia_vencimento: number
   mes_offset_vencimento: number

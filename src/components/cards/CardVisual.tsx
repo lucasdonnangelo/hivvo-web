@@ -18,10 +18,13 @@ interface CardVisualProps {
 }
 
 export default function CardVisual({ card, selected, onClick }: CardVisualProps) {
-  const limite = parseFloat(card.limite)
+  // Limite pode ser null (cartão sem limite pré-definido) — degrada sem barra nem
+  // percentual (nada de NaN%/divisão por null). `hasLimite` guarda TODO o cálculo.
+  const limite = card.limite != null ? parseFloat(card.limite) : NaN
+  const hasLimite = !isNaN(limite) && limite > 0
   const usado = parseFloat(card.fatura_aberta_total ?? '0')
-  const disponivel = Math.max(0, limite - usado)
-  const pct = limite > 0 ? Math.min(100, (usado / limite) * 100) : 0
+  const disponivel = hasLimite ? Math.max(0, limite - usado) : 0
+  const pct = hasLimite ? Math.min(100, (usado / limite) * 100) : 0
 
   return (
     <button
@@ -47,19 +50,28 @@ export default function CardVisual({ card, selected, onClick }: CardVisualProps)
       {/* limit + usage bar */}
       <div>
         <p className="text-bg/60 text-xs mb-0.5">Limite</p>
-        <p className="text-bg font-semibold text-lg">{formatBRL(card.limite)}</p>
-        {limite > 0 && (
-          <div className="mt-2">
-            <div className="w-full h-1 rounded-full bg-bg/20 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-bg/60 transition-all"
-                style={{ width: `${pct}%` }}
-              />
+        {hasLimite ? (
+          <>
+            <p className="text-bg font-semibold text-lg">{formatBRL(limite)}</p>
+            <div className="mt-2">
+              <div className="w-full h-1 rounded-full bg-bg/20 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-bg/60 transition-all"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <p className="mt-1 text-[10px] text-bg/60">
+                {formatBRL(usado)} usado · {formatBRL(disponivel)} disponível
+              </p>
             </div>
-            <p className="mt-1 text-[10px] text-bg/60">
-              {formatBRL(usado)} usado · {formatBRL(disponivel)} disponível
-            </p>
-          </div>
+          </>
+        ) : (
+          <>
+            <p className="text-bg font-semibold text-lg">Sem limite definido</p>
+            {usado > 0 && (
+              <p className="mt-1 text-[10px] text-bg/60">{formatBRL(usado)} usado</p>
+            )}
+          </>
         )}
       </div>
 
