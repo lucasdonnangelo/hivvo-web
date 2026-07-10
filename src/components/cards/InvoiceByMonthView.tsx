@@ -1,5 +1,6 @@
 import { useCompetenciaFaturas } from '../../hooks/useCards'
 import type { FaturaCartaoItem } from '../../services/cards'
+import InvoiceStatusBadge from './InvoiceStatusBadge'
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -53,7 +54,10 @@ function CardRow({ fatura, onClick }: { fatura: FaturaCartaoItem; onClick: () =>
       className="flex items-center justify-between w-full px-3 py-3 rounded-lg bg-bg-surface hover:bg-bg-border transition-colors text-left"
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-text-primary truncate">{fatura.cartao_nome}</p>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-sm font-medium text-text-primary truncate">{fatura.cartao_nome}</p>
+          <InvoiceStatusBadge status={fatura.status} />
+        </div>
         {fatura.data_vencimento && (
           <p className="text-xs text-text-muted mt-0.5">vence {formatDayMonth(fatura.data_vencimento)}</p>
         )}

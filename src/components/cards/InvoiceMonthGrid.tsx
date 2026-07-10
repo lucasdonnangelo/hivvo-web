@@ -1,4 +1,5 @@
 import type { InvoiceListItem } from '../../services/cards'
+import { InvoiceStatusDot } from './InvoiceStatusBadge'
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -56,7 +57,8 @@ export default function InvoiceMonthGrid({
                 >
                   <span className="text-xs">{label}</span>
                   {inv && !isFutura && (
-                    <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-bg/70' : 'text-text-muted'}`}>
+                    <span className={`flex items-center gap-1 text-[10px] mt-0.5 ${isSelected ? 'text-bg/70' : 'text-text-muted'}`}>
+                      {!isSelected && <InvoiceStatusDot status={inv.status} />}
                       {formatBRL(inv.total).replace('R$ ', '')}
                     </span>
                   )}
