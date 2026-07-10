@@ -110,6 +110,7 @@ function InvoicePanel({ cardId, mes, ano, onMonthSelect }: InvoicePanelProps) {
           <div className="border-t border-bg-border" />
           <InvoiceDetailPanel
             detail={detail}
+            cardId={cardId}
             mes={mes}
             ano={ano}
           />
@@ -168,7 +169,7 @@ function MonthDetailModal({ cardId, cardNome, mes, ano, onClose }: MonthDetailMo
           ))}
         </div>
       ) : (
-        <InvoiceDetailPanel detail={detail} mes={mes} ano={ano} />
+        <InvoiceDetailPanel detail={detail} cardId={cardId} mes={mes} ano={ano} />
       )}
     </Modal>
   )

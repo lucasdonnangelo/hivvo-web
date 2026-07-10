@@ -7,9 +7,11 @@ import {
   getInvoiceDetail,
   getInvoices,
   getNextDueInvoice,
+  setInvoicePayment,
   updateCard,
   type CardPayload,
 } from '../services/cards'
+import { errorDetail } from '../lib/extractDetail'
 import { useUIStore } from '../store/uiStore'
 
 export function useCards() {
@@ -84,5 +86,33 @@ export function useNextDueInvoice() {
     queryKey: ['invoices', 'next-due'],
     queryFn: getNextDueInvoice,
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+// Confirmar/desmarcar pagamento de uma fatura. Reversível (um clique, sem modal).
+// Invalida tudo que o pagamento move: as faturas (lista + next-due por prefixo), o
+// detalhe, a competência, e as STATISTICS — o `a_pagar` do Dashboard passa a ler
+// PagamentoFatura, então confirmar/desmarcar muda o "A pagar".
+export function useSetInvoicePayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cardId, ano, mes, pago }: { cardId: number; ano: number; mes: number; pago: boolean }) =>
+      setInvoicePayment(cardId, ano, mes, pago),
+    onSuccess: (_data, { pago }) => {
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+      qc.invalidateQueries({ queryKey: ['invoice-detail'] })
+      qc.invalidateQueries({ queryKey: ['competencia-faturas'] })
+      qc.invalidateQueries({ queryKey: ['statistics'] })
+      useUIStore.getState().addToast({
+        message: pago ? 'Fatura marcada como paga' : 'Pagamento desmarcado',
+        type: 'success',
+      })
+    },
+    onError: (err) => {
+      useUIStore.getState().addToast({
+        message: errorDetail(err, 'Não foi possível atualizar o pagamento.'),
+        type: 'error',
+      })
+    },
   })
 }

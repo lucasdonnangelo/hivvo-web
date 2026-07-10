@@ -1,4 +1,7 @@
 import type { InvoiceDetail as InvoiceDetailType, InvoiceListItem } from '../../services/cards'
+import { useSetInvoicePayment } from '../../hooks/useCards'
+import Button from '../ui/Button'
+import InvoiceStatusBadge from './InvoiceStatusBadge'
 
 const formatBRL = (v: string) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(v))
@@ -11,6 +14,7 @@ const formatDate = (iso: string) => {
 interface InvoiceDetailProps {
   detail: InvoiceDetailType
   invoiceMeta?: InvoiceListItem
+  cardId: number
   mes: number
   ano: number
 }
@@ -37,17 +41,30 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
   )
 }
 
-export default function InvoiceDetail({ detail, mes, ano }: InvoiceDetailProps) {
+export default function InvoiceDetail({ detail, cardId, mes, ano }: InvoiceDetailProps) {
   const isEmpty = detail.parcelas.length === 0 && detail.avulsas.length === 0
+  const setPayment = useSetInvoicePayment()
+
+  // Ação só existe em faturas fechadas com lançamentos. `aberta` é rejeitada pelo
+  // backend (422) e fatura vazia também — nesses casos nenhum botão aparece.
+  const isConfirmable = detail.status === 'a_vencer' || detail.status === 'atrasada'
+  const isPaid = detail.status === 'paga'
+  const showPaymentAction = !isEmpty && (isConfirmable || isPaid)
+
+  const togglePayment = () =>
+    setPayment.mutate({ cardId, ano, mes, pago: !isPaid })
 
   return (
     <div className="flex flex-col gap-5">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-base font-medium text-text-primary">
-            {MONTHS[mes - 1]} {ano}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-medium text-text-primary">
+              {MONTHS[mes - 1]} {ano}
+            </h2>
+            <InvoiceStatusBadge status={detail.status} />
+          </div>
           {detail.data_vencimento && (
             <p className="text-xs text-text-muted mt-0.5">
               Vence em {formatDate(detail.data_vencimento)}
@@ -128,6 +145,16 @@ export default function InvoiceDetail({ detail, mes, ano }: InvoiceDetailProps) 
         </>
       )}
 
+      {/* Confirmar/desmarcar pagamento — um clique, reversível (sem modal). */}
+      {showPaymentAction && (
+        <Button
+          variant={isPaid ? 'ghost' : 'primary'}
+          isLoading={setPayment.isPending}
+          onClick={togglePayment}
+        >
+          {isPaid ? 'Desmarcar pagamento' : 'Marcar como paga'}
+        </Button>
+      )}
     </div>
   )
 }

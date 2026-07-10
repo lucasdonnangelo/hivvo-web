@@ -25,11 +25,19 @@ export interface CardPayload {
   ativo?: boolean
 }
 
+// Estado derivado da fatura (backend calcula a partir de PagamentoFatura + venc.):
+// - paga     → o usuário confirmou o pagamento.
+// - aberta   → ainda aceita compras (fechamento não passou). NÃO é confirmável.
+// - a_vencer → fechada, não confirmada, vencimento >= hoje.
+// - atrasada → fechada, não confirmada, vencimento < hoje (exige ação).
+export type InvoiceStatus = 'paga' | 'aberta' | 'a_vencer' | 'atrasada'
+
 export interface InvoiceListItem {
   ano: number
   mes: number
   total: string
   data_vencimento: string
+  status: InvoiceStatus
 }
 
 export interface ParcelaFaturaItem {
@@ -53,6 +61,7 @@ export interface TransacaoFaturaItem {
 export interface InvoiceDetail {
   total: string
   data_vencimento: string
+  status: InvoiceStatus
   parcelas: ParcelaFaturaItem[]
   avulsas: TransacaoFaturaItem[]
 }
@@ -85,6 +94,7 @@ export interface FaturaCartaoItem {
   cartao_nome: string
   total: string
   data_vencimento: string | null
+  status: InvoiceStatus
 }
 
 export interface CompetenciaFaturas {
@@ -104,3 +114,10 @@ export const getCompetenciaFaturas = (ano: number, mes: number) =>
 
 export const getNextDueInvoice = () =>
   api.get<ProximaFatura>('/invoices/next-due').then((r) => r.data)
+
+// ─── Confirmar/desmarcar pagamento de fatura (idempotente, reversível) ──────────
+// 422 se a fatura está aberta (fechamento não passou) ou não tem lançamentos.
+export const setInvoicePayment = (cartaoId: number, ano: number, mes: number, pago: boolean) =>
+  api
+    .put(`/invoices/${cartaoId}/${ano}/${mes}/pagamento`, { pago })
+    .then((r) => r.data)
