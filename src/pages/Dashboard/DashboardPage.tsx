@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useMonthlyStats, useProjection } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
@@ -195,6 +195,14 @@ function ProjectionRow({ m }: { m: ProjectionMonth }) {
   )
 }
 
+// Teto inicial do horizonte: 6 meses = card destacado series[0] + até 5 linhas.
+const PROJECTION_CAP = 6
+
+// Mês "com conteúdo" = alguma receita, despesa ou a-pagar não-zero na linha.
+// Uma linha só de zeros não informa nada — não conta como conteúdo.
+const hasContent = (m: ProjectionMonth) =>
+  m.receitas > 0 || m.despesas > 0 || m.a_pagar > 0
+
 function ProjectionBlock({
   series,
   isLoading,
@@ -204,33 +212,94 @@ function ProjectionBlock({
   isLoading: boolean
   isError: boolean
 }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <h2 className="text-lg font-medium text-text-primary">Sua projeção</h2>
-        <p className="text-sm text-text-muted">Próximos 12 meses</p>
-      </div>
+  // UI-state local (não persiste): "ver mais" expande o horizonte, "ver menos" recolhe.
+  const [expanded, setExpanded] = useState(false)
 
-      {isLoading ? (
-        <>
-          <div className="h-32 bg-bg-surface rounded-lg animate-pulse" />
-          <div className="h-64 bg-bg-surface rounded-lg animate-pulse" />
-        </>
-      ) : isError || !series || series.length === 0 ? (
+  // Índice do ÚLTIMO mês com conteúdo (-1 se a série é toda zerada). Define o fim
+  // do horizonte: a cauda de zeros depois dele não é exibida; zeros no meio, sim.
+  const lastContentIdx = useMemo(() => {
+    if (!series) return -1
+    for (let i = series.length - 1; i >= 0; i--) {
+      if (hasContent(series[i])) return i
+    }
+    return -1
+  }, [series])
+
+  const title = <h2 className="text-lg font-medium text-text-primary">Sua projeção</h2>
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div>
+          {title}
+          <p className="text-sm text-text-muted">Próximos 12 meses</p>
+        </div>
+        <div className="h-32 bg-bg-surface rounded-lg animate-pulse" />
+        <div className="h-64 bg-bg-surface rounded-lg animate-pulse" />
+      </div>
+    )
+  }
+
+  // Erro de fetch (distinto de conta zerada): mensagem neutra, sem lista de zeros.
+  if (isError || !series || series.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div>{title}</div>
         <div className="bg-bg-surface rounded-lg p-4">
           <p className="text-text-muted text-sm">Sem projeção disponível.</p>
         </div>
-      ) : (
-        <>
-          <ProjectionHighlight m={series[0]} />
-          {series.length > 1 && (
-            <div className="bg-bg-surface rounded-lg p-4">
-              {series.slice(1).map((m) => (
-                <ProjectionRow key={`${m.ano}-${m.mes}`} m={m} />
-              ))}
-            </div>
-          )}
-        </>
+      </div>
+    )
+  }
+
+  // Caso 1 — nenhum mês com conteúdo (12 zerados): empty state honesto, sem a
+  // parede de "R$0,00" e sem o card destacado.
+  if (lastContentIdx === -1) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div>{title}</div>
+        <div className="bg-bg-surface rounded-lg p-5">
+          <p className="text-text-muted text-sm">
+            Registre parcelas ou recorrências e sua projeção dos próximos meses aparecerá aqui.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Caso 3 — horizonte dinâmico. count = meses exibidos (inclui o destacado).
+  // Recolhido: até o teto (ou até o último com conteúdo, se antes). Expandido:
+  // até o último com conteúdo. A fatia é contígua, então zeros no meio ficam.
+  const contentCount = lastContentIdx + 1
+  const canExpand = contentCount > PROJECTION_CAP
+  const count = expanded && canExpand ? contentCount : Math.min(PROJECTION_CAP, contentCount)
+  const rows = series.slice(1, count)
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        {title}
+        <p className="text-sm text-text-muted">Próximos meses</p>
+      </div>
+
+      <ProjectionHighlight m={series[0]} />
+
+      {rows.length > 0 && (
+        <div className="bg-bg-surface rounded-lg p-4">
+          {rows.map((m) => (
+            <ProjectionRow key={`${m.ano}-${m.mes}`} m={m} />
+          ))}
+        </div>
+      )}
+
+      {canExpand && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="self-start text-sm font-medium text-amber hover:opacity-80 transition-opacity rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amber"
+        >
+          {expanded ? 'Ver menos' : 'Ver mais'}
+        </button>
       )}
     </div>
   )
