@@ -148,6 +148,14 @@ function CategoryGrid({ categories, selected, suggested, onSelect }: CategoryGri
 
 // ─── ImpactPreview (desktop only) ─────────────────────────────────────────────
 
+// Impacto no mês corrente para o preview (Consumo × Impacto). O Consumo é sempre
+// o valor cheio; o Impacto é o que sai do caixa NESTE mês. A regra de competência
+// de fatura mora no BACKEND (fonte única de verdade) — o frontend só afirma o
+// impacto quando é DETERMINADO sem replicar essa regra; nos casos ambíguos degrada
+// para só Consumo (`unknown`). Backlog: backend expor a competência da compra (ex.:
+// "compras de hoje caem na fatura de X/Y") elimina essa degradação.
+type Impacto = { kind: 'determined'; valor: number } | { kind: 'unknown' }
+
 interface ImpactPreviewProps {
   tipo: 'receita' | 'despesa'
   valor: number
@@ -160,6 +168,7 @@ interface ImpactPreviewProps {
   recorrente: boolean
   diaDoMes: number | undefined
   mesInicioStr: string | undefined
+  impacto: Impacto
 }
 
 function ImpactPreview({
@@ -174,6 +183,7 @@ function ImpactPreview({
   recorrente,
   diaDoMes,
   mesInicioStr,
+  impacto,
 }: ImpactPreviewProps) {
   const isReceita = tipo === 'receita'
   const catObj = allCategories.find((c) => c.nome === categoria)
@@ -182,10 +192,8 @@ function ImpactPreview({
     !recorrente && parcelado && numParcelas && numParcelas >= 2 && valor > 0
       ? valor / numParcelas
       : null
-  const saldoEstimado =
-    !recorrente && saldoAtual != null && valor > 0
-      ? saldoAtual + (isReceita ? valor : -valor)
-      : null
+  const saldoColor = (s: number) =>
+    s > 0 ? 'text-success' : s < 0 ? 'text-danger' : 'text-text-primary'
 
   return (
     <div className="bg-bg-surface rounded-lg p-6 flex flex-col gap-5 sticky top-6 self-start">
@@ -242,22 +250,66 @@ function ImpactPreview({
         </div>
       ) : null}
 
-      {saldoEstimado != null && valor > 0 ? (
+      {/* Despesa avulsa: Consumo × Impacto neste mês. Ensina o modelo — o consumo é
+          o total comprometido; o impacto é o que sai do caixa AGORA (parcelas futuras
+          não caem neste mês). O saldo estimado é rebaseado no IMPACTO, não no consumo. */}
+      {!recorrente && !isReceita && valor > 0 ? (
+        <div className="pt-4 border-t border-bg-border flex flex-col gap-3">
+          {impacto.kind === 'determined' && impacto.valor === valor ? (
+            // Consumo == Impacto (não-crédito à vista): uma linha só, mais limpa.
+            <div>
+              <p className="text-xs text-text-muted mb-1">Sai do caixa neste mês</p>
+              <p className="text-base font-medium text-danger">−{formatBRL(valor)}</p>
+            </div>
+          ) : (
+            <>
+              <div>
+                <p className="text-xs text-text-muted mb-0.5">Consumo</p>
+                <p className="text-base font-medium text-danger">−{formatBRL(valor)}</p>
+                <p className="text-[11px] text-text-muted mt-0.5">
+                  o total que você está comprometendo
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-text-muted mb-0.5">Impacto neste mês</p>
+                {impacto.kind === 'determined' ? (
+                  <>
+                    <p className="text-base font-medium text-danger">
+                      −{formatBRL(impacto.valor)}
+                    </p>
+                    <p className="text-[11px] text-text-muted mt-0.5">
+                      o que efetivamente sai do caixa agora
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    Entra na fatura do cartão — o quanto sai neste mês depende do fechamento.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
+          {impacto.kind === 'determined' && saldoAtual != null ? (
+            <div>
+              <p className="text-xs text-text-muted mb-1">Saldo estimado após transação</p>
+              <p className={['text-base font-medium', saldoColor(saldoAtual - impacto.valor)].join(' ')}>
+                {formatBRL(saldoAtual - impacto.valor)}
+              </p>
+              <p className="text-xs text-text-muted mt-0.5">Atual: {formatBRL(saldoAtual)}</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Receita: entra dinheiro — saldo estimado direto (sem split consumo/impacto). */}
+      {!recorrente && isReceita && valor > 0 && saldoAtual != null ? (
         <div className="pt-4 border-t border-bg-border">
           <p className="text-xs text-text-muted mb-1">Saldo estimado após transação</p>
-          <p
-            className={[
-              'text-base font-medium',
-              saldoEstimado > 0
-                ? 'text-success'
-                : saldoEstimado < 0
-                  ? 'text-danger'
-                  : 'text-text-primary',
-            ].join(' ')}
-          >
-            {formatBRL(saldoEstimado)}
+          <p className={['text-base font-medium', saldoColor(saldoAtual + valor)].join(' ')}>
+            {formatBRL(saldoAtual + valor)}
           </p>
-          <p className="text-xs text-text-muted mt-0.5">Atual: {formatBRL(saldoAtual!)}</p>
+          <p className="text-xs text-text-muted mt-0.5">Atual: {formatBRL(saldoAtual)}</p>
         </div>
       ) : null}
     </div>
@@ -385,6 +437,23 @@ export default function AddTransactionPage() {
   const formasDisponiveis = recorrente
     ? FORMAS_PAGAMENTO.filter((f) => f !== 'Crédito')
     : FORMAS_PAGAMENTO
+
+  // Impacto no mês corrente (preview Consumo × Impacto). Só afirmamos o valor nos
+  // casos determinados SEM replicar a competência de fatura (que é do backend):
+  //  • não-crédito → sai na data (valor cheio se a data cai no mês corrente);
+  //  • crédito "mês seguinte" (offset ≥ 1) → compra de hoje vence em mês futuro → R$0;
+  //  • crédito "mesmo mês" (offset 0) ou sem cartão → ambíguo → degrada p/ só Consumo.
+  const impacto: Impacto = (() => {
+    if (forma_pagamento !== 'Crédito') {
+      const [y, m] = (watched.data ?? '').split('-').map(Number)
+      const noMesCorrente = y === now.getFullYear() && m === now.getMonth() + 1
+      return { kind: 'determined', valor: noMesCorrente ? valorNum : 0 }
+    }
+    const card = creditCards.find((c) => c.id === watched.cartao_id)
+    if (!card) return { kind: 'unknown' }
+    if ((card.mes_offset_vencimento ?? 0) >= 1) return { kind: 'determined', valor: 0 }
+    return { kind: 'unknown' }
+  })()
 
   const busy = createTx.isPending || createRec.isPending
 
@@ -935,6 +1004,7 @@ export default function AddTransactionPage() {
             recorrente={recorrente}
             diaDoMes={watched.dia_do_mes ? Number(watched.dia_do_mes) : undefined}
             mesInicioStr={watched.mes_inicio_str}
+            impacto={impacto}
           />
         </div>
       </div>
