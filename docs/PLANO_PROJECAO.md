@@ -5,9 +5,15 @@
 > Fases 1–3. Deve ser revisado e aprovado por Lucas antes de qualquer código,
 > e mantido como referência entre sessões (igual aos PLANO_EXECUCAO_*).
 >
-> Status: **APROVADO.** Fase 1 (estatísticas por competência / fluxo) CONCLUÍDA e deployada
-> (commit `de1f1eb`). Fase 2 (recorrência) — design fechado (§3.4), pronta para implementar,
-> fatiada em 2a (fundação: modelos + migration + algoritmo), 2b (integração na projeção), 2c (CRUD).
+> Status: **APROVADO.** Fase 1 (fluxo/competência) CONCLUÍDA e deployada (`de1f1eb`).
+> Fase 2 (recorrência) CONCLUÍDA e deployada — 2a (modelos+migration+algoritmo), 2b (integração
+> na projeção), 2c (CRUD versionado) + §1.3.1 (corte por dia), §3.1.2 (operações de erro), Bugs 1/2.
+> Fase 3 (as "lentes": toggle fluxo/consumo, Resumo, faturas futuras) — em andamento no backend:
+> 3b-backend (visão CONSUMO no `/statistics/monthly`) e o mês default do Dashboard
+> (`GET /statistics/default-month`, ver §"Mês default do Dashboard") implementados; falta o frontend.
+> Leva "A pagar e Saldo" (§"Decisão — A pagar e Saldo", eixo já-saiu × a-vencer, B completo)
+> IMPLEMENTADA no backend em 09/07/2026 — campo `a_pagar` no `/monthly`, Fonte 2 cortando pelo
+> vencimento derivado do cartão, `/projection` começando no 1º mês FUTURO com fluxo.
 
 ---
 
@@ -112,16 +118,31 @@ renda, multi-cartão) entende "já paguei" vs "vou pagar" — rótulos honestos 
 - **Fonte 3 (à vista/receitas):** fica como está (à vista = já ocorreu por definição). Item
   separado a avaliar: **impedir data futura no cadastro** de transação à vista (validação), em vez
   de tratar na projeção.
-- **Fonte 2 (avulsas de cartão):** fica como está (registrado para futuro). Falta o dado do dia de
-  vencimento da fatura na `Transacao` (só tem `fatura_mes`/`data` da compra); aplicar exigiria
-  derivar o vencimento da regra de fechamento do cartão. Conceito distinto (o "vencimento" é da
-  fatura inteira). Refinamento posterior.
+- **Fonte 2 (avulsas de cartão):** ✅ corta por dia (fechado na leva "A pagar e Saldo", 09/07/2026).
+  O vencimento REAL é derivado: `fatura_mes`/`fatura_ano` JÁ são o mês de vencimento (materializados
+  na criação) — só faltava o DIA, que vem do `dia_vencimento` do CARTÃO (`vencimento_avulsa` em
+  `faturas.py`, reusando `_fatura_vencimento`). Fallback (cartão apagado/sem dia): último dia do
+  mês — conservador, crédito com dia desconhecido permanece "a pagar" até virar o mês.
 
 > **DECIDIDO:** o campo `pago` das parcelas **deixa de ser fonte de verdade**. Realizado/projetado
 > passa a ser derivado da competência (`fatura_mes`/`fatura_ano` de **vencimento** vs. mês corrente).
 > Na Fase 1, a query da IA (`_total_parcelas_proximo_mes`, que hoje filtra `pago == False`) é
 > ajustada para derivar de competência. O **campo** `pago` NÃO é removido na Fase 1 (para não
-> misturar migration com a correção de stats) — vira código morto e é removido em cleanup posterior.
+> misturar migration com a correção de stats).
+>
+> **ATUALIZAÇÃO (leva "A pagar e Saldo", 09/07/2026):** `pago` NÃO é mais código morto — ganhou um
+> papel EXCLUSIVO e delimitado: a marcação `a_pagar` da Fonte 1 (pago/a-pagar do mês, §"Decisão —
+> A pagar e Saldo"). A FRONTEIRA permanece: projeção integral, realizado/a_vir, anual, série e
+> consumo derivam só de data/competência — nenhuma query nem flag lê `pago` fora dessa marcação
+> (garantido por teste-guarda: alternar `pago` só move `a_pagar`).
+>
+> **ATUALIZAÇÃO 2 (Leva 2 — PagamentoFatura, 10/07/2026, SUPERSEDE a anterior):** `Parcela.pago`
+> voltou a ser **OBSOLETO, agora de vez**: a marcação `a_pagar` passou a derivar de
+> **`PagamentoFatura`** (confirmação de pagamento POR FATURA — cartão + competência; ver
+> `docs/PLANO_3D_PAGAMENTO_FATURA.md`), que também MATOU a presunção "avulsa vencida = paga" da
+> Fonte 2. Parcela SEM cartão (carnê): presunção por vencimento. A FRONTEIRA agora é do
+> PagamentoFatura (mesmo teste-guarda, fonte nova); alternar `Parcela.pago` não move NADA — nem o
+> `a_pagar`. A coluna não foi dropada (respostas/filtros legados ainda a expõem).
 
 ---
 
@@ -359,7 +380,87 @@ Regras de UX (writing):
 
 ---
 
-## 5. Fases de execução
+## Fase 3b — Consumo mensal no backend (design travado, 07/jul/2026)
+
+**Gate (investigação read-only no hivvo-api):** confirmado que `GET /statistics/monthly` é 100%
+FLUXO. A transação-pai parcelada foi removida da soma na Fase 1 (`estatisticas.py`, Fonte 3 pula
+`t.parcelado or t.fatura_mes is not None`), então o valor cheio da compra não está em nenhum campo
+da resposta — a visão CONSUMO (§1.1) não é derivável do que existe. Logo, 3b exige um batch de
+BACKEND (aditivo) antes do toggle de frontend.
+
+**Definição de CONSUMO mensal:** soma de TODAS as `transacoes` do mês pela `data` (pai parcelada
+pelo valor CHEIO + avulsas de cartão pela data + à vista + receitas), MAIS a recorrência por
+competência (idêntica ao fluxo). As Fontes 1 (parcelas por fatura) e a competência-de-fatura da
+Fonte 2 são conceitos de FLUXO e NÃO entram no consumo. Consequência: a RECEITA coincide nas duas
+visões; só a DESPESA com fatura (pai parcelada + avulsa de cartão) muda de mês.
+
+**Decisões travadas:**
+- **D1 — contrato aditivo.** Novo campo `consumo: LeituraMes {receitas, despesas, saldo}` na MESMA
+  `MensalResponse` (não `?visao=`, não endpoint separado). Alinha com o precedente
+  `realizado`/`a_vir` (topo = projeção de fluxo, campos aditivos), torna o toggle client-side
+  instantâneo (sem refetch) e deixa a invariante testável com as duas visões na mesma resposta.
+- **D2 — sem realizado/a_vir no consumo.** Consumo é integral por definição (a compra do dia 3 foi
+  100% consumida no mês); não existe "a vir". A decomposição §1.3.1 é conceito de FLUXO (evento
+  com dia de vencimento/ocorrência) e não se aplica.
+- **D3 — inclui `categorias_consumo`** (donut de despesa por categoria na visão consumo) já neste
+  batch, para o 3c (Resumo) não reabrir `estatisticas.py` depois.
+
+**Invariante (fonte dos testes):** Σ das parcelas de fluxo de uma compra ao longo do tempo == a
+despesa de consumo dela no mês da compra. Cancelamento tratado de forma CONSISTENTE nas duas
+visões (o que sai do fluxo sai do consumo), senão a invariante quebra.
+
+**Escopo:** só MENSAL (`/statistics/monthly`). Consumo no anual/Resumo + projeção estendida = 3c
+(batch posterior). FLUXO, realizado/a_vir, yearly e contexto da IA ficam byte a byte intactos
+(aditivo).
+
+**Limitação (Opção A) — cancelamento por-parcela:** o consumo soma a transação-pai pelo valor
+CHEIO (`Transacao` por `data`); NÃO reflete cancelamento por-parcela (`Parcela.cancelado`). A
+invariante Σparcelas==consumo vale no **caso limpo** e sob **DELETE da compra inteira** (apaga pai
++ parcelas → some das duas visões); **diverge só** sob cancelamento de uma parcela individual (o
+fluxo cai a parcela via `cancelado==False`; o consumo mantém o valor cheio da pai, que não tem
+flag de cancelado). Estado hoje: `PUT /installments/{id}` `cancelado=true` é rota **viva e
+alcançável pela API** (montada em `main.py` sob `/api/v1`), mas **sem UI/operação de usuário** — não
+é um fluxo de produto. **⚠️ GATILHO:** se/quando cancelamento por-parcela virar operação de usuário
+(UI + rota viva), revisitar a agregação de consumo (Opção B — consumo da parcelada = Σ parcelas
+`cancelado==False` re-bucketadas no mês da compra, invariante airtight) ANTES de expor.
+
+---
+
+## Mês default do Dashboard (decidido e implementado, 07/jul/2026)
+
+**Decisão de produto — qual mês a tela ABRE por padrão** (só define a abertura; a navegação
+segue livre):
+
+- **Visão FLUXO ("A pagar"):**
+  1. **TEM HISTÓRICO** (existe lançamento com competência ANTERIOR ao mês corrente) → abre no
+     **mês corrente**.
+  2. Senão → abre no **PRIMEIRO mês (corrente ou futuro) que TEM FLUXO** (parcela vencendo,
+     fatura com valor, recorrência), varrendo até o horizonte de **60 meses** (§6.5).
+     Multi-cartão sai de graça: cada compra já está na fatura certa por cartão (`fatura_mes`),
+     então "o primeiro mês com fluxo" respeita os ciclos de todos os cartões sem calcular ciclo.
+  3. Sem fluxo em lugar nenhum → **mês seguinte** (fallback neutro).
+- **Visão CONSUMO ("Gasto"):** sempre o **mês corrente**.
+
+**Contrato — endpoint leve dedicado `GET /statistics/default-month`** →
+`{fluxo: {mes, ano}, consumo: {mes, ano}}`. Por quê: o mês default precisa ser conhecido ANTES
+do primeiro `/monthly` (campo na `MensalResponse` criaria chicken-and-egg + refetch); e a
+definição de "tem fluxo" DEVE ser a da projeção (fonte única, §7) — o backend responde, o
+frontend não deriva. `consumo` vem junto para o frontend não derivar "mês corrente" com o
+relógio/fuso do browser (o backend usa `hoje()` no fuso do produto; um único `hoje()` para as
+duas visões).
+
+**Implementação (`estatisticas.py`):**
+- **"TEM HISTÓRICO"** (`_tem_historico`): 4 consultas de existência (LIMIT 1, curto-circuito),
+  uma por fonte, com a MESMA noção de competência da projeção — parcelas (`cancelado=False`) e
+  avulsas faturadas por `(fatura_ano, fatura_mes)` < corrente; à vista/receitas por `data` <
+  1º dia do mês corrente; recorrência por vigência com `(ano_inicio, mes_inicio)` < corrente
+  (vigência que começou no passado gerou ocorrência lá). A transação-PAI parcelada NÃO conta
+  (§2.1). Caminho comum (usuário com histórico): 4 queries baratas e acabou.
+- **"PRIMEIRO mês com fluxo"** (`mes_default`): reusa **`_lancamentos_ano`** ano a ano
+  (corrente → corrente+60) — reuso integral da projeção, zero drift de definição; "tem fluxo"
+  == lista não-vazia (todo lançamento tem `valor > 0` por CHECK). Só usuários SEM histórico
+  chegam aqui (base pequena por definição) — custo máx. ~6×5 queries triviais.
+- `HORIZONTE_MESES = 60` — primeira materialização do §6.5 como constante no backend.
 
 | Fase | Escopo | Repo | Complexidade | Depende de |
 |---|---|---|---|---|
@@ -375,9 +476,11 @@ parcelas; (3c) Resumo ambas + gráfico futuro; (3d) faturas por cartão (micro).
 ## 6. Decisões tomadas + questões residuais
 
 **Decididas (trava do modelo):**
-1. ✅ **Campo `pago`:** deixa de ser fonte de verdade (§1.3). Realizado/projetado deriva de
-   competência de vencimento vs. mês corrente. IA ajustada na Fase 1. Campo removido em cleanup
-   posterior (não na Fase 1).
+1. ✅ **Campo `pago`:** deixa de ser fonte de verdade da PROJEÇÃO (§1.3). Realizado/projetado
+   deriva de competência de vencimento vs. mês corrente. IA ajustada na Fase 1. NÃO é removido:
+   teve papel exclusivo na marcação `a_pagar` de 09/07 a 10/07/2026; desde a **Leva 2**
+   (PagamentoFatura) está **OBSOLETO de vez** — a marcação deriva da confirmação por fatura
+   (ver ATUALIZAÇÃO 2 no §1.3.2 e `docs/PLANO_3D_PAGAMENTO_FATURA.md`).
 2. ✅ **Recorrência:** **calculada** on-the-fly, não materializada (§3.3). Overrides como
    possibilidade futura.
 3. ✅ **Competência:** por **vencimento** (§2). Já materializado assim no banco — Fase 1 só lê.
@@ -408,3 +511,113 @@ parcelas; (3c) Resumo ambas + gráfico futuro; (3d) faturas por cartão (micro).
   já existem — vem antes da recorrência (feature nova).
 - Regras arquiteturais gerais do Hivvo continuam valendo (Decimal no back, toFixed no
   front, tokens Tailwind, TanStack Query para server-state, etc.).
+
+
+# Decisão — "A pagar" e "Saldo" no Dashboard (novo eixo: já saiu vs a vencer)
+
+> Status: **IMPLEMENTADO no backend em 09/07/2026** (B completo). Ver "COMO FICOU" ao fim da
+> seção. Origem: teste E2E do Claude Code revelou que "A pagar" incluía saídas à vista JÁ PAGAS
+> (aluguel via PIX aparecia como "a pagar"). Diagnóstico confirmou: o cálculo de fluxo não tinha
+> eixo "já saiu do caixa" vs "ainda vai sair".
+
+## O PROBLEMA
+"A pagar" (hoje = `despesas` do topo/integral) soma indistintamente:
+- crédito/parcela/fatura que VENCE no futuro (isso é "a pagar" de verdade), E
+- à vista / PIX / débito que JÁ SAIU no ato (isso NÃO é "a pagar" — já foi pago).
+E "Saldo" (= Receitas − A pagar) acerta o caixa por acidente, herdando o erro.
+
+## A DECISÃO (Caminho B COMPLETO — Lucas escolheu B completo de uma vez)
+Introduzir um eixo explícito **"saída já ocorrida" × "saída a ocorrer"**, combinando forma de
+pagamento + vencimento (não só data pura, que tem furos):
+
+### "A PAGAR" = só o que VENCE e ainda NÃO saiu
+- **À vista (Débito / Dinheiro / PIX):** saída JÁ OCORRIDA no dia da compra → NÃO entra em "A pagar"
+  (independe de data; já saiu).
+- **Crédito (parcela + avulsa de fatura):** saída A OCORRER no vencimento → entra em "A pagar" SSE
+  o vencimento é no mês e NÃO passou (data_vencimento > hoje, ou fatura do mês ainda não paga).
+- **Recorrência:** é à vista por definição (§ recorrência não passa por cartão) → tratar como à
+  vista (já ocorre na data_ocorrencia; a_vir se ocorrência > hoje).
+- Chave primária = **forma_pagamento** (à vista = já saiu; crédito = a vencer), refinada por data/
+  vencimento. NÃO usar `a_vir` puro por data como "A pagar" — ele tem o furo da Fonte 2 (crédito
+  avulso é sempre `realizado` por falta de dia de vencimento → esconderia crédito a vencer, o que é
+  PIOR para o Hivvo, cujo core é cartão de crédito).
+
+### "SALDO" = caixa PROJETADO de fim de mês
+- Saldo = Receitas − (TODAS as saídas de fluxo do mês: à vista já pago + a vencer). "Como termino o
+  mês." NÃO é "Receitas − A pagar" (que ignoraria o à vista já pago).
+- No caso de teste (jul): Receitas 8k − aluguel pago 2k − 0 a vencer = **6k**.
+
+## B COMPLETO — os furos a corrigir (Lucas: B completo de uma vez)
+Do diagnóstico §6:
+1. **Fonte 2 (avulsa de cartão) sem dia de vencimento:** hoje é sempre `realizado=True` porque a
+   Transacao não guarda o vencimento da fatura. B completo: dar à Fonte 2 um dia de vencimento REAL
+   derivado do `dia_vencimento` do CARTÃO (o cartão tem esse dado) + o mês/ano de fatura. Assim uma
+   fatura de crédito a vencer cai corretamente em "a pagar" com o dia certo. [É o furo que mais
+   distorce para quem usa crédito — prioridade dentro do B.]
+2. **Presunção "vencido = pago" por data, sem consultar `Parcela.pago`:** parcela com vencimento ≤
+   hoje mas não paga (atrasada) hoje some de "a pagar". B completo: reincorporar `Parcela.pago` /
+   `data_pagamento` para tratar atraso (parcela vencida E não paga = ainda "a pagar"). CUIDADO: isso
+   reintroduz `pago` como sinal — alinhar com a regra de que `pago` não governa a PROJEÇÃO integral,
+   só a distinção pago/a-pagar do mês corrente. Documentar a fronteira.
+3. **À vista com data futura no mês:** borda rara (à vista futura é estranha) — à vista é sempre
+   "já saiu" por definição; se dia > hoje, tratar como já saiu mesmo assim (ou impedir no cadastro,
+   já listado como item separado no §1.3.2).
+
+## EXPOR NO BACKEND
+- Campo dedicado **`a_pagar`** (saídas a ocorrer) em MensalResponse, em vez de reusar `despesas` do
+  topo. O front lê `a_pagar` no card "A pagar".
+- **`saldo`** do card = caixa projetado fim de mês (receitas − todas saídas de fluxo). Confirmar se
+  o `saldo` do topo já é isso ou precisa ajuste.
+- Manter `despesas` (consumo) e realizado/a_vir intactos (aditivo).
+
+## PROJEÇÃO (Bloco 2) — decisão relacionada (mesma leva)
+O destaque/início da projeção = **primeiro mês FUTURO (≥ corrente+1) com fluxo**; NUNCA o mês
+corrente (esse é o Bloco 1, evita duplicação). Fallback: mês seguinte se não há fluxo à frente.
+= o `mes_default` EXCLUINDO o mês corrente do resultado. Ajuste no /projection.
+
+## IMPACTO / TESTES
+- Mexe no coração do cálculo de fluxo (_lancamentos_mes, Fonte 2, schema). É 🔴 — modelo potente.
+- Testes: à vista pago fora de "a pagar"; crédito a vencer DENTRO de "a pagar" (com dia de
+  vencimento da Fonte 2); parcela atrasada (vencida não paga) ainda em "a pagar"; saldo = caixa fim
+  de mês; consistência com realizado/a_vir; o caso de teste do Lucas (jul: a_pagar=0, saldo=6k).
+- Aditivo onde possível; `despesas`/consumo/realizado/a_vir preservados.
+
+## COMO FICOU (implementado 09/07/2026 — regras finais)
+
+> **⚠️ SUPERSEDIDO EM PARTE (Leva 2 — PagamentoFatura, 10/07/2026):** os itens abaixo sobre a
+> FONTE do `a_pagar` mudaram — Fonte 1 não lê mais `not pago` e a Fonte 2 não presume mais
+> "venceu = saiu": ambas seguem a FATURA (`PagamentoFatura.pago=True` = saiu; senão a_pagar, a
+> vencer OU atrasada). A "assimetria aceita" e a "implicação operacional do furo 2" foram
+> RESOLVIDAS (existe a operação "marcar fatura paga": `PUT
+> /invoices/{cartao_id}/{ano}/{mes}/pagamento`). A fronteira do `pago` virou fronteira do
+> PagamentoFatura. O que NÃO mudou: eixos, contrato do `a_pagar`/`MesProjecao`, `/projection`,
+> realizado/a_vir. Regras completas: `docs/PLANO_3D_PAGAMENTO_FATURA.md`.
+
+- **`LancamentoFluxo.a_pagar`** (marcação, não filtro — mesmo padrão do `realizado`): Fonte 1
+  (parcela) = `not pago`; Fonte 2 (avulsa de fatura) = `vencimento_derivado > hoje`; Fontes 3/4
+  = nunca (saem no ato). Regra única por lançamento, uniforme para mês passado/corrente/futuro.
+- **Regra da parcela = `not pago`, ponto**: a vencer e não paga → dentro; vencida e não paga
+  (atrasada) → dentro (furo 2); paga → fora, INCLUSIVE antecipada — `pago=True` significa que a
+  saída ocorreu; manter "a vencer paga" em a_pagar contradiria o próprio eixo.
+- **Fonte 2 (furo 1)**: `vencimento_avulsa(card, fatura_mes, fatura_ano)` em `faturas.py` —
+  `fatura_mes/ano` já são o mês de vencimento; o dia vem do `dia_vencimento` do cartão. TAMBÉM
+  corrige o `realizado` do mês corrente (avulsa deixou de ser sempre-realizada — §1.3.2 fechado).
+  Fallback fim do mês. Cartões carregados em 1 query (só quando há avulsas).
+- **Assimetria aceita**: `Transacao` (avulsa) não tem `pago` → para a Fonte 2 vale a presunção
+  "venceu = saiu". Corrigível se um dia existir "marcar fatura paga".
+- **⚠️ Implicação operacional do furo 2**: `pago` só é gravável via API (`PUT /installments/{id}`
+  — sem UI). Na prática, parcela vencida fica em "a pagar" até alguém marcá-la paga. Consequência
+  direta do "atrasada continua a pagar"; a saída natural é uma futura operação de usuário
+  "marcar fatura/parcela paga" (fora de escopo desta leva — registrar como pendência de produto).
+- **Fronteira do `pago` (invariante)**: a marcação `a_pagar` da Fonte 1 é o ÚNICO ponto de toda a
+  camada de estatísticas que lê `pago`. Teste-guarda (serviço E router): alternar `pago` não move
+  receitas/despesas/saldo/realizado/a_vir/consumo/anual — só `a_pagar`.
+- **Contrato**: `MensalResponse` += `a_pagar: Decimal` (aditivo; topo/saldo intocados — o `saldo`
+  do topo JÁ ERA o caixa projetado de fim de mês, confirmado por teste). `MesProjecao` virou
+  `{mes, ano, receitas, despesas, a_pagar, saldo}` — `despesas` = saídas integrais (o que antes se
+  chamava `a_pagar` na série), `saldo = receitas − despesas`, `a_pagar` = estrito, idêntico ao
+  `/monthly` do mesmo mês (fonte única, lentes que não divergem). `a_pagar` ≠ `a_vir`: eixos
+  independentes (dívida-de-crédito × tempo-no-mês-corrente).
+- **`/projection`**: começa em `inicio_projecao` = primeiro mês FUTURO (>= corrente+1) com fluxo,
+  NUNCA o corrente; fallback mês seguinte (scan compartilhado com `mes_default` via
+  `_primeiro_mes_com_fluxo` — zero drift). `mes_default` (Bloco 1) não mudou.
