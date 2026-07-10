@@ -17,6 +17,7 @@ import InvoiceDetailPanel from '../../components/cards/InvoiceDetail'
 import InvoiceByMonthView from '../../components/cards/InvoiceByMonthView'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import EmptyState from '../../components/ui/EmptyState'
 import { useUIStore } from '../../store/uiStore'
 
 type ViewMode = 'card' | 'month'
@@ -172,23 +173,6 @@ function MonthDetailModal({ cardId, cardNome, mes, ano, onClose }: MonthDetailMo
         <InvoiceDetailPanel detail={detail} cardId={cardId} mes={mes} ano={ano} />
       )}
     </Modal>
-  )
-}
-
-// ─── empty state ──────────────────────────────────────────────────────────────
-
-function EmptyState({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-      <div className="w-14 h-14 rounded-full bg-bg-surface flex items-center justify-center mb-4">
-        <span className="text-amber text-2xl">▤</span>
-      </div>
-      <p className="text-text-primary font-medium">Nenhum cartão cadastrado</p>
-      <p className="text-text-muted text-sm mt-1 mb-5">
-        Adicione um cartão para acompanhar faturas e parcelamentos
-      </p>
-      <Button onClick={onAdd}>Adicionar cartão</Button>
-    </div>
   )
 }
 
@@ -386,18 +370,27 @@ export default function CardsPage() {
     </>
   )
 
+  // ─── zero cartões — mesmo empty state nos dois modos (mobile + desktop) ──────
+  // Retorna ANTES do toggle e do navegador de mês: sem cartões não há o que
+  // alternar nem fatura para navegar; a única ação relevante é adicionar cartão.
+
+  if (activeCards.length === 0) {
+    return (
+      <>
+        <EmptyState
+          icon="▤"
+          title="Você ainda não tem cartões cadastrados"
+          description="Adicione um cartão para acompanhar faturas e parcelamentos"
+          action={<Button onClick={() => setShowAddModal(true)}>Adicionar cartão</Button>}
+        />
+        {modals}
+      </>
+    )
+  }
+
   // ─── mobile layout ─────────────────────────────────────────────────────────
 
   if (isMobile) {
-    if (activeCards.length === 0) {
-      return (
-        <>
-          <EmptyState onAdd={() => setShowAddModal(true)} />
-          {modals}
-        </>
-      )
-    }
-
     const displayCard = selectedCard ?? activeCards[0]
 
     return (
@@ -513,60 +506,44 @@ export default function CardsPage() {
           </button>
         </div>
 
-        {activeCards.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-5 text-center">
-            <p className="text-text-muted text-sm">Nenhum cartão</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="mt-3 text-xs text-amber hover:underline"
-            >
-              Adicionar agora
-            </button>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto flex flex-col gap-4 p-4">
-            {activeCards.map((card) => (
-              <div key={card.id} className="flex flex-col gap-2">
-                <CardVisual
-                  card={card}
-                  selected={effectiveCardId === card.id}
-                  onClick={() => setSelectedCardId(card.id)}
-                />
-                {effectiveCardId === card.id && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCardToEdit(card)}
-                      className="flex-1 py-1.5 rounded-md text-xs text-text-muted bg-bg-surface border border-bg-border hover:text-text-primary transition-colors"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => setCardToDeactivate(card)}
-                      className="flex-1 py-1.5 rounded-md text-xs text-danger bg-bg-surface border border-bg-border hover:bg-danger/10 transition-colors"
-                    >
-                      Desativar
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="flex-1 overflow-y-auto flex flex-col gap-4 p-4">
+          {activeCards.map((card) => (
+            <div key={card.id} className="flex flex-col gap-2">
+              <CardVisual
+                card={card}
+                selected={effectiveCardId === card.id}
+                onClick={() => setSelectedCardId(card.id)}
+              />
+              {effectiveCardId === card.id && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCardToEdit(card)}
+                    className="flex-1 py-1.5 rounded-md text-xs text-text-muted bg-bg-surface border border-bg-border hover:text-text-primary transition-colors"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setCardToDeactivate(card)}
+                    className="flex-1 py-1.5 rounded-md text-xs text-danger bg-bg-surface border border-bg-border hover:bg-danger/10 transition-colors"
+                  >
+                    Desativar
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </aside>
 
           {/* Right panel — invoice */}
           <div className="flex-1 overflow-y-auto p-6">
-            {effectiveCardId ? (
+            {effectiveCardId && (
               <InvoicePanel
                 cardId={effectiveCardId}
                 mes={invoiceMes}
                 ano={invoiceAno}
                 onMonthSelect={handleMonthSelect}
               />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <p className="text-text-muted text-sm">Selecione um cartão para ver as faturas</p>
-              </div>
             )}
           </div>
         </div>
