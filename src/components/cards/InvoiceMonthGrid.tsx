@@ -36,7 +36,10 @@ export default function InvoiceMonthGrid({
               const key = `${year}-${mes}`
               const inv = byKey.get(key)
               const isSelected = selectedMes === mes && selectedAno === year
-              const isFutura = inv?.status === 'futura' || !inv
+              // "Futura/vazia" = competência sem dados (o backend só devolve meses
+              // com lançamento). Antes havia um `status` fantasma que o backend
+              // nunca preenchia — este é o critério real que já vigorava de fato.
+              const isFutura = !inv
 
               return (
                 <button

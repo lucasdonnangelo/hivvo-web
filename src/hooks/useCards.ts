@@ -3,8 +3,10 @@ import {
   createCard,
   deactivateCard,
   getCards,
+  getCompetenciaFaturas,
   getInvoiceDetail,
   getInvoices,
+  getNextDueInvoice,
   updateCard,
   type CardPayload,
 } from '../services/cards'
@@ -64,5 +66,23 @@ export function useInvoiceDetail(cardId: number | null, ano: number, mes: number
     queryFn: () => getInvoiceDetail(cardId!, ano, mes),
     enabled: cardId !== null,
     staleTime: 2 * 60 * 1000,
+  })
+}
+
+// ─── Lente 3d: faturas por competência (1 mês × N cartões) ──────────────────────
+
+export function useCompetenciaFaturas(ano: number, mes: number) {
+  return useQuery({
+    queryKey: ['competencia-faturas', ano, mes],
+    queryFn: () => getCompetenciaFaturas(ano, mes),
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+export function useNextDueInvoice() {
+  return useQuery({
+    queryKey: ['invoices', 'next-due'],
+    queryFn: getNextDueInvoice,
+    staleTime: 5 * 60 * 1000,
   })
 }

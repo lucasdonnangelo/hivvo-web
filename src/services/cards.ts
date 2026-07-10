@@ -30,7 +30,6 @@ export interface InvoiceListItem {
   mes: number
   total: string
   data_vencimento: string
-  status: 'aberta' | 'fechada' | 'futura'
 }
 
 export interface ParcelaFaturaItem {
@@ -78,3 +77,30 @@ export const getInvoices = (cardId: number) =>
 
 export const getInvoiceDetail = (cardId: number, ano: number, mes: number) =>
   api.get<InvoiceDetail>(`/cards/${cardId}/invoices/${ano}/${mes}`).then((r) => r.data)
+
+// ─── Lente 3d: faturas por competência (1 mês × N cartões) ──────────────────────
+
+export interface FaturaCartaoItem {
+  cartao_id: number
+  cartao_nome: string
+  total: string
+  data_vencimento: string | null
+}
+
+export interface CompetenciaFaturas {
+  ano: number
+  mes: number
+  total_geral: string
+  faturas: FaturaCartaoItem[]
+}
+
+export interface ProximaFatura {
+  ano: number
+  mes: number
+}
+
+export const getCompetenciaFaturas = (ano: number, mes: number) =>
+  api.get<CompetenciaFaturas>(`/invoices/${ano}/${mes}`).then((r) => r.data)
+
+export const getNextDueInvoice = () =>
+  api.get<ProximaFatura>('/invoices/next-due').then((r) => r.data)
