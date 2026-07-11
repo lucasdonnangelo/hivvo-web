@@ -74,9 +74,6 @@ export default function CardVisual({ card, selected, onClick }: CardVisualProps)
           </>
         )}
       </div>
-
-      {/* chip decoration */}
-      <div className="absolute top-5 right-5 w-8 h-6 rounded-sm bg-amber-dark/40 border border-bg/20" />
     </button>
   )
 }

@@ -77,7 +77,7 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
     reset,
     watch,
     clearErrors,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema) as Resolver<z.infer<typeof schema>>,
     mode: 'onChange',
@@ -139,11 +139,15 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
           <Button variant="ghost" className="flex-1" onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
+          {/* Botão SEMPRE clicável (só trava durante o submit). A validação roda no
+              clique via handleSubmit: campos inválidos ganham erro inline e o RHF
+              foca o primeiro — nunca uma trava silenciosa (mesmo padrão do
+              AddTransactionPage). */}
           <Button
             className="flex-1"
             onClick={handleSubmit(onSubmit)}
             isLoading={isLoading}
-            disabled={!isValid || isLoading}
+            disabled={isLoading}
           >
             {isEdit ? 'Salvar' : 'Adicionar'}
           </Button>
