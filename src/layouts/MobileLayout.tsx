@@ -56,7 +56,11 @@ export default function MobileLayout() {
               className="flex-1 flex justify-center"
               aria-label="Adicionar transação"
             >
-              <span className="mb-4 w-14 h-14 rounded-full bg-amber flex items-center justify-center text-bg text-2xl font-light shadow-lg">
+              {/* Círculo 56px CENTRADO na barra de 64px (mb-1 = folga de ~4px em
+                  cima e embaixo): antes o mb-4 empurrava ~8px do topo do botão
+                  PARA FORA da barra (h-16), e essa borda saliente é o que aparecia
+                  cortada no mobile. Agora o botão cabe inteiro e permanece clicável. */}
+              <span className="mb-1 w-14 h-14 rounded-full bg-amber flex items-center justify-center text-bg text-2xl font-light shadow-lg">
                 +
               </span>
             </NavLink>
