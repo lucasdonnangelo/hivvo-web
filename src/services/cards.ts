@@ -13,6 +13,10 @@ export interface Card {
   tipo: 'Crédito' | 'Débito' | 'Ambos'
   ativo: boolean
   fatura_aberta_total: string | null
+  // True quando o cartão tem compra lançada (parcela não cancelada ou avulsa de
+  // cartão). O backend REJEITA (422) alterar dia_fechamento/dia_vencimento/
+  // mes_offset_vencimento nesse caso — o form de edição desabilita esses campos.
+  tem_lancamentos?: boolean
 }
 
 export interface CardPayload {
@@ -30,7 +34,9 @@ export interface CardPayload {
 // - aberta   → ainda aceita compras (fechamento não passou). NÃO é confirmável.
 // - a_vencer → fechada, não confirmada, vencimento >= hoje.
 // - atrasada → fechada, não confirmada, vencimento < hoje (exige ação).
-export type InvoiceStatus = 'paga' | 'aberta' | 'a_vencer' | 'atrasada'
+// - vazia    → competência SEM lançamento algum (nada a pagar) — estado neutro,
+//              NUNCA alerta; não confundir com `paga`.
+export type InvoiceStatus = 'vazia' | 'paga' | 'aberta' | 'a_vencer' | 'atrasada'
 
 export interface InvoiceListItem {
   ano: number
