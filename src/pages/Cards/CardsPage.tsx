@@ -29,6 +29,22 @@ function currentMonthYear() {
   return { mes: now.getMonth() + 1, ano: now.getFullYear() }
 }
 
+// Extrai o `detail` do erro do FastAPI (string, array com `.msg`, ou objeto). Usado
+// para exibir o motivo REAL do 422 (ex.: bloqueio de edição de datas) em vez de um
+// genérico. Cai no fallback quando não há detail (rede/500 sem corpo).
+function extractDetail(err: unknown, fallback: string): string {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0]
+    if (first && typeof first === 'object' && 'msg' in first) {
+      return String((first as { msg: unknown }).msg)
+    }
+    return String(first)
+  }
+  return fallback
+}
+
 // ─── deactivate confirm modal ─────────────────────────────────────────────────
 
 interface DeactivateModalProps {
@@ -256,7 +272,13 @@ export default function CardsPage() {
         { id: cardToEdit.id, payload },
         {
           onSuccess: () => setCardToEdit(null),
-          onError: () => addToast({ message: 'Erro ao atualizar cartão. Tente novamente.', type: 'error' }),
+          // 422 "que escape" (ex.: bloqueio de datas) → mostra o detail do backend,
+          // não o genérico.
+          onError: (err) =>
+            addToast({
+              message: extractDetail(err, 'Erro ao atualizar cartão. Tente novamente.'),
+              type: 'error',
+            }),
         },
       )
     } else {

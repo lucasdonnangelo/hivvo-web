@@ -71,6 +71,15 @@ interface CardFormModalProps {
 export default function CardFormModal({ card, onSave, onClose, isLoading }: CardFormModalProps) {
   const isEdit = !!card
 
+  // Cartão em edição COM compras: o backend rejeita (422) mudar
+  // fechamento/vencimento/offset (corromperia o fatura_mes já materializado). A UI
+  // trava os três campos em somente-leitura — o usuário consulta mas não edita.
+  // Criação nunca trava (não há compras ainda). Mantê-los readOnly/CSS-lock (não
+  // `disabled` nativo) preserva o valor no react-hook-form: a validação passa e o
+  // payload reenvia o valor ATUAL, sem disparar um 422 auto-infligido.
+  const locked = isEdit && !!card?.tem_lancamentos
+  const lockClass = locked ? 'opacity-60 cursor-not-allowed' : ''
+
   const {
     register,
     handleSubmit,
@@ -190,6 +199,8 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
                   type="number"
                   min="1"
                   max="28"
+                  readOnly={locked}
+                  className={lockClass}
                   error={errors.dia_fechamento?.message}
                   {...register('dia_fechamento')}
                 />
@@ -198,19 +209,31 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
                   type="number"
                   min="1"
                   max="28"
+                  readOnly={locked}
+                  className={lockClass}
                   error={errors.dia_vencimento?.message}
                   {...register('dia_vencimento')}
                 />
               </div>
-              <p className="text-xs text-text-muted">Confira na fatura do seu cartão.</p>
+              {!locked && (
+                <p className="text-xs text-text-muted">Confira na fatura do seu cartão.</p>
+              )}
             </div>
 
             {/* mes_offset */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-text-muted">Vencimento da fatura</label>
+              {/* Locked: bloqueia interação sem `disabled` nativo (que faria o RHF
+                  descartar o valor) — pointer-events + tabIndex/aria mantêm o valor
+                  atual registrado e válido no submit. */}
               <select
                 {...register('mes_offset_vencimento')}
-                className="w-full px-3 py-2 rounded-md text-sm text-text-primary bg-bg-surface border border-bg-border focus:outline-none focus:border-amber transition-colors"
+                tabIndex={locked ? -1 : undefined}
+                aria-disabled={locked || undefined}
+                className={[
+                  'w-full px-3 py-2 rounded-md text-sm text-text-primary bg-bg-surface border border-bg-border focus:outline-none focus:border-amber transition-colors',
+                  locked ? `pointer-events-none ${lockClass}` : '',
+                ].join(' ')}
               >
                 <option value={0}>Mesmo mês do fechamento</option>
                 <option value={1}>Mês seguinte ao fechamento</option>
@@ -219,6 +242,13 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
                 <p className="text-xs text-danger">{errors.mes_offset_vencimento.message}</p>
               )}
             </div>
+
+            {locked && (
+              <p className="text-xs text-text-muted bg-bg-surface rounded-md px-3 py-2 border border-bg-border">
+                Para alterar o fechamento ou vencimento, crie um novo cartão. As compras já lançadas
+                dependem destas datas.
+              </p>
+            )}
           </>
         )}
       </div>
