@@ -82,6 +82,13 @@ export interface ProjectionResponse {
   series: ProjectionMonth[]
 }
 
+// Florescimento do Resumo/Análise: nº de meses distintos com dados no histórico
+// do usuário. Governa quais seções temporais aparecem (≥2 → Comparação; ≥3 →
+// Evolução). Sem parâmetros — é o histórico inteiro.
+export interface CoverageResponse {
+  meses_com_dados: number
+}
+
 // ── parsers: backend returns Decimal fields as strings ─────────────────────────
 
 function parseCat(c: CategoriaStats): CategoriaStats {
@@ -166,3 +173,8 @@ export const getProjection = (meses = 12) =>
   api
     .get<ProjectionResponse>('/statistics/projection', { params: { meses } })
     .then((r) => ({ series: r.data.series.map(parseProjectionMonth) }))
+
+export const getCoverage = () =>
+  api
+    .get<CoverageResponse>('/statistics/coverage')
+    .then((r) => ({ meses_com_dados: Number(r.data.meses_com_dados) }))

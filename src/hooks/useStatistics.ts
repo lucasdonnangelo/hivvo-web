@@ -4,6 +4,7 @@ import {
   getYearlyStats,
   getCategoryStats,
   getProjection,
+  getCoverage,
 } from '../services/statistics'
 import type { CategoriaStats } from '../services/statistics'
 
@@ -23,6 +24,15 @@ export function useProjection(meses = 12) {
   return useQuery({
     queryKey: ['statistics', 'projection', meses],
     queryFn: () => getProjection(meses),
+  })
+}
+
+// Florescimento da aba Análise: nº de meses distintos com dados. Decide quais
+// seções temporais renderizam (≥2 → Comparação; ≥3 → Evolução). Sem parâmetros.
+export function useCoverage() {
+  return useQuery({
+    queryKey: ['statistics', 'coverage'],
+    queryFn: () => getCoverage(),
   })
 }
 

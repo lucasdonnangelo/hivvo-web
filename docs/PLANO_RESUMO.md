@@ -106,3 +106,33 @@ Mini-fase, múltiplos batches.
   modelo: "gasto" no Resumo é CONSUMO (o que se gastou), coerente com o donut do Dashboard.
 - Tokens Tailwind, MobileLayout/DesktopLayout, TanStack Query.
 - Florescimento reusa o molde EmptyState e a lógica de "seção some quando vazia" do Bloco 2.
+
+## ESTADO DA IMPLEMENTAÇÃO (FRONTEND)
+
+### Batch 1 — CASCA (feito): sub-navegação + esqueleto + florescimento
+Só a estrutura; as 3 seções (conteúdo) vêm no próximo batch.
+
+- **Sub-navegação no Início** — o "Início" ganhou duas abas [Visão geral | Análise], segmented
+  control no padrão do `ViewToggle` dos Cartões. Padrão = Visão geral. Full-width no mobile, largura
+  natural no desktop (via `useBreakpoint`, sem media queries). Aba ativa é UI-state local (não
+  persiste; sempre abre em Visão geral).
+- **Separação navegação × conteúdo** — `DashboardPage` virou só o CONTAINER das abas (leve). O
+  conteúdo do Dashboard foi MOVIDO intacto para `OverviewPage` (mesmo JSX, novo arquivo → "Dashboard
+  intocado"). A `AnalysisPage` é a nova casca do Resumo.
+- **Florescimento via `/coverage`** — `GET /statistics/coverage` → `{ meses_com_dados }`.
+  A `AnalysisPage` decide os slots:
+  - Seção 1 "Este mês em detalhe": SEMPRE presente. Reflete o MÊS CORRENTE, não o histórico → NÃO
+    depende do coverage (o vazio do mês fica com a própria seção no próximo batch, via /highlights).
+  - Seção 2 "Comparação": presente com `meses_com_dados >= 2`.
+  - Seção 3 "Evolução": presente com `meses_com_dados >= 3`.
+  - Slot presente → placeholder rotulado ("Em breve") que descreve o que virá (cria expectativa).
+  - Slot ausente → convite discreto e acolhedor (não vazio, não bloqueio).
+  - Enquanto /coverage carrega → skeleton (sem flash de "nada"). Erro/sem-dado degrada p/ 0 meses.
+
+**Arquivos:** `DashboardPage.tsx` (reescrito como container), `OverviewPage.tsx` (conteúdo movido),
+`AnalysisPage.tsx` (novo), `services/statistics.ts` (`getCoverage` + `CoverageResponse`),
+`hooks/useStatistics.ts` (`useCoverage`). Build + lint verdes.
+
+### Batch 2 — CONTEÚDO das 3 seções (a fazer)
+As seções passam a consumir os endpoints de conteúdo (`/highlights`, `/comparison`, `/evolution`,
+`/evolution/categories`) e preenchem os placeholders. Horizonte fixo em 3.
