@@ -442,8 +442,13 @@ export default function CardsPage() {
 
         {viewMode === 'card' ? (
           <>
-            {/* Card carousel */}
-            <div className="shrink-0 overflow-x-auto flex gap-3 px-4 pb-4 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+            {/* Card carousel — pt-2 reserva espaço para o ring/borda âmbar do
+                cartão selecionado (ring-offset-2 + ring-2 = ~4px projetados ACIMA
+                da box). Sem esse pt o topo do card encostava no content-edge, e o
+                overflow-x-auto (que força overflow-y: auto → clip vertical) decepava
+                a borda superior arredondada. O px-4/pb-4 já davam folga nos outros
+                lados; só faltava o topo. */}
+            <div className="shrink-0 overflow-x-auto flex gap-3 px-4 pt-2 pb-4 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               {activeCards.map((card) => (
                 <div key={card.id} className="snap-center shrink-0 w-[calc(100vw-64px)]">
                   <CardVisual

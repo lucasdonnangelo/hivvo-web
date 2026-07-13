@@ -7,7 +7,8 @@ import { useBreakpoint } from '../../hooks/useBreakpoint'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
-import { useCategories, useCreateCategory, useDeleteCategory } from '../../hooks/useCategories'
+import NewCategoryModal from '../../components/categories/NewCategoryModal'
+import { useCategories, useDeleteCategory } from '../../hooks/useCategories'
 import {
   useRecorrencias,
   useUpdateRecorrencia,
@@ -16,6 +17,7 @@ import {
   useCorrigirValorRecorrencia,
   useRecorrenciaDetail,
 } from '../../hooks/useRecorrencias'
+import type { Category } from '../../services/categories'
 import type { Recorrencia, RecorrenciaUpdate } from '../../services/recorrencias'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
@@ -36,8 +38,6 @@ const pwSchema = z
 
 type PwForm = z.infer<typeof pwSchema>
 
-const QUICK_EMOJIS = ['🍔','🚗','🏠','💊','📚','🎮','👕','📱','✈️','🐾','💰','💻','📈','🎯','📦']
-
 // Recorrência não passa por cartão (§3.4) → sem "Crédito".
 const FORMAS_RECORRENCIA = ['Débito', 'PIX', 'Dinheiro', 'TED/DOC']
 
@@ -48,16 +48,6 @@ const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 's
 
 const recFieldClass =
   'w-full rounded-md bg-bg border border-bg-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-amber transition-colors'
-
-function extractEmojiAndName(text: string): { icone: string; nome: string } {
-  if (!text) return { icone: '📦', nome: '' }
-  const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-  const [first] = seg.segment(text)
-  if (first && /\p{Extended_Pictographic}/u.test(first.segment)) {
-    return { icone: first.segment, nome: text.slice(first.segment.length).trim() }
-  }
-  return { icone: '📦', nome: text }
-}
 
 function extractDetail(detail: unknown): string {
   if (typeof detail === 'string') return detail
@@ -213,39 +203,12 @@ export default function SettingsPage() {
 
   // ── Categorias ────────────────────────────────────────────────────────────
   const { data: categories = [], isLoading: catsLoading } = useCategories()
-  const createMutation = useCreateCategory()
   const deleteMutation = useDeleteCategory()
 
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newCatName, setNewCatName] = useState('')
-  const [catNameError, setCatNameError] = useState('')
+  // Qual tipo o modal "Nova categoria" está criando (a SEÇÃO define o tipo — sem
+  // dropdown). null = fechado.
+  const [addTipo, setAddTipo] = useState<'receita' | 'despesa' | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
-
-  function openAddModal() {
-    setNewCatName('')
-    setCatNameError('')
-    setShowAddModal(true)
-  }
-
-  function handleAddCatSubmit() {
-    const trimmed = newCatName.trim()
-    const { icone, nome } = extractEmojiAndName(trimmed)
-    if (nome.length < 2) {
-      setCatNameError('Mínimo 2 caracteres no nome.')
-      return
-    }
-    const duplicate = categories.some(
-      (c) => c.nome.toLowerCase() === nome.toLowerCase(),
-    )
-    if (duplicate) {
-      setCatNameError('Já existe uma categoria com esse nome.')
-      return
-    }
-    createMutation.mutate({ nome, icone }, {
-      onSuccess: () => setShowAddModal(false),
-      onError: () => setCatNameError('Erro ao criar. Tente novamente.'),
-    })
-  }
 
   // ── Recorrências ──────────────────────────────────────────────────────────
   const { data: recorrencias = [], isLoading: recsLoading } = useRecorrencias()
@@ -378,6 +341,84 @@ export default function SettingsPage() {
     })
   }
 
+  // Lista de categorias de um tipo (skeleton / vazio / itens com confirmação de
+  // remoção). Só custom têm id → só elas mostram o ✕ (padrão vem sem).
+  function renderCategoryList(tipo: Category['tipo']) {
+    const cats = categories.filter((c) => c.tipo === tipo)
+    if (catsLoading) {
+      return (
+        <div className="flex flex-col gap-2">
+          {[0, 1].map((i) => (
+            <div key={i} className="h-9 rounded-md bg-bg-border animate-pulse" />
+          ))}
+        </div>
+      )
+    }
+    if (cats.length === 0) {
+      return (
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <p className="text-sm text-text-muted">Nenhuma categoria disponível.</p>
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-col gap-1">
+        {cats.map((cat) =>
+          deletingId !== null && deletingId === cat.id ? (
+            <div
+              key={cat.is_padrao ? `padrao:${cat.tipo}:${cat.nome}` : cat.id}
+              className="flex items-center justify-between gap-2 px-2 py-2 rounded-md bg-danger/5 border border-danger/30"
+            >
+              <span className="text-xs text-text-primary truncate">
+                Remover <span className="font-medium">{cat.nome}</span>?
+              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setDeletingId(null)}
+                  className="text-xs text-text-muted hover:text-text-primary transition-colors"
+                >
+                  Não
+                </button>
+                <button
+                  onClick={() => {
+                    // só categorias custom têm id (padrão = null e sem ✕)
+                    if (cat.id == null) return
+                    deleteMutation.mutate(cat.id, {
+                      onSuccess: () => setDeletingId(null),
+                    })
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="text-xs text-danger hover:text-danger/80 font-medium transition-colors disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? '…' : 'Sim'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              key={cat.is_padrao ? `padrao:${cat.tipo}:${cat.nome}` : cat.id}
+              className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-bg-border/50 transition-colors group"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base leading-none">{cat.icone}</span>
+                <span className="text-sm text-text-primary truncate">{cat.nome}</span>
+              </div>
+              {!cat.is_padrao && (
+                <button
+                  onClick={() => setDeletingId(cat.id)}
+                  className="text-text-muted hover:text-danger transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 text-xs shrink-0"
+                  aria-label={`Remover ${cat.nome}`}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ),
+        )}
+      </div>
+    )
+  }
+
   // ── Content ───────────────────────────────────────────────────────────────
 
   const content = (
@@ -488,89 +529,30 @@ export default function SettingsPage() {
 
       </Section>
 
-      {/* ── Categorias ── */}
-      <Section title="Categorias">
-        <SettingsRow>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-text-muted">Suas categorias customizadas.</p>
-            <button
-              onClick={openAddModal}
-              className="text-xs text-amber hover:text-amber-light transition-colors font-medium"
-            >
-              + Adicionar
-            </button>
-          </div>
-
-          {catsLoading ? (
-            <div className="flex flex-col gap-2">
-              {[0, 1].map((i) => (
-                <div key={i} className="h-9 rounded-md bg-bg-border animate-pulse" />
-              ))}
-            </div>
-          ) : categories.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-4 text-center">
+      {/* ── Categorias (separadas por tipo — cada seção cria o seu tipo) ── */}
+      {(['despesa', 'receita'] as const).map((secTipo) => (
+        <Section
+          key={secTipo}
+          title={secTipo === 'despesa' ? 'Categorias de despesa' : 'Categorias de receita'}
+        >
+          <SettingsRow>
+            <div className="flex items-center justify-between mb-3">
               <p className="text-sm text-text-muted">
-                Nenhuma categoria disponível.
+                {secTipo === 'despesa'
+                  ? 'Categorias dos seus gastos.'
+                  : 'Categorias dos seus ganhos.'}
               </p>
+              <button
+                onClick={() => setAddTipo(secTipo)}
+                className="text-xs text-amber hover:text-amber-light transition-colors font-medium"
+              >
+                + Adicionar
+              </button>
             </div>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {categories.map((cat) =>
-                deletingId !== null && deletingId === cat.id ? (
-                  <div
-                    key={cat.is_padrao ? `padrao:${cat.tipo}:${cat.nome}` : cat.id}
-                    className="flex items-center justify-between gap-2 px-2 py-2 rounded-md bg-danger/5 border border-danger/30"
-                  >
-                    <span className="text-xs text-text-primary truncate">
-                      Remover <span className="font-medium">{cat.nome}</span>?
-                    </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => setDeletingId(null)}
-                        className="text-xs text-text-muted hover:text-text-primary transition-colors"
-                      >
-                        Não
-                      </button>
-                      <button
-                        onClick={() => {
-                          // só categorias custom têm id (padrão = null e sem ✕)
-                          if (cat.id == null) return
-                          deleteMutation.mutate(cat.id, {
-                            onSuccess: () => setDeletingId(null),
-                          })
-                        }}
-                        disabled={deleteMutation.isPending}
-                        className="text-xs text-danger hover:text-danger/80 font-medium transition-colors disabled:opacity-50"
-                      >
-                        {deleteMutation.isPending ? '…' : 'Sim'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    key={cat.is_padrao ? `padrao:${cat.tipo}:${cat.nome}` : cat.id}
-                    className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-bg-border/50 transition-colors group"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base leading-none">{cat.icone}</span>
-                      <span className="text-sm text-text-primary truncate">{cat.nome}</span>
-                    </div>
-                    {!cat.is_padrao && (
-                      <button
-                        onClick={() => setDeletingId(cat.id)}
-                        className="text-text-muted hover:text-danger transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 text-xs shrink-0"
-                        aria-label={`Remover ${cat.nome}`}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ),
-              )}
-            </div>
-          )}
-        </SettingsRow>
-      </Section>
+            {renderCategoryList(secTipo)}
+          </SettingsRow>
+        </Section>
+      ))}
 
       {/* ── Recorrências ── */}
       <Section title="Recorrências">
@@ -736,64 +718,14 @@ export default function SettingsPage() {
     </div>
   )
 
-  const addModal = showAddModal && (
-    <Modal
-      title="Nova categoria"
-      onClose={() => setShowAddModal(false)}
-      footer={
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => setShowAddModal(false)}>
-            Cancelar
-          </Button>
-          <Button isLoading={createMutation.isPending} onClick={handleAddCatSubmit}>
-            Adicionar
-          </Button>
-        </div>
-      }
-    >
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-text-muted" htmlFor="cat-name">
-          Nome
-        </label>
-        <input
-          id="cat-name"
-          type="text"
-          value={newCatName}
-          onChange={(e) => {
-            setNewCatName(e.target.value)
-            if (catNameError) setCatNameError('')
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleAddCatSubmit()
-          }}
-          placeholder="Ex: 🐾 Pets"
-          autoFocus
-          className={`w-full rounded-md bg-bg border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-amber transition-colors ${
-            catNameError ? 'border-danger' : 'border-bg-border'
-          }`}
-        />
-        {!isMobile && (
-          <div className="flex flex-wrap gap-1">
-            {QUICK_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => {
-                  setNewCatName((prev) =>
-                    emoji + ' ' + prev.replace(/^\p{Extended_Pictographic}\s*/u, ''),
-                  )
-                  setCatNameError('')
-                }}
-                className="text-base leading-none p-1 rounded hover:bg-bg-border transition-colors"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        )}
-        {catNameError && <p className="text-xs text-danger">{catNameError}</p>}
-      </div>
-    </Modal>
+  const addModal = addTipo && (
+    <NewCategoryModal
+      tipo={addTipo}
+      existingNames={categories
+        .filter((c) => c.tipo === addTipo)
+        .map((c) => c.nome)}
+      onClose={() => setAddTipo(null)}
+    />
   )
 
   const editRecModal = editingRec && (() => {

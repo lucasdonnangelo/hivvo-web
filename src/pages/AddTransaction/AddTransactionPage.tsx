@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import NewCategoryModal from '../../components/categories/NewCategoryModal'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useCards } from '../../hooks/useCards'
 import { useCategories } from '../../hooks/useCategories'
@@ -323,7 +324,6 @@ export default function AddTransactionPage() {
   const navigate = useNavigate()
   const now = new Date()
 
-  const { data: allCategories = [] } = useCategories()
   const { data: allCards = [] } = useCards()
   const { data: stats } = useMonthlyStats(now.getMonth() + 1, now.getFullYear())
   const createTx = useCreateTransaction()
@@ -331,8 +331,8 @@ export default function AddTransactionPage() {
 
   const addToast = useUIStore((s) => s.addToast)
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
+  const [showNewCatModal, setShowNewCatModal] = useState(false)
 
-  const categories = allCategories.filter((c) => c.ativa)
   const creditCards = allCards.filter((c) => c.tipo === 'Crédito' || c.tipo === 'Ambos')
   const hasCards = creditCards.length > 0
 
@@ -419,9 +419,11 @@ export default function AddTransactionPage() {
 
   const watched = watch()
   const { forma_pagamento, parcelado, tipo, recorrente } = watched
-  // Grid de seleção filtrado pelo tipo corrente (client-side, sem refetch).
-  // A tela de Gerenciar categorias (Settings) mostra todas — só o grid filtra.
-  const visibleCategories = categories.filter((c) => c.tipo === tipo)
+  // Categorias do tipo corrente vêm do backend (GET /categories?tipo=). Trocar
+  // despesa↔receita muda a queryKey → re-filtra (e volta do cache, staleTime 5min).
+  const { data: catsForTipo = [] } = useCategories(tipo)
+  const categories = catsForTipo.filter((c) => c.ativa)
+  const visibleCategories = categories
   const valorNum = Number(watched.valor) || 0
   const numParcelas = watched.total_parcelas ? Number(watched.total_parcelas) : undefined
 
@@ -520,6 +522,18 @@ export default function AddTransactionPage() {
       setInicioInvalido(false)
     }
   }, [recorrente]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ao trocar o tipo (despesa↔receita) o grid re-filtra; se a categoria escolhida
+  // não pertence ao novo tipo, limpa a seleção (e o selo de sugestão). Só age com a
+  // lista já carregada (`length > 0`) p/ não zerar durante o refetch. "Outros" existe
+  // nos dois tipos → permanece.
+  useEffect(() => {
+    const cat = getValues('categoria')
+    if (cat && categories.length > 0 && !categories.some((c) => c.nome === cat)) {
+      setValue('categoria', '', { shouldValidate: false })
+      setSuggestedCategory(null)
+    }
+  }, [tipo, categories]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildPayload = (data: FormData) => ({
     tipo: data.tipo,
@@ -733,7 +747,16 @@ export default function AddTransactionPage() {
         control={control}
         render={({ field }) => (
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-text-muted">Categoria</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-text-muted">Categoria</label>
+              <button
+                type="button"
+                onClick={() => setShowNewCatModal(true)}
+                className="text-xs text-amber hover:text-amber-light transition-colors font-medium"
+              >
+                + Criar categoria
+              </button>
+            </div>
             {categories.length === 0 ? (
               <div className="h-16 bg-bg-surface rounded-lg animate-pulse" />
             ) : (
@@ -929,11 +952,28 @@ export default function AddTransactionPage() {
     </div>
   )
 
+  // Modal "Nova categoria" reusado (mesmo componente do Settings). Herda o tipo da
+  // transação atual; ao criar, a nova categoria já entra selecionada (a invalidação
+  // faz o grid refetchar e ela aparece).
+  const newCatModal = showNewCatModal && (
+    <NewCategoryModal
+      tipo={tipo}
+      existingNames={categories.map((c) => c.nome)}
+      onClose={() => setShowNewCatModal(false)}
+      onCreated={(cat) => {
+        setValue('categoria', cat.nome, { shouldValidate: true })
+        setSuggestedCategory(null)
+      }}
+    />
+  )
+
   // ── mobile layout ─────────────────────────────────────────────────────────
 
   if (isMobile) {
     return (
-      <div className="flex flex-col h-full">
+      <>
+        {newCatModal}
+        <div className="flex flex-col h-full">
         <div className="shrink-0 px-4 py-3 border-b border-bg-border flex items-center gap-3">
           <button
             type="button"
@@ -961,14 +1001,17 @@ export default function AddTransactionPage() {
             Salvar
           </Button>
         </div>
-      </div>
+        </div>
+      </>
     )
   }
 
   // ── desktop layout ────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full">
+    <>
+      {newCatModal}
+      <div className="flex flex-col h-full">
       <header className="shrink-0 px-6 py-4 border-b border-bg-border">
         <h1 className="text-lg font-medium text-text-primary">Adicionar transação</h1>
       </header>
@@ -1008,6 +1051,7 @@ export default function AddTransactionPage() {
           />
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
