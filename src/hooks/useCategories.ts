@@ -6,10 +6,12 @@ import {
 } from '../services/categories'
 import { useUIStore } from '../store/uiStore'
 
-export function useCategories() {
+export function useCategories(tipo?: 'receita' | 'despesa') {
   return useQuery({
-    queryKey: ['categories'],
-    queryFn: getCategories,
+    // Prefixo ['categories'] compartilhado → uma invalidação atinge todas as
+    // variantes (all/despesa/receita). O sufixo separa os caches por tipo.
+    queryKey: ['categories', tipo ?? 'all'],
+    queryFn: () => getCategories(tipo),
     staleTime: 5 * 60 * 1000,
   })
 }
@@ -17,8 +19,15 @@ export function useCategories() {
 export function useCreateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ nome, icone }: { nome: string; icone: string }) =>
-      createCategory(nome, icone),
+    mutationFn: ({
+      nome,
+      icone,
+      tipo,
+    }: {
+      nome: string
+      icone: string
+      tipo?: 'receita' | 'despesa'
+    }) => createCategory(nome, icone, tipo),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['categories'] })
       useUIStore.getState().addToast({ message: 'Categoria criada', type: 'success' })

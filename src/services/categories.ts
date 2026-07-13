@@ -13,11 +13,19 @@ export interface Category {
   criado_em: string
 }
 
-export const getCategories = () =>
-  api.get<Category[]>('/categories').then((r) => unwrapList<Category>(r.data))
+export const getCategories = (tipo?: 'receita' | 'despesa') =>
+  api
+    .get<Category[]>('/categories', { params: tipo ? { tipo } : undefined })
+    .then((r) => unwrapList<Category>(r.data))
 
-export const createCategory = (nome: string, icone: string) =>
-  api.post<Category>('/categories', { nome, icone }).then((r) => r.data)
+export const createCategory = (
+  nome: string,
+  icone: string,
+  tipo?: 'receita' | 'despesa',
+) =>
+  api
+    .post<Category>('/categories', { nome, icone, ...(tipo ? { tipo } : {}) })
+    .then((r) => r.data)
 
 export const deleteCategory = (id: number) =>
   api.delete(`/categories/${id}`)
