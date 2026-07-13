@@ -287,7 +287,13 @@ export default function CardsPage() {
           setShowAddModal(false)
           setSelectedCardId(created.id)
         },
-        onError: () => addToast({ message: 'Erro ao adicionar cartão. Verifique os dados e tente novamente.', type: 'error' }),
+        // Mostra o `detail` REAL do backend (ex.: 422 de validação) em vez de um
+        // genérico que esconde o motivo — mesmo padrão do path de edição acima.
+        onError: (err) =>
+          addToast({
+            message: extractDetail(err, 'Erro ao adicionar cartão. Verifique os dados e tente novamente.'),
+            type: 'error',
+          }),
       })
     }
   }
