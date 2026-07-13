@@ -133,6 +133,34 @@ Só a estrutura; as 3 seções (conteúdo) vêm no próximo batch.
 `AnalysisPage.tsx` (novo), `services/statistics.ts` (`getCoverage` + `CoverageResponse`),
 `hooks/useStatistics.ts` (`useCoverage`). Build + lint verdes.
 
-### Batch 2 — CONTEÚDO das 3 seções (a fazer)
-As seções passam a consumir os endpoints de conteúdo (`/highlights`, `/comparison`, `/evolution`,
-`/evolution/categories`) e preenchem os placeholders. Horizonte fixo em 3.
+### Batch 2a — Seção 1 "Este mês em detalhe" (feito)
+Substitui o placeholder da Seção 1 pelo conteúdo real. BASE = CONSUMO (bate com o donut do Dashboard).
+
+- **Gasto por categoria** — donut MAIOR + lista completa (todas as categorias, com VALOR e %). Lê
+  `categorias_consumo` do MESMO `/monthly` do mês corrente → mesma queryKey → mesmo cache do TanStack
+  Query → números e cores idênticos ao donut do Dashboard (o Resumo é lente, não recalcula).
+- **Receitas vs despesas** — composição do mês (base consumo: `consumo.receitas`/`consumo.despesas`)
+  + "Resultado do mês" (`consumo.saldo`).
+- **Destaques** — `GET /statistics/highlights?mes=&ano=`: maior despesa (valor/descrição/categoria·
+  data, ou "Sem despesas neste mês" se null), dia de maior gasto (data·total, ou "—"), e nº de
+  movimentações DECOMPOSTO de forma ADITIVA: total em destaque + "N lançadas + M recorrentes" (o "+"
+  deixa explícito que é composição; some quando `num_recorrentes = 0`; pluralização tratada).
+- **Mês vazio** — a Seção 1 é a única sempre-presente, então trata o próprio vazio: se
+  `num_transacoes_total = 0` (fallback ao /monthly zerado), mostra "Nenhuma movimentação neste mês
+  ainda" (não depende do coverage).
+- **DonutChart estendido** (retrocompatível): props opcionais `showValues` (lista com valor+%) e
+  `size` (`'lg'` = donut maior). Defaults preservam o donut do Dashboard byte-a-byte.
+- **Orquestração** — a Seção 1 foi DESACOPLADA do gate do coverage: renderiza de imediato e gerencia
+  o próprio load (skeleton) / vazio; só as Seções 2 e 3 esperam o `/coverage`.
+
+**Arquivos:** `Section1Detail.tsx` (novo), `AnalysisPage.tsx` (Seção 1 → Section1Detail + desacople),
+`components/charts/DonutChart.tsx` (props `showValues`/`size`), `services/statistics.ts`
+(`getHighlights` + tipos `HighlightsResponse`/`MaiorDespesa`/`DiaMaiorGasto`), `hooks/useStatistics.ts`
+(`useHighlights`). Build + lint verdes.
+
+> Nota de contrato: sem backend/OpenAPI no repo web, os tipos de `/highlights` seguem a spec do
+> batch; o parser é tolerante (Decimal→Number, null-safe). Confirmar as chaves exatas no runtime.
+
+### Batch 2b/2c — Seções 2 (Comparação) e 3 (Evolução) (a fazer)
+Consomem `/comparison`, `/evolution`, `/evolution/categories` e substituem os placeholders/convites.
+Horizonte fixo em 3.

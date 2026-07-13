@@ -26,9 +26,20 @@ const formatBRL = (value: number) =>
 
 interface DonutChartProps {
   data: CategoriaStats[]
+  // Versão "aprofundada" (Resumo/Seção 1): cada linha da legenda ganha o VALOR
+  // além do %. Default false preserva o mini-donut do Dashboard (só %).
+  showValues?: boolean
+  // 'lg' = donut maior (Resumo). Default 'sm' = tamanho do Dashboard, intocado.
+  size?: 'sm' | 'lg'
 }
 
-export default function DonutChart({ data }: DonutChartProps) {
+// Dimensões por tamanho. 'sm' reproduz exatamente o donut do Dashboard.
+const DIMS = {
+  sm: { height: 200, inner: 55, outer: 85 },
+  lg: { height: 240, inner: 70, outer: 100 },
+} as const
+
+export default function DonutChart({ data, showValues = false, size = 'sm' }: DonutChartProps) {
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-text-muted text-sm">
@@ -37,16 +48,18 @@ export default function DonutChart({ data }: DonutChartProps) {
     )
   }
 
+  const dims = DIMS[size]
+
   return (
     <div>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={dims.height}>
         <PieChart>
           <Pie
             data={data}
             dataKey="total"
             nameKey="categoria"
-            innerRadius={55}
-            outerRadius={85}
+            innerRadius={dims.inner}
+            outerRadius={dims.outer}
             paddingAngle={2}
             strokeWidth={0}
           >
@@ -81,9 +94,20 @@ export default function DonutChart({ data }: DonutChartProps) {
               />
               <span className="text-xs text-text-muted truncate">{item.categoria}</span>
             </div>
-            <span className="text-xs text-text-primary font-medium shrink-0">
-              {Number(item.percentual).toFixed(1).replace('.', ',')}%
-            </span>
+            {showValues ? (
+              <div className="flex items-center gap-3 shrink-0 tabular-nums">
+                <span className="text-xs text-text-primary font-medium">
+                  {formatBRL(item.total)}
+                </span>
+                <span className="text-xs text-text-muted w-14 text-right">
+                  {Number(item.percentual).toFixed(1).replace('.', ',')}%
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-text-primary font-medium shrink-0">
+                {Number(item.percentual).toFixed(1).replace('.', ',')}%
+              </span>
+            )}
           </div>
         ))}
       </div>

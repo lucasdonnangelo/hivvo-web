@@ -89,6 +89,30 @@ export interface CoverageResponse {
   meses_com_dados: number
 }
 
+// Destaques do mês (Resumo/Seção 1 "Este mês em detalhe"). Base CONSUMO, mês
+// corrente. Único endpoint não-temporal do Resumo.
+export interface MaiorDespesa {
+  valor: number
+  descricao: string
+  categoria: string
+  data: string
+}
+
+export interface DiaMaiorGasto {
+  data: string
+  total: number
+}
+
+export interface HighlightsResponse {
+  // Ambos null em mês sem despesa (só receitas, ou mês vazio).
+  maior_despesa: MaiorDespesa | null
+  dia_maior_gasto: DiaMaiorGasto | null
+  // nº de movimentações DECOMPOSTO (aditivo): total = lançadas + recorrentes.
+  num_transacoes_total: number
+  num_lancadas: number
+  num_recorrentes: number
+}
+
 // ── parsers: backend returns Decimal fields as strings ─────────────────────────
 
 function parseCat(c: CategoriaStats): CategoriaStats {
@@ -152,6 +176,22 @@ function parseProjectionMonth(m: ProjectionMonth): ProjectionMonth {
   }
 }
 
+// Parser tolerante: Decimal→Number nos valores; objetos ausentes viram null;
+// contagens ausentes caem para 0. Blinda a UI se o backend omitir um campo.
+function parseHighlights(d: HighlightsResponse): HighlightsResponse {
+  return {
+    maior_despesa: d.maior_despesa
+      ? { ...d.maior_despesa, valor: Number(d.maior_despesa.valor) }
+      : null,
+    dia_maior_gasto: d.dia_maior_gasto
+      ? { ...d.dia_maior_gasto, total: Number(d.dia_maior_gasto.total) }
+      : null,
+    num_transacoes_total: Number(d.num_transacoes_total ?? 0),
+    num_lancadas: Number(d.num_lancadas ?? 0),
+    num_recorrentes: Number(d.num_recorrentes ?? 0),
+  }
+}
+
 // ── API calls ──────────────────────────────────────────────────────────────────
 
 export const getMonthlyStats = (mes: number, ano: number) =>
@@ -178,3 +218,8 @@ export const getCoverage = () =>
   api
     .get<CoverageResponse>('/statistics/coverage')
     .then((r) => ({ meses_com_dados: Number(r.data.meses_com_dados) }))
+
+export const getHighlights = (mes: number, ano: number) =>
+  api
+    .get<HighlightsResponse>('/statistics/highlights', { params: { mes, ano } })
+    .then((r) => parseHighlights(r.data))

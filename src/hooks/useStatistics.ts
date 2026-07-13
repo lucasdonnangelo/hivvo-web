@@ -5,6 +5,7 @@ import {
   getCategoryStats,
   getProjection,
   getCoverage,
+  getHighlights,
 } from '../services/statistics'
 import type { CategoriaStats } from '../services/statistics'
 
@@ -33,6 +34,15 @@ export function useCoverage() {
   return useQuery({
     queryKey: ['statistics', 'coverage'],
     queryFn: () => getCoverage(),
+  })
+}
+
+// Destaques do mês (Resumo/Seção 1). Mesmo mês do Dashboard → convive no cache
+// com o /monthly sem drift.
+export function useHighlights(mes: number, ano: number) {
+  return useQuery({
+    queryKey: ['statistics', 'highlights', mes, ano],
+    queryFn: () => getHighlights(mes, ano),
   })
 }
 

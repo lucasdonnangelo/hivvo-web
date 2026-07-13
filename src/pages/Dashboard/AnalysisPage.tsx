@@ -1,18 +1,17 @@
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useCoverage } from '../../hooks/useStatistics'
+import Section1Detail from './Section1Detail'
 
-// ─── casca da aba Análise ─────────────────────────────────────────────────────
+// ─── aba Análise ──────────────────────────────────────────────────────────────
 //
-// Só a ESTRUTURA: sub-navegação já vive no DashboardPage; aqui ficam os três
-// slots das seções, decididos pelo florescimento (/coverage). O conteúdo real de
-// cada seção — donut/tabela (S1), variações (S2), gráfico (S3) — vem no próximo
-// batch. Por ora cada slot presente é um placeholder rotulado que descreve o que
-// virá; cada slot ausente é um convite discreto (não um vazio, não um bloqueio).
+// A sub-navegação vive no DashboardPage; aqui ficam as três seções, decididas
+// pelo florescimento (/coverage). Seções 2 e 3 ainda são casca (placeholder/
+// convite) — o conteúdo vem nos próximos batches.
 //
 // Florescimento:
 //  • Seção 1 "Este mês em detalhe": SEMPRE presente (reflete o mês corrente, NÃO
-//    o histórico — não depende do coverage; o vazio do mês fica com a própria
-//    seção no próximo batch, via /highlights).
+//    o histórico — NÃO depende do coverage; gerencia o próprio load e o próprio
+//    vazio). Já implementada (Section1Detail).
 //  • Seção 2 "Comparação": presente com ≥2 meses de dados.
 //  • Seção 3 "Evolução":  presente com ≥3 meses de dados.
 
@@ -67,15 +66,15 @@ function SectionInvite({
   )
 }
 
-// Skeleton do load do /coverage — evita o flash de "nada" antes de sabermos
-// quais seções florescem. Três blocos, mesma linguagem do skeleton do Dashboard.
-function AnalysisSkeleton({ isMobile }: { isMobile: boolean }) {
+// Skeleton dos slots governados pelo coverage (Seções 2 e 3) enquanto ele carrega
+// — evita o flash de "nada". A Seção 1 NÃO espera o coverage (renderiza já, com o
+// próprio load).
+function CoverageSlotsSkeleton() {
   return (
-    <div className={`flex flex-col gap-4 ${isMobile ? 'p-4' : 'p-6'}`}>
+    <>
       <div className="h-44 bg-bg-surface rounded-lg animate-pulse" />
       <div className="h-44 bg-bg-surface rounded-lg animate-pulse" />
-      <div className="h-44 bg-bg-surface rounded-lg animate-pulse" />
-    </div>
+    </>
   )
 }
 
@@ -83,52 +82,52 @@ function AnalysisSkeleton({ isMobile }: { isMobile: boolean }) {
 
 export default function AnalysisPage() {
   const isMobile = useBreakpoint('md')
-  const { data: coverage, isLoading } = useCoverage()
+  const { data: coverage, isLoading: coverageLoading } = useCoverage()
 
-  // Skeleton enquanto o coverage carrega (não um flash de "nada").
-  if (isLoading) return <AnalysisSkeleton isMobile={isMobile} />
-
-  // Erro/sem dado degrada para 0 → só a Seção 1 (que não depende do histórico) +
-  // convites nas demais. Nunca bloqueia.
+  // Erro/sem dado degrada para 0 → convites nas Seções 2 e 3. Nunca bloqueia.
   const meses = coverage?.meses_com_dados ?? 0
 
   return (
     <div className={`flex flex-col gap-4 ${isMobile ? 'p-4' : 'p-6'}`}>
-      {/* Seção 1 — sempre presente (mês corrente, independe do coverage). */}
-      <SectionPlaceholder
-        title="Este mês em detalhe"
-        description="Gasto por categoria, receitas vs. despesas e os destaques do mês."
-        isMobile={isMobile}
-      />
+      {/* Seção 1 — sempre presente (mês corrente, independe do coverage). Renderiza
+          de imediato e gerencia o próprio load/vazio. */}
+      <Section1Detail isMobile={isMobile} />
 
-      {/* Seção 2 — Comparação (floresce com ≥2 meses de dados). */}
-      {meses >= 2 ? (
-        <SectionPlaceholder
-          title="Comparação"
-          description="Como este mês se compara ao anterior e à sua média."
-          isMobile={isMobile}
-        />
+      {/* Seções 2 e 3 — governadas pelo coverage; skeleton enquanto ele carrega. */}
+      {coverageLoading ? (
+        <CoverageSlotsSkeleton />
       ) : (
-        <SectionInvite
-          title="Comparação"
-          message="Sua comparação mensal aparecerá com mais um mês de uso."
-          isMobile={isMobile}
-        />
-      )}
+        <>
+          {/* Seção 2 — Comparação (floresce com ≥2 meses de dados). */}
+          {meses >= 2 ? (
+            <SectionPlaceholder
+              title="Comparação"
+              description="Como este mês se compara ao anterior e à sua média."
+              isMobile={isMobile}
+            />
+          ) : (
+            <SectionInvite
+              title="Comparação"
+              message="Sua comparação mensal aparecerá com mais um mês de uso."
+              isMobile={isMobile}
+            />
+          )}
 
-      {/* Seção 3 — Evolução (floresce com ≥3 meses de dados). */}
-      {meses >= 3 ? (
-        <SectionPlaceholder
-          title="Evolução"
-          description="Seus gastos e receitas ao longo dos meses."
-          isMobile={isMobile}
-        />
-      ) : (
-        <SectionInvite
-          title="Evolução"
-          message="Sua evolução aparecerá conforme você usar o app."
-          isMobile={isMobile}
-        />
+          {/* Seção 3 — Evolução (floresce com ≥3 meses de dados). */}
+          {meses >= 3 ? (
+            <SectionPlaceholder
+              title="Evolução"
+              description="Seus gastos e receitas ao longo dos meses."
+              isMobile={isMobile}
+            />
+          ) : (
+            <SectionInvite
+              title="Evolução"
+              message="Sua evolução aparecerá conforme você usar o app."
+              isMobile={isMobile}
+            />
+          )}
+        </>
       )}
     </div>
   )
