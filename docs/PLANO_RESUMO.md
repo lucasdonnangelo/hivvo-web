@@ -158,9 +158,35 @@ Substitui o placeholder da Seção 1 pelo conteúdo real. BASE = CONSUMO (bate c
 (`getHighlights` + tipos `HighlightsResponse`/`MaiorDespesa`/`DiaMaiorGasto`), `hooks/useStatistics.ts`
 (`useHighlights`). Build + lint verdes.
 
-> Nota de contrato: sem backend/OpenAPI no repo web, os tipos de `/highlights` seguem a spec do
-> batch; o parser é tolerante (Decimal→Number, null-safe). Confirmar as chaves exatas no runtime.
+> Contrato CONFERIDO contra o schema real (`hivvo-api/app/schemas/statistics.py`): `HighlightsResponse`
+> tem `num_transacoes_total`/`num_lancadas`/`num_recorrentes` FLAT (não aninhado) e
+> `maior_despesa`/`dia_maior_gasto` opcionais — bate com o parser. Ressalva do runtime FECHADA.
 
-### Batch 2b/2c — Seções 2 (Comparação) e 3 (Evolução) (a fazer)
-Consomem `/comparison`, `/evolution`, `/evolution/categories` e substituem os placeholders/convites.
+### Batch 2b — Seção 2 "Comparação" (feito)
+Substitui o placeholder da Seção 2. Aparece com coverage ≥ 2. Fonte: `GET /statistics/comparison?meses=3`
+(base CONSUMO). O endpoint dá muito dado (totais + todas as categorias, com atual/anterior/média e
+variações) — o design é CURADORIA em 3 níveis:
+
+- **Nível 1 — Manchete:** duas linhas (despesas e receitas), cada uma com o valor do mês + "X% acima/
+  abaixo de [mês anterior]". Despesa acima = danger, abaixo = success; receita invertida. Leg "vs
+  média" (muted, secundário) só com **coverage ≥ 3** (florescimento interno: com 2, a média ≈ o
+  anterior → só "vs anterior"). % arredondado; nulls (base zero) → "sem base de comparação".
+- **Nível 2 — "Onde mudou":** top 4 categorias por MAIOR variação em R$ (`|atual − anterior|`, não %),
+  altas e baixas misturadas. Cada linha: seta ↑/↓ + categoria + variação (vs anterior) + valores
+  "R$atual (era R$ant)". Bordas: categoria nova (variação null) → "nova"; zerada (atual 0) → "zerou".
+- **Nível 3 — "Ver todas":** botão (useState, escondido por padrão) → tabela completa (Categoria,
+  Atual, Anterior, [Média], vs ant., [vs média]). Colunas de média só com coverage ≥ 3. Mobile:
+  `overflow-x-auto`.
+
+**Contrato CONFERIDO** contra o schema real (`ComparacaoResponse`/`TotaisComparacao`/`VariacaoTripla`/
+`CategoriaComparacao`): variação % = `(atual−anterior)/|anterior|`, **null quando base zero** (surgiu
+→ null; sumiu → −100%); categorias só de despesa, ordenadas por atual desc; média = dos N meses
+FECHADOS. Parser fiel ao schema.
+
+**Arquivos:** `Section2Comparison.tsx` (novo), `AnalysisPage.tsx` (Seção 2 → Section2Comparison),
+`services/statistics.ts` (`getComparison` + tipos), `hooks/useStatistics.ts` (`useComparison`).
+Build + lint verdes.
+
+### Batch 2c — Seção 3 "Evolução" (a fazer)
+Consome `/evolution` e `/evolution/categories` e substitui o placeholder. Horizonte fixo em 3.
 Horizonte fixo em 3.

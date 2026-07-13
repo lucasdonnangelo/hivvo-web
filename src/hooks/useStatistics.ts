@@ -6,6 +6,7 @@ import {
   getProjection,
   getCoverage,
   getHighlights,
+  getComparison,
 } from '../services/statistics'
 import type { CategoriaStats } from '../services/statistics'
 
@@ -43,6 +44,15 @@ export function useHighlights(mes: number, ano: number) {
   return useQuery({
     queryKey: ['statistics', 'highlights', mes, ano],
     queryFn: () => getHighlights(mes, ano),
+  })
+}
+
+// Comparação (Resumo/Seção 2). Horizonte fixo em 3 (default do backend); a seção
+// só monta quando coverage ≥ 2, então a query não dispara antes disso.
+export function useComparison(meses = 3) {
+  return useQuery({
+    queryKey: ['statistics', 'comparison', meses],
+    queryFn: () => getComparison(meses),
   })
 }
 

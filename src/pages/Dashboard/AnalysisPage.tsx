@@ -1,6 +1,7 @@
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useCoverage } from '../../hooks/useStatistics'
 import Section1Detail from './Section1Detail'
+import Section2Comparison from './Section2Comparison'
 
 // ─── aba Análise ──────────────────────────────────────────────────────────────
 //
@@ -100,11 +101,7 @@ export default function AnalysisPage() {
         <>
           {/* Seção 2 — Comparação (floresce com ≥2 meses de dados). */}
           {meses >= 2 ? (
-            <SectionPlaceholder
-              title="Comparação"
-              description="Como este mês se compara ao anterior e à sua média."
-              isMobile={isMobile}
-            />
+            <Section2Comparison coverage={meses} isMobile={isMobile} />
           ) : (
             <SectionInvite
               title="Comparação"

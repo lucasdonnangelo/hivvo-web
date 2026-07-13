@@ -113,6 +113,39 @@ export interface HighlightsResponse {
   num_recorrentes: number
 }
 
+// Comparação (Resumo/Seção 2). Mês atual vs anterior vs média dos meses FECHADOS.
+// Base CONSUMO. Variação % via _variacao no backend: null quando a base (anterior/
+// média) é zero — ex.: categoria que surgiu (nunca "+∞"); categoria que sumiu → −100%.
+export interface VariacaoTripla {
+  receitas: number | null
+  despesas: number | null
+  saldo: number | null
+}
+
+export interface TotaisComparacao {
+  atual: LeituraMes
+  anterior: LeituraMes
+  media: LeituraMes
+  variacao_vs_anterior: VariacaoTripla
+  variacao_vs_media: VariacaoTripla
+}
+
+export interface CategoriaComparacao {
+  categoria: string
+  atual: number
+  anterior: number
+  media: number
+  variacao_vs_anterior: number | null
+  variacao_vs_media: number | null
+}
+
+export interface ComparacaoResponse {
+  mes: number
+  ano: number
+  totais: TotaisComparacao
+  categorias: CategoriaComparacao[] // só despesas, ordenadas por atual desc
+}
+
 // ── parsers: backend returns Decimal fields as strings ─────────────────────────
 
 function parseCat(c: CategoriaStats): CategoriaStats {
@@ -192,6 +225,37 @@ function parseHighlights(d: HighlightsResponse): HighlightsResponse {
   }
 }
 
+// Variações preservam null (base zero → sem variação); demais campos Decimal→Number.
+function parseVariacaoTripla(v: VariacaoTripla): VariacaoTripla {
+  return {
+    receitas: v.receitas != null ? Number(v.receitas) : null,
+    despesas: v.despesas != null ? Number(v.despesas) : null,
+    saldo: v.saldo != null ? Number(v.saldo) : null,
+  }
+}
+
+function parseComparacao(d: ComparacaoResponse): ComparacaoResponse {
+  return {
+    mes: d.mes,
+    ano: d.ano,
+    totais: {
+      atual: parseLeitura(d.totais.atual),
+      anterior: parseLeitura(d.totais.anterior),
+      media: parseLeitura(d.totais.media),
+      variacao_vs_anterior: parseVariacaoTripla(d.totais.variacao_vs_anterior),
+      variacao_vs_media: parseVariacaoTripla(d.totais.variacao_vs_media),
+    },
+    categorias: d.categorias.map((c) => ({
+      categoria: c.categoria,
+      atual: Number(c.atual),
+      anterior: Number(c.anterior),
+      media: Number(c.media),
+      variacao_vs_anterior: c.variacao_vs_anterior != null ? Number(c.variacao_vs_anterior) : null,
+      variacao_vs_media: c.variacao_vs_media != null ? Number(c.variacao_vs_media) : null,
+    })),
+  }
+}
+
 // ── API calls ──────────────────────────────────────────────────────────────────
 
 export const getMonthlyStats = (mes: number, ano: number) =>
@@ -223,3 +287,8 @@ export const getHighlights = (mes: number, ano: number) =>
   api
     .get<HighlightsResponse>('/statistics/highlights', { params: { mes, ano } })
     .then((r) => parseHighlights(r.data))
+
+export const getComparison = (meses = 3) =>
+  api
+    .get<ComparacaoResponse>('/statistics/comparison', { params: { meses } })
+    .then((r) => parseComparacao(r.data))
