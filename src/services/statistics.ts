@@ -146,6 +146,39 @@ export interface ComparacaoResponse {
   categorias: CategoriaComparacao[] // só despesas, ordenadas por atual desc
 }
 
+// Evolução (Resumo/Seção 3). Série CONSUMO dos últimos N meses — o espelho pra
+// trás do /projection. Cronológica: series[0] = mês mais antigo, series[-1] = o
+// corrente (âncora, PARCIAL). Contínua: mês sem dado entra com zeros.
+export interface MesEvolucaoConsumo {
+  mes: number
+  ano: number
+  receitas: number
+  despesas: number
+  saldo: number
+}
+
+export interface EvolucaoResponse {
+  series: MesEvolucaoConsumo[]
+}
+
+// Gasto por categoria mês a mês (categoria-major): cada `serie` alinhada por
+// ÍNDICE ao eixo `meses` (0 nos meses sem gasto). Categorias por total desc.
+export interface SerieCategoria {
+  categoria: string
+  total: number
+  serie: number[]
+}
+
+export interface EvolucaoCategoriasResponse {
+  meses: MesAno[]
+  categorias: SerieCategoria[]
+}
+
+interface MesAno {
+  mes: number
+  ano: number
+}
+
 // ── parsers: backend returns Decimal fields as strings ─────────────────────────
 
 function parseCat(c: CategoriaStats): CategoriaStats {
@@ -256,6 +289,29 @@ function parseComparacao(d: ComparacaoResponse): ComparacaoResponse {
   }
 }
 
+function parseEvolucao(d: EvolucaoResponse): EvolucaoResponse {
+  return {
+    series: d.series.map((m) => ({
+      mes: m.mes,
+      ano: m.ano,
+      receitas: Number(m.receitas),
+      despesas: Number(m.despesas),
+      saldo: Number(m.saldo),
+    })),
+  }
+}
+
+function parseEvolucaoCategorias(d: EvolucaoCategoriasResponse): EvolucaoCategoriasResponse {
+  return {
+    meses: d.meses.map((m) => ({ mes: m.mes, ano: m.ano })),
+    categorias: d.categorias.map((c) => ({
+      categoria: c.categoria,
+      total: Number(c.total),
+      serie: c.serie.map(Number),
+    })),
+  }
+}
+
 // ── API calls ──────────────────────────────────────────────────────────────────
 
 export const getMonthlyStats = (mes: number, ano: number) =>
@@ -292,3 +348,13 @@ export const getComparison = (meses = 3) =>
   api
     .get<ComparacaoResponse>('/statistics/comparison', { params: { meses } })
     .then((r) => parseComparacao(r.data))
+
+export const getEvolution = (meses = 6) =>
+  api
+    .get<EvolucaoResponse>('/statistics/evolution', { params: { meses } })
+    .then((r) => parseEvolucao(r.data))
+
+export const getEvolutionCategories = (meses = 6) =>
+  api
+    .get<EvolucaoCategoriasResponse>('/statistics/evolution/categories', { params: { meses } })
+    .then((r) => parseEvolucaoCategorias(r.data))

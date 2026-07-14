@@ -47,26 +47,56 @@ Serve o usuário novo — valor no dia 1. Aprofunda o que o Dashboard só resume
 - Base: vs mês anterior E vs média (as duas leituras — mês anterior é intuitivo, média é robusta a
   meses atípicos).
 
-### Seção 3 — "Evolução" (aparece com ≥3 meses de dados)
-- **Gráfico de linha/barra dos últimos N meses**: gasto mensal, ou receita vs despesa por mês.
-  É onde vive o gráfico "evolução mensal" do Resumo antigo — mas olhando PRA TRÁS (o futuro é do
-  Bloco 2 do Dashboard).
-- **Evolução de uma categoria específica** ao longo do tempo (abrir uma categoria e ver sua série).
-- **Horizonte: padrão 3 meses** quando aparece. FILTRO de período (3/6/12/tudo) é FUTURO — não no
-  escopo inicial do frontend, MAS o backend nasce PARAMETRIZADO (?meses=N) para não exigir
-  retrabalho depois. Frontend começa fixo em 3 (sem os botões de filtro), consumindo um endpoint
-  que já aceita qualquer horizonte.
+### Seção 3 — "Evolução" (aparece com ≥6 meses de dados — coverage >= 6)
+FLORESCE COM 6 MESES (não 3, decisão revista): a série temporal precisa de base consistente. Um
+evento inicial atípico sobre poucos meses distorce; com 6+ ele é diluído. (Ver "Princípios de
+indicadores financeiros" abaixo — a lição da XP.)
+- **Gráfico principal**: LINHA, despesas vs receitas (duas linhas — a MARGEM entre elas é a leitura:
+  "gasto dentro do que ganho ao longo do tempo?"). Valores em R$ (não %). Base CONSUMO.
+- **Gráfico de categoria** (SEPARADO do principal, não integrado — eixos e semânticas diferentes):
+  um SELETOR de categoria (chips/dropdown) que mostra UMA categoria por vez ao longo do tempo. Várias
+  linhas sobrepostas = espaguete ilegível. Uma linha limpa responde "como essa categoria evoluiu?".
+- **Filtro de horizonte** (3/6/12/tudo), default 6. O backend já é parametrizado (?meses=N). O FILTRO
+  TAMBÉM FLORESCE — as opções se limitam ao histórico: coverage>=6 → [3·6·Tudo] (Tudo=6); coverage>=12
+  → [3·6·12·Tudo]. NUNCA oferecer horizonte maior que o histórico (plotaria meses vazios que enganam
+  — a lição XP aplicada ao filtro). "Tudo" = todo o histórico (teto 60 do backend).
+- **MÊS CORRENTE = PARCIAL**: o mês corrente está acontecendo → o último ponto é sempre "baixo" e
+  parece uma QUEDA falsa. Marcar visualmente como parcial (linha tracejada / cor / rótulo "em
+  andamento") OU excluir da série. Nunca deixar o parcial parecer tendência de queda. (Mesma
+  disciplina da média da Seção 2, que exclui o corrente.)
+- Gatilho é DADOS (coverage = competências distintas com lançamento), não tempo de conta. Quem
+  importar 6 meses de histórico destrava na hora; quem tem conta há 6 meses mas nunca lançou, não.
+
+## PRINCÍPIOS DE INDICADORES FINANCEIROS (a lição da XP — vale para TODO gráfico/métrica do Hivvo)
+Origem: Lucas relatou que a XP Investimentos mostrou "-78% de rendimento" por ~1 ano por causa de um
+evento inicial atípico (compra de ~R$13 numa base minúscula durante a fase de aprendizado) que
+contaminou uma métrica PERCENTUAL COMPOSTA sobre base pequena — só "corrigiu" quando o evento saiu
+da janela móvel. Para o Hivvo NUNCA repetir isso:
+1. **Prefira valores ABSOLUTOS (R$) a percentuais** em gráficos/indicadores. % sobre base pequena
+   mente (+200% de R$10 é irrelevante). [Já aplicado: curadoria da Seção 2 por R$.]
+2. **Trate base zero/pequena explicitamente** — "nova", "sem base", NUNCA "+∞"/"+400%" cru. [Já
+   aplicado: Seção 2 categoria nova/zerada.]
+3. **O mês corrente (parcial) NUNCA contamina série ou média** — marque como parcial ou exclua. [Já
+   aplicado: média da Seção 2; a aplicar: gráfico da Seção 3.]
+4. **Não mostre análise temporal até haver base suficiente** — o florescimento tardio protege contra
+   eventos iniciais atípicos. [Já aplicado: Seção 3 em 6 meses; o filtro limitado ao histórico.]
+5. **EVITE métricas compostas/acumuladas ancoradas num ponto inicial.** O Hivvo hoje mede fluxo/
+   consumo POR PERÍODO (absoluto), não crescimento composto sobre uma base — por isso é imune ao bug
+   da XP. SE um dia introduzir "evolução patrimonial" ou "% de progresso desde o início" (o 50/30/20
+   pode pedir), ancore com cuidado: base = capital/estado real, janela móvel, EXCLUA a fase de setup.
+Quatro dos cinco já eram seguidos por instinto na sessão — a história da XP CONFIRMOU os princípios,
+não revelou buraco. O #5 é preventivo (só importa se surgir métrica composta).
 
 ### Seção 4 — Insights da IA
 FORA do escopo inicial (decidido). Possível no futuro (Gemini comentando padrões). Registrado, não
 construído agora.
 
 ## LIMIARES DE FLORESCIMENTO
-- Seção 1: há qualquer transação no mês → aparece.
-- Seção 2: ≥2 meses com dados → aparece.
-- Seção 3: ≥3 meses com dados → aparece.
-("Mês com dados" = mês com ao menos uma transação/lançamento. Definir a contagem exata na
-investigação — provável: meses distintos com lançamento no histórico do usuário.)
+- Seção 1: há qualquer transação no mês → aparece (independe de coverage — reflete o mês corrente).
+- Seção 2: coverage >= 2 → aparece (há mês anterior). A comparação vs MÉDIA só com coverage >= 3.
+- Seção 3: coverage >= 6 → aparece (base consistente p/ série temporal — lição XP). O filtro de
+  horizonte também floresce: coverage>=6 → [3·6·Tudo]; coverage>=12 → [3·6·12·Tudo].
+("Mês com dados" = competência distinta com lançamento de CONSUMO. É o que /coverage conta.)
 
 ## LOCALIZAÇÃO
 Aba "Análise" dentro de "Início" (ao lado de "Visão geral" = o Dashboard atual). Não incha a barra
@@ -107,86 +137,23 @@ Mini-fase, múltiplos batches.
 - Tokens Tailwind, MobileLayout/DesktopLayout, TanStack Query.
 - Florescimento reusa o molde EmptyState e a lógica de "seção some quando vazia" do Bloco 2.
 
-## ESTADO DA IMPLEMENTAÇÃO (FRONTEND)
+## ESTADO DA IMPLEMENTAÇÃO (FRONTEND) — Resumo COMPLETO
+Todos os contratos conferidos contra o schema real (`hivvo-api/app/schemas/statistics.py`).
 
-### Batch 1 — CASCA (feito): sub-navegação + esqueleto + florescimento
-Só a estrutura; as 3 seções (conteúdo) vêm no próximo batch.
+- **Casca** — abas [Visão geral | Análise] no Início; `DashboardPage` = container de abas;
+  `OverviewPage` = Dashboard movido intacto; `AnalysisPage` = orquestrador do florescimento
+  (`/coverage`). Seção 1 desacoplada do gate; Seções 2/3 sob o coverage.
+- **Seção 1 "Este mês em detalhe"** (`Section1Detail.tsx`) — donut maior (valor+%, bate com o
+  Dashboard) + receitas/despesas + destaques (`/highlights`); trata o próprio mês vazio.
+- **Seção 2 "Comparação"** (`Section2Comparison.tsx`) — coverage ≥ 2; `/comparison`; curadoria em 3
+  níveis (manchete · onde-mudou top-4 por R$ · ver-todas tabela). "vs média" só com coverage ≥ 3.
+- **Seção 3 "Evolução"** (`Section3Evolution.tsx` + `components/charts/EvolutionChart.tsx`) —
+  coverage ≥ 6; `/evolution` + `/evolution/categories`. Gráfico principal (despesas vs receitas, R$)
+  + gráfico de categoria SEPARADO (seletor de chips, uma por vez, cor amber). **Mês corrente PARCIAL**:
+  último segmento tracejado + anel oco + "· parcial" no tooltip (não parece queda). **Filtro de
+  horizonte** que floresce: passos `[3,6,12]` limitados a `≤ coverage` + "Tudo" = `min(coverage,60)`;
+  default 6; estado local, não persiste. Valores em R$, nunca % composto (lição XP).
 
-- **Sub-navegação no Início** — o "Início" ganhou duas abas [Visão geral | Análise], segmented
-  control no padrão do `ViewToggle` dos Cartões. Padrão = Visão geral. Full-width no mobile, largura
-  natural no desktop (via `useBreakpoint`, sem media queries). Aba ativa é UI-state local (não
-  persiste; sempre abre em Visão geral).
-- **Separação navegação × conteúdo** — `DashboardPage` virou só o CONTAINER das abas (leve). O
-  conteúdo do Dashboard foi MOVIDO intacto para `OverviewPage` (mesmo JSX, novo arquivo → "Dashboard
-  intocado"). A `AnalysisPage` é a nova casca do Resumo.
-- **Florescimento via `/coverage`** — `GET /statistics/coverage` → `{ meses_com_dados }`.
-  A `AnalysisPage` decide os slots:
-  - Seção 1 "Este mês em detalhe": SEMPRE presente. Reflete o MÊS CORRENTE, não o histórico → NÃO
-    depende do coverage (o vazio do mês fica com a própria seção no próximo batch, via /highlights).
-  - Seção 2 "Comparação": presente com `meses_com_dados >= 2`.
-  - Seção 3 "Evolução": presente com `meses_com_dados >= 3`.
-  - Slot presente → placeholder rotulado ("Em breve") que descreve o que virá (cria expectativa).
-  - Slot ausente → convite discreto e acolhedor (não vazio, não bloqueio).
-  - Enquanto /coverage carrega → skeleton (sem flash de "nada"). Erro/sem-dado degrada p/ 0 meses.
-
-**Arquivos:** `DashboardPage.tsx` (reescrito como container), `OverviewPage.tsx` (conteúdo movido),
-`AnalysisPage.tsx` (novo), `services/statistics.ts` (`getCoverage` + `CoverageResponse`),
-`hooks/useStatistics.ts` (`useCoverage`). Build + lint verdes.
-
-### Batch 2a — Seção 1 "Este mês em detalhe" (feito)
-Substitui o placeholder da Seção 1 pelo conteúdo real. BASE = CONSUMO (bate com o donut do Dashboard).
-
-- **Gasto por categoria** — donut MAIOR + lista completa (todas as categorias, com VALOR e %). Lê
-  `categorias_consumo` do MESMO `/monthly` do mês corrente → mesma queryKey → mesmo cache do TanStack
-  Query → números e cores idênticos ao donut do Dashboard (o Resumo é lente, não recalcula).
-- **Receitas vs despesas** — composição do mês (base consumo: `consumo.receitas`/`consumo.despesas`)
-  + "Resultado do mês" (`consumo.saldo`).
-- **Destaques** — `GET /statistics/highlights?mes=&ano=`: maior despesa (valor/descrição/categoria·
-  data, ou "Sem despesas neste mês" se null), dia de maior gasto (data·total, ou "—"), e nº de
-  movimentações DECOMPOSTO de forma ADITIVA: total em destaque + "N lançadas + M recorrentes" (o "+"
-  deixa explícito que é composição; some quando `num_recorrentes = 0`; pluralização tratada).
-- **Mês vazio** — a Seção 1 é a única sempre-presente, então trata o próprio vazio: se
-  `num_transacoes_total = 0` (fallback ao /monthly zerado), mostra "Nenhuma movimentação neste mês
-  ainda" (não depende do coverage).
-- **DonutChart estendido** (retrocompatível): props opcionais `showValues` (lista com valor+%) e
-  `size` (`'lg'` = donut maior). Defaults preservam o donut do Dashboard byte-a-byte.
-- **Orquestração** — a Seção 1 foi DESACOPLADA do gate do coverage: renderiza de imediato e gerencia
-  o próprio load (skeleton) / vazio; só as Seções 2 e 3 esperam o `/coverage`.
-
-**Arquivos:** `Section1Detail.tsx` (novo), `AnalysisPage.tsx` (Seção 1 → Section1Detail + desacople),
-`components/charts/DonutChart.tsx` (props `showValues`/`size`), `services/statistics.ts`
-(`getHighlights` + tipos `HighlightsResponse`/`MaiorDespesa`/`DiaMaiorGasto`), `hooks/useStatistics.ts`
-(`useHighlights`). Build + lint verdes.
-
-> Contrato CONFERIDO contra o schema real (`hivvo-api/app/schemas/statistics.py`): `HighlightsResponse`
-> tem `num_transacoes_total`/`num_lancadas`/`num_recorrentes` FLAT (não aninhado) e
-> `maior_despesa`/`dia_maior_gasto` opcionais — bate com o parser. Ressalva do runtime FECHADA.
-
-### Batch 2b — Seção 2 "Comparação" (feito)
-Substitui o placeholder da Seção 2. Aparece com coverage ≥ 2. Fonte: `GET /statistics/comparison?meses=3`
-(base CONSUMO). O endpoint dá muito dado (totais + todas as categorias, com atual/anterior/média e
-variações) — o design é CURADORIA em 3 níveis:
-
-- **Nível 1 — Manchete:** duas linhas (despesas e receitas), cada uma com o valor do mês + "X% acima/
-  abaixo de [mês anterior]". Despesa acima = danger, abaixo = success; receita invertida. Leg "vs
-  média" (muted, secundário) só com **coverage ≥ 3** (florescimento interno: com 2, a média ≈ o
-  anterior → só "vs anterior"). % arredondado; nulls (base zero) → "sem base de comparação".
-- **Nível 2 — "Onde mudou":** top 4 categorias por MAIOR variação em R$ (`|atual − anterior|`, não %),
-  altas e baixas misturadas. Cada linha: seta ↑/↓ + categoria + variação (vs anterior) + valores
-  "R$atual (era R$ant)". Bordas: categoria nova (variação null) → "nova"; zerada (atual 0) → "zerou".
-- **Nível 3 — "Ver todas":** botão (useState, escondido por padrão) → tabela completa (Categoria,
-  Atual, Anterior, [Média], vs ant., [vs média]). Colunas de média só com coverage ≥ 3. Mobile:
-  `overflow-x-auto`.
-
-**Contrato CONFERIDO** contra o schema real (`ComparacaoResponse`/`TotaisComparacao`/`VariacaoTripla`/
-`CategoriaComparacao`): variação % = `(atual−anterior)/|anterior|`, **null quando base zero** (surgiu
-→ null; sumiu → −100%); categorias só de despesa, ordenadas por atual desc; média = dos N meses
-FECHADOS. Parser fiel ao schema.
-
-**Arquivos:** `Section2Comparison.tsx` (novo), `AnalysisPage.tsx` (Seção 2 → Section2Comparison),
-`services/statistics.ts` (`getComparison` + tipos), `hooks/useStatistics.ts` (`useComparison`).
-Build + lint verdes.
-
-### Batch 2c — Seção 3 "Evolução" (a fazer)
-Consome `/evolution` e `/evolution/categories` e substitui o placeholder. Horizonte fixo em 3.
-Horizonte fixo em 3.
+Arquivos de serviço: `services/statistics.ts` (tipos + parsers + getters de todos os endpoints do
+Resumo) e `hooks/useStatistics.ts` (`useCoverage`/`useHighlights`/`useComparison`/`useEvolution`/
+`useEvolutionCategories`). `DonutChart` estendido (props `showValues`/`size`, retrocompatíveis).

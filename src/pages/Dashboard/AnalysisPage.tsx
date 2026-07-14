@@ -2,45 +2,23 @@ import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useCoverage } from '../../hooks/useStatistics'
 import Section1Detail from './Section1Detail'
 import Section2Comparison from './Section2Comparison'
+import Section3Evolution from './Section3Evolution'
 
 // ─── aba Análise ──────────────────────────────────────────────────────────────
 //
 // A sub-navegação vive no DashboardPage; aqui ficam as três seções, decididas
-// pelo florescimento (/coverage). Seções 2 e 3 ainda são casca (placeholder/
-// convite) — o conteúdo vem nos próximos batches.
+// pelo florescimento (/coverage). Todas com conteúdo real; onde ainda não
+// floresceu (2 e 3), um convite discreto ocupa o lugar.
 //
 // Florescimento:
 //  • Seção 1 "Este mês em detalhe": SEMPRE presente (reflete o mês corrente, NÃO
 //    o histórico — NÃO depende do coverage; gerencia o próprio load e o próprio
-//    vazio). Já implementada (Section1Detail).
-//  • Seção 2 "Comparação": presente com ≥2 meses de dados.
-//  • Seção 3 "Evolução":  presente com ≥3 meses de dados.
+//    vazio). (Section1Detail)
+//  • Seção 2 "Comparação": presente com ≥2 meses de dados. (Section2Comparison)
+//  • Seção 3 "Evolução":  presente com ≥6 meses de dados (série temporal precisa
+//    de base consistente — lição XP; ver PLANO_RESUMO). (Section3Evolution)
 
 // ─── sub-components ─────────────────────────────────────────────────────────
-
-// Slot de uma seção PRESENTE. Placeholder rotulado: nomeia a seção e descreve o
-// que ela vai mostrar (cria expectativa) — recebe o conteúdo real no próximo batch.
-function SectionPlaceholder({
-  title,
-  description,
-  isMobile,
-}: {
-  title: string
-  description: string
-  isMobile: boolean
-}) {
-  return (
-    <div className={`bg-bg-surface rounded-lg ${isMobile ? 'p-4' : 'p-6'}`}>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium text-text-primary">{title}</h2>
-        <span className="text-[10px] font-medium text-text-muted bg-bg rounded-full px-2 py-0.5">
-          Em breve
-        </span>
-      </div>
-      <p className="text-text-muted text-sm">{description}</p>
-    </div>
-  )
-}
 
 // Slot de uma seção AUSENTE (ainda não floresceu). Convite discreto e acolhedor —
 // ensina que a seção existe e cria expectativa, sem parecer um erro ou bloqueio.
@@ -110,13 +88,9 @@ export default function AnalysisPage() {
             />
           )}
 
-          {/* Seção 3 — Evolução (floresce com ≥3 meses de dados). */}
-          {meses >= 3 ? (
-            <SectionPlaceholder
-              title="Evolução"
-              description="Seus gastos e receitas ao longo dos meses."
-              isMobile={isMobile}
-            />
+          {/* Seção 3 — Evolução (floresce com ≥6 meses de dados). */}
+          {meses >= 6 ? (
+            <Section3Evolution coverage={meses} isMobile={isMobile} />
           ) : (
             <SectionInvite
               title="Evolução"

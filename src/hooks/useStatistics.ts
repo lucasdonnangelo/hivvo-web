@@ -7,6 +7,8 @@ import {
   getCoverage,
   getHighlights,
   getComparison,
+  getEvolution,
+  getEvolutionCategories,
 } from '../services/statistics'
 import type { CategoriaStats } from '../services/statistics'
 
@@ -53,6 +55,22 @@ export function useComparison(meses = 3) {
   return useQuery({
     queryKey: ['statistics', 'comparison', meses],
     queryFn: () => getComparison(meses),
+  })
+}
+
+// Evolução (Resumo/Seção 3). Série CONSUMO no horizonte; re-fetcha ao trocar o
+// filtro (?meses=N). A seção só monta com coverage ≥ 6.
+export function useEvolution(meses = 6) {
+  return useQuery({
+    queryKey: ['statistics', 'evolution', meses],
+    queryFn: () => getEvolution(meses),
+  })
+}
+
+export function useEvolutionCategories(meses = 6) {
+  return useQuery({
+    queryKey: ['statistics', 'evolution', 'categories', meses],
+    queryFn: () => getEvolutionCategories(meses),
   })
 }
 
