@@ -303,7 +303,7 @@ export default function Section1Detail({ isMobile }: { isMobile: boolean }) {
           explicar por que Consumo aqui pode conviver com Fatura R$0 em Cartões
           (compras deste mês só vencem conforme o fechamento de cada cartão). */}
       <p className="text-xs text-text-muted mb-4">
-        o que você gastou este mês — vira fatura conforme o fechamento de cada cartão
+        Volume de despesas do mês. Compras parceladas entram pelo valor cheio, não pela parcela.
       </p>
       {spendingError || !spending ? (
         <p className="text-text-muted text-sm">Não foi possível carregar o consumo por cartão.</p>
