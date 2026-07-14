@@ -138,14 +138,28 @@ export default function Section1Detail({ isMobile }: { isMobile: boolean }) {
   const receitasDespesasCard = (
     <div className={`bg-bg-surface rounded-lg ${pad}`}>
       <h3 className="text-sm font-medium text-text-primary mb-3">Receitas e despesas</h3>
+      {/* Pareado (receita vs despesa lê-se junto) — mantém 2 colunas no mobile.
+          Para o público high-income (valores de 6 dígitos), a cifra é menor no
+          mobile (text-lg) + tabular-nums p/ caber a ~375px sem estourar; min-w-0
+          + truncate + title são a rede de segurança p/ o caso extremo (7 dígitos). */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-text-muted mb-1">Receitas</p>
-          <p className="text-xl font-medium text-success">{formatBRL(receitas)}</p>
+          <p
+            className={`${isMobile ? 'text-lg' : 'text-xl'} font-medium tabular-nums text-success truncate`}
+            title={formatBRL(receitas)}
+          >
+            {formatBRL(receitas)}
+          </p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-text-muted mb-1">Despesas</p>
-          <p className="text-xl font-medium text-danger">{formatBRL(despesas)}</p>
+          <p
+            className={`${isMobile ? 'text-lg' : 'text-xl'} font-medium tabular-nums text-danger truncate`}
+            title={formatBRL(despesas)}
+          >
+            {formatBRL(despesas)}
+          </p>
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-bg-border">
