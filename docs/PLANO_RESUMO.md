@@ -31,12 +31,12 @@ Serve o usuário novo — valor no dia 1. Aprofunda o que o Dashboard só resume
   as categorias, valores e percentuais. **BASE = CONSUMO** (decidido) — coerente com o donut do
   Dashboard (que é consumo); o Resumo é o aprofundamento do MESMO donut, tem que bater. O dado já
   existe (`categorias_consumo` no /monthly); falta expor de forma dedicada ou o Resumo lê do /monthly.
-- **Gasto por cartão**: ✅ ENTREGUE (fast-follow, 14/07/2026). Era ADIADO da v1 (consumo-por-cartão
-  exigia carregar `cartao_id` na trilha de CONSUMO — mexia no núcleo do cálculo; a fatura-por-cartão
-  já existia na lente 3d). O backend expôs `GET /statistics/spending-by-card?mes=&ano=` (base CONSUMO,
-  MESMA lista do donut → invariante `sum(cartoes)+sem_cartao == consumo.despesas`) e a Seção 1 ganhou
-  o card **"Consumo por cartão"** (barras horizontais proporcionais, ordenado desc, "Sem cartão" só
-  quando > 0, rótulo que distingue CONSUMO de FATURA). Detalhe da leva em `SESSAO_ATUAL_WEB.md`.
+- **Gasto por cartão**: ADIADO para FAST-FOLLOW (decidido). Não entra na v1 do Resumo. Motivo:
+  consumo-por-cartão exige carregar `cartao_id` na trilha de CONSUMO (`LancamentoFluxo` de consumo
+  não tem hoje) — mexe no núcleo do cálculo; e a fatura-por-cartão (fluxo) JÁ existe na lente 3d
+  (/invoices/{ano}/{mes}), então não há lacuna urgente. Lucas quer adicionar LOGO APÓS o Resumo
+  estar pronto — fast-follow explícito, leva dedicada (adicionar cartao_id à trilha de consumo +
+  endpoint consumo-por-cartão + a UI na Seção 1).
 - **Receitas vs despesas**: a composição do mês (já existe no /monthly).
 - **Destaques**: a maior despesa, o dia de maior gasto, o número de transações (endpoint novo).
 
