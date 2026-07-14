@@ -1,5 +1,6 @@
-import { useMonthlyStats, useHighlights } from '../../hooks/useStatistics'
+import { useMonthlyStats, useHighlights, useSpendingByCard } from '../../hooks/useStatistics'
 import DonutChart from '../../components/charts/DonutChart'
+import type { GastoCartaoItem } from '../../services/statistics'
 
 // ─── Seção 1 "Este mês em detalhe" ────────────────────────────────────────────
 //
@@ -52,16 +53,57 @@ function Section1Skeleton({ isMobile }: { isMobile: boolean }) {
       <div className="flex flex-col gap-4">
         <div className="h-28 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-80 bg-bg-surface rounded-lg animate-pulse" />
+        <div className="h-40 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-56 bg-bg-surface rounded-lg animate-pulse" />
       </div>
     )
   }
   return (
     <div className="grid grid-cols-[45%_1fr] gap-4">
-      <div className="h-96 bg-bg-surface rounded-lg animate-pulse" />
+      <div className="flex flex-col gap-4">
+        <div className="h-96 bg-bg-surface rounded-lg animate-pulse" />
+        <div className="h-40 bg-bg-surface rounded-lg animate-pulse" />
+      </div>
       <div className="flex flex-col gap-4">
         <div className="h-28 bg-bg-surface rounded-lg animate-pulse" />
         <div className="flex-1 bg-bg-surface rounded-lg animate-pulse" />
+      </div>
+    </div>
+  )
+}
+
+// Uma linha do "Consumo por cartão": nome + valor (R$) na 1ª linha, barra
+// proporcional na 2ª. `pct` = largura (a maior barra = 100%). `muted` pinta o
+// preenchimento em neutro — reservado à linha "Sem cartão" (não é um cartão real).
+function SpendingBarRow({
+  nome,
+  valor,
+  pct,
+  muted = false,
+}: {
+  nome: string
+  valor: number
+  pct: number
+  muted?: boolean
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-text-primary truncate min-w-0" title={nome}>
+          {nome}
+        </span>
+        <span
+          className="text-sm font-medium text-text-primary tabular-nums shrink-0"
+          title={formatBRL(valor)}
+        >
+          {formatBRL(valor)}
+        </span>
+      </div>
+      <div className="mt-1.5 h-2 rounded-full bg-bg overflow-hidden">
+        <div
+          className={`h-full rounded-full ${muted ? 'bg-text-muted' : 'bg-amber'}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   )
@@ -76,11 +118,13 @@ export default function Section1Detail({ isMobile }: { isMobile: boolean }) {
 
   const { data: stats, isLoading: statsLoading, isError: statsError } = useMonthlyStats(mes, ano)
   const { data: highlights, isLoading: hlLoading, isError: hlError } = useHighlights(mes, ano)
+  const { data: spending, isLoading: spendingLoading, isError: spendingError } = useSpendingByCard(mes, ano)
 
   const pad = isMobile ? 'p-4' : 'p-6'
 
-  // Uma cohesão só: a seção aparece inteira quando ambas as fontes prontas.
-  if (statsLoading || hlLoading) {
+  // Uma cohesão só: a seção aparece inteira quando as fontes prontas (skeleton
+  // único). O consumo-por-cartão entra no gate — carrega junto com o resto.
+  if (statsLoading || hlLoading || spendingLoading) {
     return (
       <section className="flex flex-col gap-4">
         <SectionHeader mes={mes} ano={ano} />
@@ -239,10 +283,49 @@ export default function Section1Detail({ isMobile }: { isMobile: boolean }) {
     </div>
   )
 
+  // Consumo por cartão: barras proporcionais à MAIOR entre todos os itens
+  // exibidos (a maior = 100%). "Sem cartão" só entra quando > 0 (nunca R$0).
+  const cartoes: GastoCartaoItem[] = spending?.cartoes ?? []
+  const semCartao = spending?.sem_cartao ?? 0
+  const hasSemCartao = semCartao > 0
+  // A soma visual (cartões + sem cartão) bate com `despesas` — invariante do backend.
+  const maxCartao = Math.max(...cartoes.map((c) => c.total), hasSemCartao ? semCartao : 0, 0)
+  const barPct = (v: number) => (maxCartao > 0 ? (v / maxCartao) * 100 : 0)
+  // O card só aparece quando há o que mostrar; some no mês só-receita (coerente
+  // com o resto da Seção 1). Em erro, degrada com uma linha muda (não some).
+  const showCartaoCard = spendingError || cartoes.length > 0 || hasSemCartao
+
+  const cartaoCard = showCartaoCard ? (
+    <div className={`bg-bg-surface rounded-lg ${pad}`}>
+      <h3 className="text-sm font-medium text-text-primary">Consumo por cartão</h3>
+      {/* Rótulo que distingue de FATURA: aqui é o que foi GASTO no mês, não o que
+          vence (a fatura vive na tela de Cartões). */}
+      <p className="text-xs text-text-muted mb-4">o que você gastou em cada cartão este mês</p>
+      {spendingError || !spending ? (
+        <p className="text-text-muted text-sm">Não foi possível carregar o consumo por cartão.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {cartoes.map((c) => (
+            <SpendingBarRow
+              key={c.cartao_id}
+              nome={c.cartao_nome}
+              valor={c.total}
+              pct={barPct(c.total)}
+            />
+          ))}
+          {hasSemCartao && (
+            <SpendingBarRow nome="Sem cartão" valor={semCartao} pct={barPct(semCartao)} muted />
+          )}
+        </div>
+      )}
+    </div>
+  ) : null
+
   // ── layout ────────────────────────────────────────────────────────────────
-  // Mobile: empilhado (composição → donut → destaques).
-  // Desktop: donut à esquerda (45%), composição + destaques à direita — espelha o
-  // grid do Dashboard (grid-cols-[45%_1fr]).
+  // Mobile: empilhado (composição → donut → cartão → destaques). Os dois breakdowns
+  // (por categoria e por cartão) ficam adjacentes.
+  // Desktop: coluna esquerda (45%) = donut + cartão; direita = composição +
+  // destaques — espelha o grid do Dashboard (grid-cols-[45%_1fr]).
   return (
     <section className="flex flex-col gap-4">
       <SectionHeader mes={mes} ano={ano} />
@@ -251,11 +334,15 @@ export default function Section1Detail({ isMobile }: { isMobile: boolean }) {
         <div className="flex flex-col gap-4">
           {receitasDespesasCard}
           {categoriaCard}
+          {cartaoCard}
           {destaquesCard}
         </div>
       ) : (
         <div className="grid grid-cols-[45%_1fr] gap-4">
-          {categoriaCard}
+          <div className="flex flex-col gap-4">
+            {categoriaCard}
+            {cartaoCard}
+          </div>
           <div className="flex flex-col gap-4">
             {receitasDespesasCard}
             {destaquesCard}

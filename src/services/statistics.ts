@@ -179,6 +179,27 @@ interface MesAno {
   ano: number
 }
 
+// Consumo por cartão do mês (Resumo/Seção 1). Base CONSUMO, DESPESA-only — a
+// MESMA lista do donut de categorias (fonte única no backend). Distinto de
+// FATURA (o que vence, na lente 3d de Cartões): aqui é o que foi GASTO no mês.
+// `cartoes` já vem ordenado por total desc; `sem_cartao` (PIX/à vista +
+// recorrências, cartao_id nulo) é campo SEPARADO — `cartoes` não traz item nulo.
+// Invariante do backend: sum(cartoes) + sem_cartao == total == consumo.despesas
+// do /monthly. Mês sem despesa → cartoes=[], sem_cartao=0, total=0.
+export interface GastoCartaoItem {
+  cartao_id: number
+  cartao_nome: string
+  total: number
+}
+
+export interface GastoPorCartaoResponse {
+  mes: number
+  ano: number
+  cartoes: GastoCartaoItem[]
+  sem_cartao: number
+  total: number
+}
+
 // ── parsers: backend returns Decimal fields as strings ─────────────────────────
 
 function parseCat(c: CategoriaStats): CategoriaStats {
@@ -312,6 +333,20 @@ function parseEvolucaoCategorias(d: EvolucaoCategoriasResponse): EvolucaoCategor
   }
 }
 
+function parseGastoPorCartao(d: GastoPorCartaoResponse): GastoPorCartaoResponse {
+  return {
+    mes: d.mes,
+    ano: d.ano,
+    cartoes: d.cartoes.map((c) => ({
+      cartao_id: c.cartao_id,
+      cartao_nome: c.cartao_nome,
+      total: Number(c.total),
+    })),
+    sem_cartao: Number(d.sem_cartao),
+    total: Number(d.total),
+  }
+}
+
 // ── API calls ──────────────────────────────────────────────────────────────────
 
 export const getMonthlyStats = (mes: number, ano: number) =>
@@ -358,3 +393,8 @@ export const getEvolutionCategories = (meses = 6) =>
   api
     .get<EvolucaoCategoriasResponse>('/statistics/evolution/categories', { params: { meses } })
     .then((r) => parseEvolucaoCategorias(r.data))
+
+export const getSpendingByCard = (mes: number, ano: number) =>
+  api
+    .get<GastoPorCartaoResponse>('/statistics/spending-by-card', { params: { mes, ano } })
+    .then((r) => parseGastoPorCartao(r.data))

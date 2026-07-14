@@ -9,6 +9,7 @@ import {
   getComparison,
   getEvolution,
   getEvolutionCategories,
+  getSpendingByCard,
 } from '../services/statistics'
 import type { CategoriaStats } from '../services/statistics'
 
@@ -46,6 +47,16 @@ export function useHighlights(mes: number, ano: number) {
   return useQuery({
     queryKey: ['statistics', 'highlights', mes, ano],
     queryFn: () => getHighlights(mes, ano),
+  })
+}
+
+// Consumo por cartão do mês (Resumo/Seção 1). Mesmo mês do Dashboard → convive no
+// cache com o /monthly e o /highlights sem drift. Base CONSUMO (o que se gastou),
+// distinto da FATURA da lente 3d de Cartões.
+export function useSpendingByCard(mes: number, ano: number) {
+  return useQuery({
+    queryKey: ['statistics', 'spending-by-card', mes, ano],
+    queryFn: () => getSpendingByCard(mes, ano),
   })
 }
 
