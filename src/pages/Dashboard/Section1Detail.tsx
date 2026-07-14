@@ -299,8 +299,12 @@ export default function Section1Detail({ isMobile }: { isMobile: boolean }) {
     <div className={`bg-bg-surface rounded-lg ${pad}`}>
       <h3 className="text-sm font-medium text-text-primary">Consumo por cartão</h3>
       {/* Rótulo que distingue de FATURA: aqui é o que foi GASTO no mês, não o que
-          vence (a fatura vive na tela de Cartões). */}
-      <p className="text-xs text-text-muted mb-4">o que você gastou em cada cartão este mês</p>
+          vence (a fatura vive na tela de Cartões). Conecta consumo→fatura para
+          explicar por que Consumo aqui pode conviver com Fatura R$0 em Cartões
+          (compras deste mês só vencem conforme o fechamento de cada cartão). */}
+      <p className="text-xs text-text-muted mb-4">
+        o que você gastou este mês — vira fatura conforme o fechamento de cada cartão
+      </p>
       {spendingError || !spending ? (
         <p className="text-text-muted text-sm">Não foi possível carregar o consumo por cartão.</p>
       ) : (
