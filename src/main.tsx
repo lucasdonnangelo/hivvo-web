@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import { initSentry } from './lib/observability'
+import { installStaleChunkReload } from './lib/staleChunkReload'
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css';
@@ -14,6 +15,10 @@ import './index.css'
 // Antes de tudo: um erro na criação do QueryClient ou no render inicial só é
 // capturado se o Sentry já estiver de pé. Sem VITE_SENTRY_DSN é no-op.
 initSentry()
+
+// Antes do primeiro render: a primeira rota lazy já pode falhar por chunk
+// defasado se a aba veio de um index.html anterior ao deploy.
+installStaleChunkReload()
 
 const queryClient = new QueryClient({
   defaultOptions: {
