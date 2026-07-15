@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.hivvo.app; manifest-src 'self'; worker-src 'self'; form-action 'self'; frame-ancestors 'none'"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.hivvo.app https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://*.ingest.sentry.io; manifest-src 'self'; worker-src 'self'; form-action 'self'; frame-ancestors 'none'"
         },
         {
           "key": "Referrer-Policy",
