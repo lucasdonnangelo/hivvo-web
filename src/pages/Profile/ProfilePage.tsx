@@ -10,7 +10,7 @@ import Modal from '../../components/ui/Modal'
 import { Section, SettingsRow } from '../../components/ui/SettingsSection'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
-import { updateMe, changePassword, logout } from '../../services/auth'
+import { updateMe, changePassword, logout, logoutAll } from '../../services/auth'
 import { errorDetail } from '../../lib/extractDetail'
 
 const pwSchema = z
@@ -101,6 +101,28 @@ export default function ProfilePage() {
 
   // ── Logout ────────────────────────────────────────────────────────────────
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+
+  // ── Sair de todos os dispositivos ─────────────────────────────────────────
+  // Sem senha: é disruptivo, mas reversível (basta entrar de novo). Modal, e não
+  // confirm inline, para ter o mesmo peso do "Sair da conta" logo abaixo.
+  const [logoutAllModalOpen, setLogoutAllModalOpen] = useState(false)
+  const [logoutAllError, setLogoutAllError] = useState('')
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false)
+
+  async function handleLogoutAll() {
+    setIsLoggingOutAll(true)
+    setLogoutAllError('')
+    try {
+      await logoutAll()
+      // O backend já revogou tudo e limpou os cookies desta sessão — chamar
+      // /auth/logout aqui seria bater numa sessão que não existe mais.
+      clearAuth()
+      navigate('/login', { replace: true })
+    } catch (err: unknown) {
+      setLogoutAllError(errorDetail(err, 'Não foi possível sair. Tente novamente.'))
+      setIsLoggingOutAll(false)
+    }
+  }
 
   const content = (
     <div className="flex flex-col gap-6">
@@ -198,6 +220,20 @@ export default function ProfilePage() {
           </form>
         </SettingsRow>
 
+        {/* Sair de todos os dispositivos */}
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
+            Você sairá de todos os dispositivos, incluindo este. Outros dispositivos podem
+            levar até 30 minutos para serem desconectados.
+          </p>
+          <button
+            onClick={() => setLogoutAllModalOpen(true)}
+            className="w-full flex items-center justify-center px-4 py-3 rounded-md text-sm font-medium border border-bg-border text-text-primary hover:bg-bg-border/50 active:bg-bg-border transition-colors duration-150"
+          >
+            Sair de todos os dispositivos
+          </button>
+        </SettingsRow>
+
         {/* Logout */}
         <SettingsRow>
           <button
@@ -256,9 +292,49 @@ export default function ProfilePage() {
     </Modal>
   )
 
+  const logoutAllModal = logoutAllModalOpen && (
+    <Modal
+      title="Sair de todos os dispositivos?"
+      onClose={() => {
+        setLogoutAllModalOpen(false)
+        setLogoutAllError('')
+      }}
+      footer={
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setLogoutAllModalOpen(false)
+              setLogoutAllError('')
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button variant="danger" isLoading={isLoggingOutAll} onClick={handleLogoutAll}>
+            Sair de todos
+          </Button>
+        </div>
+      }
+    >
+      {/* Não repete o texto de apoio da linha palavra por palavra — aqui diz a
+          consequência: este dispositivo cai junto, e os outros demoram. */}
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-text-muted leading-relaxed">
+          Você vai precisar entrar de novo neste dispositivo. Outros dispositivos podem levar
+          até 30 minutos para serem desconectados.
+        </p>
+        <p className="text-sm text-text-muted leading-relaxed">
+          A sua conta e os seus dados continuam intactos.
+        </p>
+        {logoutAllError && <p className="text-xs text-danger">{logoutAllError}</p>}
+      </div>
+    </Modal>
+  )
+
   if (isMobile) {
     return (
       <>
+        {logoutAllModal}
         {logoutModal}
         <div className="flex flex-col h-full">
           <header className="shrink-0 flex items-center gap-3 px-4 h-14 border-b border-bg-border bg-bg-surface">
@@ -279,6 +355,7 @@ export default function ProfilePage() {
 
   return (
     <>
+      {logoutAllModal}
       {logoutModal}
       <div className="p-6 max-w-xl mx-auto">
         <h1 className="text-[22px] font-medium tracking-tight text-text-primary mb-6">

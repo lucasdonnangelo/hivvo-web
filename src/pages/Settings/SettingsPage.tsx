@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -19,7 +20,8 @@ import type { Category } from '../../services/categories'
 import type { Recorrencia, RecorrenciaUpdate } from '../../services/recorrencias'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
-import { deleteMe } from '../../services/auth'
+import { deleteMe, resetData } from '../../services/auth'
+import type { ResetDataResponse } from '../../services/auth'
 import { getAllTransactions } from '../../services/transactions'
 import { clearHistorico } from '../../services/ai'
 import { errorDetail } from '../../lib/extractDetail'
@@ -34,6 +36,26 @@ const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 's
 
 const recFieldClass =
   'w-full rounded-md bg-bg border border-bg-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-amber transition-colors'
+
+// Linhas do recibo do "Começar do zero", na ordem em que o usuário pensa nos
+// dados (não na ordem da purga). `recorrencia_vigencias` fica DE FORA: é o
+// versionamento interno de valor de uma recorrência — o usuário nunca viu isso
+// como objeto e "2 vigências" não significaria nada para ele.
+const RECIBO_LABELS: [keyof ResetDataResponse, string, string][] = [
+  ['transacoes', 'transação', 'transações'],
+  ['parcelas', 'parcela', 'parcelas'],
+  ['cartoes', 'cartão', 'cartões'],
+  ['pagamentos_fatura', 'pagamento de fatura', 'pagamentos de fatura'],
+  ['recorrencias', 'recorrência', 'recorrências'],
+  ['chat_messages', 'mensagem do Assistente', 'mensagens do Assistente'],
+]
+
+function linhasDoRecibo(recibo: ResetDataResponse): string[] {
+  return RECIBO_LABELS.filter(([campo]) => recibo[campo] > 0).map(
+    ([campo, singular, plural]) =>
+      `${recibo[campo]} ${recibo[campo] === 1 ? singular : plural}`,
+  )
+}
 
 function downloadJSON(data: unknown, filename: string) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -52,6 +74,44 @@ export default function SettingsPage() {
   // ── Auth store ────────────────────────────────────────────────────────────
   const clearAuth = useAuthStore((s) => s.clearAuth)
   const addToast = useUIStore((s) => s.addToast)
+  const qc = useQueryClient()
+
+  // ── Começar do zero ───────────────────────────────────────────────────────
+  // Reautenticação obrigatória: é irreversível (mesmo padrão do excluir conta).
+  // O modal tem dois estados: senha → recibo. NÃO desloga: a conta sobrevive.
+  const [resetDataModalOpen, setResetDataModalOpen] = useState(false)
+  const [resetDataPassword, setResetDataPassword] = useState('')
+  const [resetDataError, setResetDataError] = useState('')
+  const [isResettingData, setIsResettingData] = useState(false)
+  const [resetDataRecibo, setResetDataRecibo] = useState<ResetDataResponse | null>(null)
+
+  function closeResetDataModal() {
+    setResetDataModalOpen(false)
+    setResetDataPassword('')
+    setResetDataError('')
+    setResetDataRecibo(null)
+  }
+
+  async function handleResetData() {
+    if (!resetDataPassword) {
+      setResetDataError('Informe sua senha para confirmar.')
+      return
+    }
+    setIsResettingData(true)
+    setResetDataError('')
+    try {
+      const recibo = await resetData(resetDataPassword)
+      // Sem filtro: o reset zera tudo, e enumerar as chaves só criaria uma lista
+      // para esquecer de atualizar quando nascer a próxima query.
+      qc.invalidateQueries()
+      setResetDataPassword('')
+      setResetDataRecibo(recibo)
+    } catch (err: unknown) {
+      setResetDataError(errorDetail(err, 'Não foi possível apagar os dados. Tente novamente.'))
+    } finally {
+      setIsResettingData(false)
+    }
+  }
 
   // ── Excluir minha conta ───────────────────────────────────────────────────
   // Reautenticação obrigatória: o backend exige a senha (F-07/LGPD).
@@ -508,11 +568,47 @@ export default function SettingsPage() {
 
         <SettingsRow>
           <p className="text-sm text-text-muted mb-3">
+            Apaga os seus lançamentos e recomeça com a conta vazia. Você continua logado e as
+            suas categorias são mantidas. Esta ação é irreversível.
+          </p>
+          <Button variant="danger" onClick={() => setResetDataModalOpen(true)}>
+            Começar do zero
+          </Button>
+        </SettingsRow>
+
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
             Apaga a sua conta e todos os seus dados. Esta ação é irreversível.
           </p>
           <Button variant="danger" onClick={() => setDeleteModalOpen(true)}>
             Excluir minha conta
           </Button>
+        </SettingsRow>
+      </Section>
+
+      {/* ── Sobre ── */}
+      {/* A versão sai do build (vite.config), não do backend: o /openapi.json
+          está desativado em produção e o /health é genérico de propósito. */}
+      <Section title="Sobre">
+        <SettingsRow>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-text-muted">Versão</span>
+            <span className="text-sm text-text-primary tabular-nums">
+              {import.meta.env.VITE_APP_VERSION}
+            </span>
+          </div>
+        </SettingsRow>
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
+            Encontrou um problema ou tem uma sugestão? Escreva para a gente — informe a versão
+            acima, ajuda a investigar.
+          </p>
+          <a
+            href="mailto:contato@hivvo.app"
+            className="inline-flex items-center text-sm text-amber hover:text-amber-light transition-colors"
+          >
+            contato@hivvo.app
+          </a>
         </SettingsRow>
       </Section>
 
@@ -725,6 +821,85 @@ export default function SettingsPage() {
     </Modal>
   )
 
+  // Dois estados: pedir a senha e, depois do 200, virar o recibo. O recibo é o
+  // motivo de a rota responder 200 e não 204 — um toast some em segundos e
+  // trunca as linhas; o usuário já está olhando para o modal.
+  const resetDataModal = resetDataModalOpen && (
+    resetDataRecibo ? (
+      (() => {
+        const linhas = linhasDoRecibo(resetDataRecibo)
+        return (
+          <Modal
+            title="Pronto — sua conta está zerada"
+            onClose={closeResetDataModal}
+            footer={<Button onClick={closeResetDataModal}>Fechar</Button>}
+          >
+            <div className="flex flex-col gap-3">
+              {linhas.length === 0 ? (
+                <p className="text-sm text-text-muted leading-relaxed">
+                  Não havia dados para apagar — a sua conta já estava vazia.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-text-muted">Apagamos:</p>
+                  <ul className="flex flex-col gap-1">
+                    {linhas.map((linha) => (
+                      <li key={linha} className="text-sm text-text-primary">
+                        · {linha}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p className="text-xs text-text-muted leading-relaxed">
+                Suas categorias e a sua conta continuam como estavam.
+              </p>
+            </div>
+          </Modal>
+        )
+      })()
+    ) : (
+      <Modal
+        title="Começar do zero?"
+        onClose={closeResetDataModal}
+        footer={
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={closeResetDataModal}>
+              Cancelar
+            </Button>
+            <Button variant="danger" isLoading={isResettingData} onClick={handleResetData}>
+              Apagar meus dados
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-text-muted leading-relaxed">
+            Isto apaga as suas transações, parcelas, cartões, faturas e pagamentos,
+            recorrências e o histórico do Assistente. Não há como desfazer.
+          </p>
+          <p className="text-sm text-text-muted leading-relaxed">
+            <span className="text-text-primary">O que fica:</span> a sua conta (você continua
+            logado) e as suas categorias personalizadas.
+          </p>
+          <Input
+            id="reset-data-password"
+            label="Digite sua senha para confirmar"
+            type="password"
+            autoComplete="current-password"
+            showToggle
+            value={resetDataPassword}
+            onChange={(e) => {
+              setResetDataPassword(e.target.value)
+              if (resetDataError) setResetDataError('')
+            }}
+            error={resetDataError}
+          />
+        </div>
+      </Modal>
+    )
+  )
+
   const deleteModal = deleteModalOpen && (
     <Modal
       title="Excluir minha conta?"
@@ -768,6 +943,7 @@ export default function SettingsPage() {
       <>
         {addModal}
         {editRecModal}
+        {resetDataModal}
         {deleteModal}
         {resetModal}
         <div className="flex flex-col h-full">
@@ -791,6 +967,7 @@ export default function SettingsPage() {
     <>
       {addModal}
       {editRecModal}
+      {resetDataModal}
       {deleteModal}
       {resetModal}
       <div className="p-6 max-w-xl mx-auto">

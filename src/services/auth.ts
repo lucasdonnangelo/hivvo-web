@@ -21,6 +21,28 @@ export const register = (payload: RegisterPayload) =>
 
 export const logout = () => api.post('/auth/logout')
 
+// Revoga TODAS as sessões, incluindo esta: o backend limpa os cookies deste
+// dispositivo junto (o refresh daqui também é revogado — mantê-lo deixaria o
+// cliente com um token morto na mão). Por isso a UI sai para o /login depois.
+export const logoutAll = () => api.post('/auth/logout-all')
+
+// Recibo do reset: quantas linhas saíram de cada tabela. É o motivo de a rota
+// responder 200 e não 204 — ação irreversível merece extrato.
+export interface ResetDataResponse {
+  parcelas: number
+  transacoes: number
+  pagamentos_fatura: number
+  cartoes: number
+  recorrencia_vigencias: number
+  recorrencias: number
+  chat_messages: number
+}
+
+// "Começar do zero": zera os lançamentos e PRESERVA a conta (o usuário continua
+// logado) e as categorias customizadas. Reautenticação obrigatória — é irreversível.
+export const resetData = (password: string) =>
+  api.post<ResetDataResponse>('/auth/reset-data', { password }).then((r) => r.data)
+
 export const getMe = () =>
   api.get<UserResponse>('/auth/me').then((r) => r.data)
 
