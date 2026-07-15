@@ -2,7 +2,16 @@ import api from './api'
 
 export interface LoginPayload { email: string; password: string }
 export interface RegisterPayload { email: string; nome_completo: string; password: string }
-export interface UserResponse { id: number; email: string; username: string }
+// Espelha o UserResponse do backend. O `username` é auto-gerado do e-mail e não
+// é exposto na UI (PLANO_PERFIL_CONFIG) — fica aqui só porque a rota o devolve.
+export interface UserResponse {
+  id: number
+  email: string
+  username: string
+  nome_completo: string
+  criado_em: string
+  ativo: boolean
+}
 
 export const login = (payload: LoginPayload) =>
   api.post<UserResponse>('/auth/login', payload).then((r) => r.data)
@@ -15,8 +24,14 @@ export const logout = () => api.post('/auth/logout')
 export const getMe = () =>
   api.get<UserResponse>('/auth/me').then((r) => r.data)
 
-export const updateMe = (username: string) =>
-  api.put<UserResponse>('/auth/me', { username }).then((r) => r.data)
+// PUT /auth/me aplica só os campos que vêm (exclude_unset). A UI do Perfil edita
+// apenas o nome — antes este updateMe mandava {username} sob o rótulo "Nome".
+export const updateMe = (nome_completo: string) =>
+  api.put<UserResponse>('/auth/me', { nome_completo }).then((r) => r.data)
+
+// F-07/LGPD: reautenticação obrigatória — um cookie sozinho não exclui a conta.
+export const deleteMe = (password: string) =>
+  api.delete('/auth/me', { data: { password } })
 
 export const changePassword = (senha_atual: string, nova_senha: string) =>
   api.put('/auth/password', { senha_atual, nova_senha })

@@ -21,6 +21,7 @@ const AssistantPage = lazy(() => import('./pages/Assistant/AssistantPage'))
 const CardsPage = lazy(() => import('./pages/Cards/CardsPage'))
 const DashboardPage = lazy(() => import('./pages/Dashboard/DashboardPage'))
 const ImportPage = lazy(() => import('./pages/Import/ImportPage'))
+const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'))
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'))
 const TransactionsPage = lazy(() => import('./pages/Transactions/TransactionsPage'))
 const SummaryPage = lazy(() => import('./pages/Transactions/SummaryPage'))
@@ -93,6 +94,7 @@ export default function App() {
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/assistant" element={<AssistantPage />} />
             <Route path="/import" element={<ImportPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
