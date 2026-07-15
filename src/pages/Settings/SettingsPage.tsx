@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
+import { Section, SettingsRow } from '../../components/ui/SettingsSection'
 import NewCategoryModal from '../../components/categories/NewCategoryModal'
 import { useCategories, useDeleteCategory } from '../../hooks/useCategories'
 import {
@@ -21,22 +20,11 @@ import type { Category } from '../../services/categories'
 import type { Recorrencia, RecorrenciaUpdate } from '../../services/recorrencias'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
-import { updateMe, changePassword, logout } from '../../services/auth'
+import { deleteMe, resetData } from '../../services/auth'
+import type { ResetDataResponse } from '../../services/auth'
 import { getAllTransactions } from '../../services/transactions'
 import { clearHistorico } from '../../services/ai'
-
-const pwSchema = z
-  .object({
-    senha_atual: z.string().min(1, 'Obrigatório.'),
-    nova_senha: z.string().min(8, 'Mínimo 8 caracteres.'),
-    confirmar: z.string(),
-  })
-  .refine((d) => d.nova_senha === d.confirmar, {
-    message: 'As senhas não coincidem.',
-    path: ['confirmar'],
-  })
-
-type PwForm = z.infer<typeof pwSchema>
+import { errorDetail } from '../../lib/extractDetail'
 
 // Recorrência não passa por cartão (§3.4) → sem "Crédito".
 const FORMAS_RECORRENCIA = ['Débito', 'PIX', 'Dinheiro', 'TED/DOC']
@@ -49,19 +37,24 @@ const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 's
 const recFieldClass =
   'w-full rounded-md bg-bg border border-bg-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-amber transition-colors'
 
-function extractDetail(detail: unknown): string {
-  if (typeof detail === 'string') return detail
-  if (Array.isArray(detail) && detail.length > 0) {
-    const first = detail[0]
-    if (first && typeof first === 'object' && 'msg' in first) {
-      return String((first as { msg: unknown }).msg)
-    }
-    return String(first)
-  }
-  if (detail && typeof detail === 'object') {
-    return JSON.stringify(detail)
-  }
-  return 'Erro ao salvar. Tente novamente.'
+// Linhas do recibo do "Começar do zero", na ordem em que o usuário pensa nos
+// dados (não na ordem da purga). `recorrencia_vigencias` fica DE FORA: é o
+// versionamento interno de valor de uma recorrência — o usuário nunca viu isso
+// como objeto e "2 vigências" não significaria nada para ele.
+const RECIBO_LABELS: [keyof ResetDataResponse, string, string][] = [
+  ['transacoes', 'transação', 'transações'],
+  ['parcelas', 'parcela', 'parcelas'],
+  ['cartoes', 'cartão', 'cartões'],
+  ['pagamentos_fatura', 'pagamento de fatura', 'pagamentos de fatura'],
+  ['recorrencias', 'recorrência', 'recorrências'],
+  ['chat_messages', 'mensagem do Assistente', 'mensagens do Assistente'],
+]
+
+function linhasDoRecibo(recibo: ResetDataResponse): string[] {
+  return RECIBO_LABELS.filter(([campo]) => recibo[campo] > 0).map(
+    ([campo, singular, plural]) =>
+      `${recibo[campo]} ${recibo[campo] === 1 ? singular : plural}`,
+  )
 }
 
 function downloadJSON(data: unknown, filename: string) {
@@ -74,96 +67,82 @@ function downloadJSON(data: unknown, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider">{title}</h2>
-      <div className="rounded-lg bg-bg-surface border border-bg-border divide-y divide-bg-border">
-        {children}
-      </div>
-    </section>
-  )
-}
-
-function SettingsRow({ children }: { children: React.ReactNode }) {
-  return <div className="px-4 py-4">{children}</div>
-}
-
 export default function SettingsPage() {
   const isMobile = useBreakpoint('md')
   const navigate = useNavigate()
 
   // ── Auth store ────────────────────────────────────────────────────────────
-  const user = useAuthStore((s) => s.user)
-  const setUser = useAuthStore((s) => s.setUser)
   const clearAuth = useAuthStore((s) => s.clearAuth)
   const addToast = useUIStore((s) => s.addToast)
+  const qc = useQueryClient()
 
-  // ── Nome ──────────────────────────────────────────────────────────────────
-  const [name, setName] = useState(user?.username ?? '')
-  const [nameError, setNameError] = useState('')
-  const [nameSaving, setNameSaving] = useState(false)
-  const [nameSuccess, setNameSuccess] = useState(false)
+  // ── Começar do zero ───────────────────────────────────────────────────────
+  // Reautenticação obrigatória: é irreversível (mesmo padrão do excluir conta).
+  // O modal tem dois estados: senha → recibo. NÃO desloga: a conta sobrevive.
+  const [resetDataModalOpen, setResetDataModalOpen] = useState(false)
+  const [resetDataPassword, setResetDataPassword] = useState('')
+  const [resetDataError, setResetDataError] = useState('')
+  const [isResettingData, setIsResettingData] = useState(false)
+  const [resetDataRecibo, setResetDataRecibo] = useState<ResetDataResponse | null>(null)
 
-  async function handleSaveName() {
-    const trimmed = name.trim()
-    if (trimmed.length < 2) {
-      setNameError('Mínimo 2 caracteres.')
+  function closeResetDataModal() {
+    setResetDataModalOpen(false)
+    setResetDataPassword('')
+    setResetDataError('')
+    setResetDataRecibo(null)
+  }
+
+  async function handleResetData() {
+    if (!resetDataPassword) {
+      setResetDataError('Informe sua senha para confirmar.')
       return
     }
-    setNameSaving(true)
-    setNameError('')
-    setNameSuccess(false)
+    setIsResettingData(true)
+    setResetDataError('')
     try {
-      const updated = await updateMe(trimmed)
-      setUser(updated)
-      setNameSuccess(true)
-      setTimeout(() => setNameSuccess(false), 2000)
-      addToast({ message: 'Perfil atualizado', type: 'success' })
+      const recibo = await resetData(resetDataPassword)
+      // Sem filtro: o reset zera tudo, e enumerar as chaves só criaria uma lista
+      // para esquecer de atualizar quando nascer a próxima query.
+      qc.invalidateQueries()
+      setResetDataPassword('')
+      setResetDataRecibo(recibo)
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: unknown } } })
-        ?.response?.data?.detail
-      setNameError(extractDetail(detail))
-      addToast({ message: 'Erro ao salvar nome. Tente novamente.', type: 'error' })
+      setResetDataError(errorDetail(err, 'Não foi possível apagar os dados. Tente novamente.'))
     } finally {
-      setNameSaving(false)
+      setIsResettingData(false)
     }
   }
 
-  // ── Senha ─────────────────────────────────────────────────────────────────
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset: resetPwForm,
-    setError: setPwError,
-  } = useForm<PwForm>({ resolver: zodResolver(pwSchema) })
+  // ── Excluir minha conta ───────────────────────────────────────────────────
+  // Reautenticação obrigatória: o backend exige a senha (F-07/LGPD).
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const [pwSuccess, setPwSuccess] = useState(false)
-
-  async function onPasswordSubmit(data: PwForm) {
-    setPwSuccess(false)
-    try {
-      await changePassword(data.senha_atual, data.nova_senha)
-      resetPwForm()
-      setPwSuccess(true)
-      setTimeout(() => setPwSuccess(false), 3000)
-      addToast({ message: 'Senha alterada com sucesso', type: 'success' })
-    } catch {
-      setPwError('senha_atual', { message: 'Senha atual incorreta.' })
-      addToast({ message: 'Erro ao alterar senha. Verifique os dados e tente novamente.', type: 'error' })
-    }
+  function closeDeleteModal() {
+    setDeleteModalOpen(false)
+    setDeletePassword('')
+    setDeleteError('')
   }
 
-  // ── Logout ────────────────────────────────────────────────────────────────
-  const [logoutModalOpen, setLogoutModalOpen] = useState(false)
-
-  async function handleLogout() {
+  async function handleDeleteAccount() {
+    if (!deletePassword) {
+      setDeleteError('Informe sua senha para confirmar.')
+      return
+    }
+    setIsDeleting(true)
+    setDeleteError('')
     try {
-      await logout()
-    } catch {}
-    clearAuth()
-    navigate('/login', { replace: true })
+      await deleteMe(deletePassword)
+      // A conta e a sessão já não existem no servidor — não há logout a chamar.
+      clearAuth()
+      navigate('/login', { replace: true })
+    } catch (err: unknown) {
+      setDeleteError(errorDetail(err, 'Não foi possível excluir a conta. Tente novamente.'))
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   // ── Resetar Assistente ────────────────────────────────────────────────────
@@ -183,7 +162,9 @@ export default function SettingsPage() {
     }
   }
 
-  // ── Backup ────────────────────────────────────────────────────────────────
+  // ── Exportar transações ───────────────────────────────────────────────────
+  // NÃO é backup: /transactions/export traz só transações — sem cartões,
+  // parcelas, recorrências nem categorias. O nome do arquivo diz o que ele é.
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState('')
 
@@ -193,7 +174,7 @@ export default function SettingsPage() {
     try {
       const data = await getAllTransactions()
       const date = new Date().toISOString().slice(0, 10)
-      downloadJSON(data, `hivvo-backup-${date}.json`)
+      downloadJSON(data, `hivvo-transacoes-${date}.json`)
     } catch {
       setExportError('Não foi possível exportar. Tente novamente.')
     } finally {
@@ -424,111 +405,6 @@ export default function SettingsPage() {
   const content = (
     <div className="flex flex-col gap-6">
 
-      {/* ── Perfil ── */}
-      <Section title="Perfil">
-
-        {/* Nome */}
-        <SettingsRow>
-          <p className="text-xs text-text-muted mb-2">Nome</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                if (nameError) setNameError('')
-                if (nameSuccess) setNameSuccess(false)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveName()
-              }}
-              className={`flex-1 min-w-0 rounded-md bg-bg border px-3 py-2.5 text-sm text-text-primary outline-none focus:border-amber transition-colors ${
-                nameError ? 'border-danger' : 'border-bg-border'
-              }`}
-            />
-            <button
-              onClick={handleSaveName}
-              disabled={nameSaving}
-              className={`shrink-0 px-4 py-2.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
-                nameSuccess
-                  ? 'bg-success/10 text-success border border-success/30'
-                  : 'bg-amber text-bg hover:bg-amber-light active:bg-amber-dark'
-              }`}
-            >
-              {nameSaving ? '…' : nameSuccess ? '✓ Salvo' : 'Salvar'}
-            </button>
-          </div>
-          {nameError && <p className="mt-1 text-xs text-danger">{nameError}</p>}
-        </SettingsRow>
-
-        {/* Email */}
-        <SettingsRow>
-          <p className="text-xs text-text-muted mb-2">Email</p>
-          <input
-            type="email"
-            value={user?.email ?? ''}
-            readOnly
-            disabled
-            className="w-full rounded-md bg-bg-border/50 border border-bg-border px-3 py-2.5 text-sm text-text-muted cursor-not-allowed"
-          />
-        </SettingsRow>
-
-        {/* Alterar senha */}
-        <SettingsRow>
-          <p className="text-sm font-medium text-text-primary mb-3">Alterar senha</p>
-          <form
-            onSubmit={handleSubmit(onPasswordSubmit)}
-            className="flex flex-col gap-3"
-            noValidate
-          >
-            <Input
-              id="senha_atual"
-              label="Senha atual"
-              type="password"
-              autoComplete="current-password"
-              showToggle
-              error={errors.senha_atual?.message}
-              {...register('senha_atual')}
-            />
-            <Input
-              id="nova_senha"
-              label="Nova senha"
-              type="password"
-              autoComplete="new-password"
-              showToggle
-              error={errors.nova_senha?.message}
-              {...register('nova_senha')}
-            />
-            <Input
-              id="confirmar"
-              label="Confirmar nova senha"
-              type="password"
-              autoComplete="new-password"
-              showToggle
-              error={errors.confirmar?.message}
-              {...register('confirmar')}
-            />
-            {pwSuccess && (
-              <p className="text-xs text-success">Senha alterada com sucesso.</p>
-            )}
-            <Button type="submit" isLoading={isSubmitting}>
-              Salvar senha
-            </Button>
-          </form>
-        </SettingsRow>
-
-        {/* Logout */}
-        <SettingsRow>
-          <button
-            onClick={() => setLogoutModalOpen(true)}
-            className="w-full flex items-center justify-center px-4 py-3 rounded-md text-sm font-medium border border-bg-border text-danger hover:bg-danger/5 active:bg-danger/10 transition-colors duration-150"
-          >
-            Sair da conta
-          </button>
-        </SettingsRow>
-
-      </Section>
-
       {/* ── Categorias (separadas por tipo — cada seção cria o seu tipo) ── */}
       {(['despesa', 'receita'] as const).map((secTipo) => (
         <Section
@@ -654,33 +530,6 @@ export default function SettingsPage() {
         </SettingsRow>
       </Section>
 
-      {/* ── Importar dados ── */}
-      <Section title="Importar dados">
-        <SettingsRow>
-          <p className="text-sm text-text-muted mb-3">
-            Importe transações a partir de um arquivo CSV.
-          </p>
-          <Button variant="ghost" onClick={() => navigate('/import')}>
-            ↑ Importar CSV
-          </Button>
-        </SettingsRow>
-      </Section>
-
-      {/* ── Exportar dados ── */}
-      <Section title="Exportar dados">
-        <SettingsRow>
-          <p className="text-sm text-text-muted mb-3">
-            Baixar um arquivo JSON com todas as suas transações.
-          </p>
-          <Button variant="ghost" isLoading={isExporting} onClick={handleExport}>
-            {isExporting ? 'Exportando…' : '↓ Exportar JSON'}
-          </Button>
-          {exportError && (
-            <p className="mt-2 text-xs text-danger">{exportError}</p>
-          )}
-        </SettingsRow>
-      </Section>
-
       {/* ── Assistente IA ── */}
       <Section title="Assistente IA">
         <SettingsRow>
@@ -693,25 +542,73 @@ export default function SettingsPage() {
         </SettingsRow>
       </Section>
 
-      {/* ── Legal ── */}
-      <Section title="Legal">
+      {/* ── Meus dados: entrada · saída · eliminação (a natureza LGPD) ── */}
+      <Section title="Meus dados">
         <SettingsRow>
-          <button
-            onClick={() => navigate('/terms')}
-            className="w-full flex items-center justify-between text-sm text-text-primary hover:text-amber transition-colors"
-          >
-            <span>Termos de Uso</span>
-            <span className="text-text-muted">→</span>
-          </button>
+          <p className="text-sm text-text-muted mb-3">
+            Importe transações a partir de um arquivo CSV.
+          </p>
+          <Button variant="ghost" onClick={() => navigate('/import')}>
+            ↑ Importar CSV
+          </Button>
+        </SettingsRow>
+
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
+            Baixa um arquivo JSON com as suas transações. Não inclui cartões, parcelas,
+            recorrências nem categorias — não é um backup da conta.
+          </p>
+          <Button variant="ghost" isLoading={isExporting} onClick={handleExport}>
+            {isExporting ? 'Exportando…' : '↓ Exportar transações (JSON)'}
+          </Button>
+          {exportError && (
+            <p className="mt-2 text-xs text-danger">{exportError}</p>
+          )}
+        </SettingsRow>
+
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
+            Apaga os seus lançamentos e recomeça com a conta vazia. Você continua logado e as
+            suas categorias são mantidas. Esta ação é irreversível.
+          </p>
+          <Button variant="danger" onClick={() => setResetDataModalOpen(true)}>
+            Começar do zero
+          </Button>
+        </SettingsRow>
+
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
+            Apaga a sua conta e todos os seus dados. Esta ação é irreversível.
+          </p>
+          <Button variant="danger" onClick={() => setDeleteModalOpen(true)}>
+            Excluir minha conta
+          </Button>
+        </SettingsRow>
+      </Section>
+
+      {/* ── Sobre ── */}
+      {/* A versão sai do build (vite.config), não do backend: o /openapi.json
+          está desativado em produção e o /health é genérico de propósito. */}
+      <Section title="Sobre">
+        <SettingsRow>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-text-muted">Versão</span>
+            <span className="text-sm text-text-primary tabular-nums">
+              {import.meta.env.VITE_APP_VERSION}
+            </span>
+          </div>
         </SettingsRow>
         <SettingsRow>
-          <button
-            onClick={() => navigate('/privacy')}
-            className="w-full flex items-center justify-between text-sm text-text-primary hover:text-amber transition-colors"
+          <p className="text-sm text-text-muted mb-3">
+            Encontrou um problema ou tem uma sugestão? Escreva para a gente — informe a versão
+            acima, ajuda a investigar.
+          </p>
+          <a
+            href="mailto:contato@hivvo.app"
+            className="inline-flex items-center text-sm text-amber hover:text-amber-light transition-colors"
           >
-            <span>Política de Privacidade</span>
-            <span className="text-text-muted">→</span>
-          </button>
+            contato@hivvo.app
+          </a>
         </SettingsRow>
       </Section>
 
@@ -924,24 +821,120 @@ export default function SettingsPage() {
     </Modal>
   )
 
-  const logoutModal = logoutModalOpen && (
+  // Dois estados: pedir a senha e, depois do 200, virar o recibo. O recibo é o
+  // motivo de a rota responder 200 e não 204 — um toast some em segundos e
+  // trunca as linhas; o usuário já está olhando para o modal.
+  const resetDataModal = resetDataModalOpen && (
+    resetDataRecibo ? (
+      (() => {
+        const linhas = linhasDoRecibo(resetDataRecibo)
+        return (
+          <Modal
+            title="Pronto — sua conta está zerada"
+            onClose={closeResetDataModal}
+            footer={<Button onClick={closeResetDataModal}>Fechar</Button>}
+          >
+            <div className="flex flex-col gap-3">
+              {linhas.length === 0 ? (
+                <p className="text-sm text-text-muted leading-relaxed">
+                  Não havia dados para apagar — a sua conta já estava vazia.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-text-muted">Apagamos:</p>
+                  <ul className="flex flex-col gap-1">
+                    {linhas.map((linha) => (
+                      <li key={linha} className="text-sm text-text-primary">
+                        · {linha}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p className="text-xs text-text-muted leading-relaxed">
+                Suas categorias e a sua conta continuam como estavam.
+              </p>
+            </div>
+          </Modal>
+        )
+      })()
+    ) : (
+      <Modal
+        title="Começar do zero?"
+        onClose={closeResetDataModal}
+        footer={
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={closeResetDataModal}>
+              Cancelar
+            </Button>
+            <Button variant="danger" isLoading={isResettingData} onClick={handleResetData}>
+              Apagar meus dados
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-text-muted leading-relaxed">
+            Isto apaga as suas transações, parcelas, cartões, faturas e pagamentos,
+            recorrências e o histórico do Assistente. Não há como desfazer.
+          </p>
+          <p className="text-sm text-text-muted leading-relaxed">
+            <span className="text-text-primary">O que fica:</span> a sua conta (você continua
+            logado) e as suas categorias personalizadas.
+          </p>
+          <Input
+            id="reset-data-password"
+            label="Digite sua senha para confirmar"
+            type="password"
+            autoComplete="current-password"
+            showToggle
+            value={resetDataPassword}
+            onChange={(e) => {
+              setResetDataPassword(e.target.value)
+              if (resetDataError) setResetDataError('')
+            }}
+            error={resetDataError}
+          />
+        </div>
+      </Modal>
+    )
+  )
+
+  const deleteModal = deleteModalOpen && (
     <Modal
-      title="Sair da conta"
-      onClose={() => setLogoutModalOpen(false)}
+      title="Excluir minha conta?"
+      onClose={closeDeleteModal}
       footer={
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => setLogoutModalOpen(false)}>
+          <Button variant="ghost" onClick={closeDeleteModal}>
             Cancelar
           </Button>
-          <Button variant="danger" onClick={handleLogout}>
-            Sair
+          <Button variant="danger" isLoading={isDeleting} onClick={handleDeleteAccount}>
+            Excluir permanentemente
           </Button>
         </div>
       }
     >
-      <p className="text-sm text-text-muted leading-relaxed">
-        Tem certeza que deseja sair? Você precisará fazer login novamente para acessar o app.
-      </p>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-text-muted leading-relaxed">
+          Isto apaga a sua conta e TODOS os seus dados — transações, cartões, parcelas,
+          recorrências, categorias e o histórico do Assistente. Não há como desfazer nem
+          recuperar depois.
+        </p>
+        <Input
+          id="delete-password"
+          label="Digite sua senha para confirmar"
+          type="password"
+          autoComplete="current-password"
+          showToggle
+          value={deletePassword}
+          onChange={(e) => {
+            setDeletePassword(e.target.value)
+            if (deleteError) setDeleteError('')
+          }}
+          error={deleteError}
+        />
+      </div>
     </Modal>
   )
 
@@ -950,7 +943,8 @@ export default function SettingsPage() {
       <>
         {addModal}
         {editRecModal}
-        {logoutModal}
+        {resetDataModal}
+        {deleteModal}
         {resetModal}
         <div className="flex flex-col h-full">
           <header className="shrink-0 flex items-center gap-3 px-4 h-14 border-b border-bg-border bg-bg-surface">
@@ -973,7 +967,8 @@ export default function SettingsPage() {
     <>
       {addModal}
       {editRecModal}
-      {logoutModal}
+      {resetDataModal}
+      {deleteModal}
       {resetModal}
       <div className="p-6 max-w-xl mx-auto">
         <h1 className="text-[22px] font-medium tracking-tight text-text-primary mb-6">

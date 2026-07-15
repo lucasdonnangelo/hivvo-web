@@ -1,7 +1,9 @@
 import { Suspense } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import RouteFallback from '../components/ui/RouteFallback'
+import ProfileMenu from '../components/layout/ProfileMenu'
+import { initialDoUsuario } from '../lib/userInitial'
 
 const navItems = [
   { to: '/dashboard',    label: 'Dashboard',   icon: '⊞' },
@@ -12,9 +14,8 @@ const navItems = [
 ]
 
 export default function DesktopLayout() {
-  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
-  const initial = user?.username?.[0].toUpperCase() ?? '?'
+  const initial = initialDoUsuario(user?.nome_completo, user?.email)
   return (
     <div className="flex h-full bg-bg text-text-primary">
       {/* Sidebar — 72px, ícones + labels */}
@@ -48,17 +49,15 @@ export default function DesktopLayout() {
           ))}
         </nav>
 
-        <button
-          onClick={() => navigate('/settings')}
+        <ProfileMenu
+          placement="up"
           className="flex flex-col items-center gap-0.5 text-text-muted hover:text-text-primary transition-colors"
-          title="Configurações"
-          aria-label="Configurações"
         >
           <span className="w-7 h-7 rounded-full bg-bg-border flex items-center justify-center text-xs">
             {initial}
           </span>
-          <span className="text-[10px] leading-none tracking-tight">Config.</span>
-        </button>
+          <span className="text-[10px] leading-none tracking-tight">Conta</span>
+        </ProfileMenu>
       </aside>
 
       {/* Main */}

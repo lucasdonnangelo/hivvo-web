@@ -1,10 +1,7 @@
 import { create } from 'zustand'
+import type { UserResponse } from '../services/auth'
 
-interface User {
-  id: number
-  email: string
-  username: string
-}
+type User = UserResponse
 
 interface AuthState {
   user: User | null

@@ -1,6 +1,8 @@
 import axios from 'axios'
 import type { AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
+// `import type` é apagado na compilação — não cria ciclo com auth.ts em runtime.
+import type { UserResponse } from './auth'
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   throw new Error(
@@ -56,9 +58,7 @@ api.interceptors.response.use(
     isRefreshing = true
 
     try {
-      const { data: user } = await api.post<{ id: number; email: string; username: string }>(
-        '/auth/refresh',
-      )
+      const { data: user } = await api.post<UserResponse>('/auth/refresh')
       useAuthStore.getState().setUser(user)
       processQueue(null)
       return api(originalRequest)

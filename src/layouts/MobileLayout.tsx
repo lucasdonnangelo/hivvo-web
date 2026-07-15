@@ -1,7 +1,9 @@
 import { Suspense } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import RouteFallback from '../components/ui/RouteFallback'
+import ProfileMenu from '../components/layout/ProfileMenu'
+import { initialDoUsuario } from '../lib/userInitial'
 
 const tabs = [
   { to: '/dashboard',    label: 'Início',      icon: '⊞' },
@@ -12,9 +14,8 @@ const tabs = [
 ]
 
 export default function MobileLayout() {
-  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
-  const initial = user?.username?.[0].toUpperCase() ?? '?'
+  const initial = initialDoUsuario(user?.nome_completo, user?.email)
   return (
     <div className="flex flex-col h-full bg-bg text-text-primary">
       {/* Header */}
@@ -27,16 +28,15 @@ export default function MobileLayout() {
           <span className="text-text-primary">Hi</span>
           <span className="text-amber">vvo</span>
         </Link>
-        <button
-          onClick={() => navigate('/settings')}
+        <ProfileMenu
+          placement="down"
           className="relative w-8 h-8 rounded-full bg-bg-border flex items-center justify-center text-text-muted text-xs hover:bg-bg-border/80 transition-colors"
-          aria-label="Configurações"
         >
           {initial}
           <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-bg-surface border border-bg-border flex items-center justify-center text-[8px] text-text-muted leading-none">
             ⚙
           </span>
-        </button>
+        </ProfileMenu>
       </header>
 
       {/* Content */}
