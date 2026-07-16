@@ -8,7 +8,6 @@ export interface ParcelaResponse {
   valor_parcela: string
   fatura_mes: number
   fatura_ano: number
-  pago: boolean
   cancelado: boolean
   numero_parcela: number
   total_parcelas: number
@@ -19,7 +18,6 @@ export interface ParcelaResponse {
 export const getInstallments = (params: {
   mes?: number
   ano?: number
-  pago?: boolean
   cancelado?: boolean
   cartao_id?: number
 }) => api.get<ParcelaResponse[]>('/installments', { params }).then((r) => unwrapList<ParcelaResponse>(r.data))
