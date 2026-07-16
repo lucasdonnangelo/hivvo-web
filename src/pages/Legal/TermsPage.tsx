@@ -37,27 +37,28 @@ export default function TermsPage() {
         </button>
 
         <h1 className="text-2xl font-medium text-text-primary mb-1">Termos de Uso — Hivvo</h1>
-        <p className="text-xs text-text-muted mb-10">Última atualização: junho de 2026</p>
+        <p className="text-xs text-text-muted mb-10">Última atualização: julho de 2026</p>
 
         <div className="flex flex-col gap-7">
           <Section title="1. Aceitação dos Termos">
             <P>
-              Ao criar uma conta ou utilizar o Hivvo, você concorda com estes Termos de Uso. Se
-              não concordar, não utilize o serviço.
+              Ao criar uma conta ou utilizar o Hivvo, você concorda com estes Termos de Uso. Se não
+              concordar, não utilize o serviço.
             </P>
           </Section>
 
           <Section title="2. O Serviço">
             <P>
               O Hivvo é uma aplicação web de gestão financeira pessoal com inteligência artificial,
-              desenvolvida e operada por Lucas Jannuzzi Reis Donnangelo, com sede em São Paulo, SP.
+              desenvolvida e operada por Lucas Jannuzzi Reis Donnangelo, com sede em São Paulo/SP. O
+              serviço é oferecido atualmente de forma gratuita.
             </P>
           </Section>
 
           <Section title="3. Cadastro e Conta">
             <Ul items={[
-              'Usuários com 13 anos ou mais podem utilizar o Hivvo. Menores de 16 anos precisam do consentimento de um responsável legal.',
-              'É responsabilidade do usuário manter suas credenciais de acesso em segurança.',
+              'O Hivvo é destinado a maiores de 18 anos.',
+              'É responsabilidade do usuário manter suas credenciais em segurança.',
               'Cada usuário pode ter apenas uma conta ativa.',
               'Informações falsas ou incorretas podem resultar no encerramento da conta.',
             ]} />
@@ -72,9 +73,9 @@ export default function TermsPage() {
 
           <Section title="5. Dados Financeiros">
             <P>
-              O Hivvo não se conecta automaticamente a instituições financeiras. Todos os dados são
-              inseridos manualmente. O Hivvo não oferece serviços de intermediação financeira,
-              investimento ou crédito.
+              O Hivvo não se conecta automaticamente a instituições financeiras. Os dados são
+              inseridos por você — manualmente ou por importação de arquivo (CSV). O Hivvo não
+              oferece serviços de intermediação financeira, investimento ou crédito.
             </P>
           </Section>
 
@@ -82,7 +83,8 @@ export default function TermsPage() {
             <P>
               Os insights gerados pela IA têm caráter exclusivamente informativo e educacional. Não
               constituem consultoria financeira ou assessoria profissional. O usuário é o único
-              responsável pelas decisões financeiras.
+              responsável pelas suas decisões financeiras. Sobre o tratamento dos dados enviados à
+              IA, veja a Política de Privacidade §4.
             </P>
           </Section>
 
@@ -103,21 +105,21 @@ export default function TermsPage() {
 
           <Section title="9. Alterações nos Termos">
             <P>
-              Alterações significativas serão comunicadas por email. O uso continuado implica
-              aceitação dos novos termos.
+              Alterações significativas serão comunicadas por e-mail e/ou no aplicativo antes de
+              entrarem em vigor. O uso continuado implica aceitação dos novos termos.
             </P>
           </Section>
 
           <Section title="10. Encerramento de Conta">
             <P>
               Você pode encerrar sua conta a qualquer momento nas Configurações. Seus dados serão
-              excluídos permanentemente em até 30 dias.
+              excluídos imediatamente, conforme a Política de Privacidade §9.
             </P>
           </Section>
 
           <Section title="11. Lei Aplicável">
             <P>
-              Estes Termos são regidos pelas leis brasileiras. Foro eleito: Comarca de São Paulo, SP.
+              Estes Termos são regidos pelas leis brasileiras. Foro: Comarca de São Paulo/SP.
             </P>
           </Section>
 

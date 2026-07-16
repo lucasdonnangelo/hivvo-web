@@ -23,6 +23,16 @@ function Ul({ items }: { items: React.ReactNode[] }) {
   )
 }
 
+function Subprocessor({ name, purpose, data }: { name: string; purpose: string; data: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-sm font-medium text-text-primary">{name}</span>
+      <span className="text-sm text-text-muted leading-relaxed">Finalidade: {purpose}</span>
+      <span className="text-sm text-text-muted leading-relaxed">Dados: {data}</span>
+    </div>
+  )
+}
+
 export default function PrivacyPage() {
   const navigate = useNavigate()
 
@@ -39,103 +49,207 @@ export default function PrivacyPage() {
         <h1 className="text-2xl font-medium text-text-primary mb-1">
           Política de Privacidade — Hivvo
         </h1>
-        <p className="text-xs text-text-muted mb-10">Última atualização: junho de 2026</p>
+        <p className="text-xs text-text-muted mb-10">Última atualização: julho de 2026</p>
 
         <div className="flex flex-col gap-7">
-          <Section title="1. Introdução">
+          <Section title="1. Introdução e Controlador">
             <P>
-              Esta Política descreve como o Hivvo coleta, usa e protege seus dados pessoais, em
-              conformidade com a LGPD (Lei nº 13.709/2018).
+              Esta Política descreve como o Hivvo coleta, usa, compartilha e protege seus dados
+              pessoais, em conformidade com a LGPD (Lei nº 13.709/2018). O controlador dos dados é
+              Lucas Jannuzzi Reis Donnangelo (pessoa física), São Paulo/SP, que também atua como
+              Encarregado (DPO). Contato: contato@hivvo.app.
             </P>
           </Section>
 
           <Section title="2. Dados que Coletamos">
             <Ul items={[
               <>
-                <span className="text-text-primary font-medium">Dados de cadastro:</span>{' '}
-                nome completo, nome de usuário, e-mail e senha (armazenada com bcrypt).
+                <span className="text-text-primary font-medium">Cadastro:</span>{' '}
+                nome completo, nome de usuário, e-mail e senha (armazenada com hash bcrypt, custo
+                12 — nunca em texto puro).
               </>,
               <>
-                <span className="text-text-primary font-medium">Dados financeiros:</span>{' '}
-                transações, cartões de crédito, categorias personalizadas e parcelas.
-              </>,
-              <>
-                <span className="text-text-primary font-medium">Dados de uso:</span>{' '}
-                data e hora de acesso e histórico de conversas com o assistente de IA.
-              </>,
-            ]} />
-          </Section>
-
-          <Section title="3. Como Usamos seus Dados">
-            <Ul items={[
-              <>
-                <span className="text-text-primary font-medium">Prestação do serviço:</span>{' '}
-                exibir painel financeiro, relatórios e análises.
+                <span className="text-text-primary font-medium">Financeiros:</span>{' '}
+                transações (incluindo as descrições em texto livre que você digita), cartões,
+                faturas, parcelas, recorrências e categorias personalizadas.
               </>,
               <>
                 <span className="text-text-primary font-medium">Assistente de IA:</span>{' '}
-                dados financeiros do mês enviados ao Google Gemini — sem dados de identificação pessoal.
+                o histórico das suas conversas com o assistente (texto livre).
               </>,
               <>
-                <span className="text-text-primary font-medium">Comunicações:</span>{' '}
-                emails transacionais (recuperação de senha, alertas de segurança).
+                <span className="text-text-primary font-medium">Técnicos:</span>{' '}
+                data e hora de acesso; e dados mínimos de diagnóstico de erros (rota, tipo de
+                falha, stack trace sem valores pessoais) via Sentry, para corrigir problemas.
               </>,
             ]} />
           </Section>
 
-          <Section title="4. Compartilhamento de Dados">
-            <P>
-              Seus dados não são vendidos. Compartilhamos apenas com: Google Gemini API (dados
-              financeiros sem identificação), Supabase (banco de dados), Resend (emails
-              transacionais) e autoridades quando exigido por lei.
-            </P>
-          </Section>
-
-          <Section title="5. Segurança dos Dados">
+          <Section title="3. Base Legal do Tratamento (LGPD, art. 7º e 11)">
             <Ul items={[
-              'Senhas com hash bcrypt',
-              'JWT em cookie httpOnly',
-              'Comunicação via HTTPS',
-              'Dados isolados por usuário',
+              <>
+                <span className="text-text-primary font-medium">Execução do contrato:</span>{' '}
+                cadastro e dados financeiros, para prestar o serviço.
+              </>,
+              <>
+                <span className="text-text-primary font-medium">Consentimento:</span>{' '}
+                envio de dados ao assistente de IA (você escolhe usá-lo).
+              </>,
+              <>
+                <span className="text-text-primary font-medium">Legítimo interesse:</span>{' '}
+                segurança da conta e correção de falhas técnicas.
+              </>,
+              <>
+                <span className="text-text-primary font-medium">Obrigação legal / autoridades:</span>{' '}
+                quando exigido por lei.
+              </>,
             ]} />
           </Section>
 
-          <Section title="6. Seus Direitos (LGPD)">
+          <Section title="4. Como Usamos seus Dados">
             <P>
-              Acesso, correção, exclusão, portabilidade e revogação. Contato: contato@hivvo.app
+              <span className="text-text-primary font-medium">Prestação do serviço:</span>{' '}
+              exibir painel, projeções, relatórios e análises.
+            </P>
+            <P>
+              <span className="text-text-primary font-medium">Assistente de IA (Google Gemini):</span>{' '}
+              ao usar o assistente ou a sugestão automática de categoria, enviamos ao Google (API
+              Gemini) o seu nome de usuário, valores financeiros agregados e o texto que você digita
+              (perguntas no chat e descrições de transação). Não enviamos CPF, e-mail ou nome
+              completo. Atenção: o texto livre que você escreve pode conter dados pessoais (seus ou
+              de terceiros) — evite incluir informações sensíveis nas descrições e conversas.
+            </P>
+            <P>
+              Atualmente utilizamos o nível gratuito da API do Google Gemini. Conforme os Termos da
+              API do Gemini para serviços não pagos, o conteúdo enviado pode ser usado pelo Google
+              para desenvolver e melhorar seus produtos e modelos de IA e pode ser analisado por
+              revisores humanos. Por isso, reforçamos: não inclua informações que você não queira
+              compartilhar.
+            </P>
+            <P>
+              <span className="text-text-primary font-medium">Comunicações:</span>{' '}
+              e-mails transacionais (recuperação de senha, alertas de segurança) enviados via
+              Resend — para isso, seu e-mail e nome completo são enviados a esse provedor.
             </P>
           </Section>
 
-          <Section title="7. Retenção de Dados">
+          <Section title="5. Compartilhamento e Subprocessadores">
             <P>
-              Dados mantidos enquanto a conta estiver ativa. Excluídos em até 30 dias após
-              encerramento. Logs de segurança mantidos por até 90 dias.
+              Seus dados não são vendidos. Para operar, o Hivvo usa os seguintes provedores, todos
+              com processamento fora do Brasil:
+            </P>
+            <div className="flex flex-col gap-3">
+              <Subprocessor
+                name="Google (API Gemini)"
+                purpose="Assistente de IA"
+                data="Nome de usuário, valores agregados, texto livre (ver §4)"
+              />
+              <Subprocessor
+                name="Supabase"
+                purpose="Banco de dados (armazena tudo)"
+                data="Todos os dados da conta"
+              />
+              <Subprocessor
+                name="Railway"
+                purpose="Hospedagem do servidor (API)"
+                data="Todos os dados em trânsito no serviço"
+              />
+              <Subprocessor
+                name="Vercel"
+                purpose="Hospedagem do aplicativo web"
+                data="Dados de acesso ao app"
+              />
+              <Subprocessor
+                name="Resend"
+                purpose="Envio de e-mails transacionais"
+                data="E-mail e nome completo"
+              />
+              <Subprocessor
+                name="Cloudflare"
+                purpose="Roteamento de e-mail, DNS e CDN"
+                data="Metadados de rede; e-mails recebidos em contato@hivvo.app"
+              />
+              <Subprocessor
+                name="Sentry"
+                purpose="Monitoramento de erros"
+                data="Metadados de falha, sem PII/corpo (ver §7)"
+              />
+            </div>
+            <P>Também compartilhamos dados com autoridades quando exigido por lei.</P>
+          </Section>
+
+          <Section title="6. Transferência Internacional (LGPD, art. 33)">
+            <P>
+              Os provedores acima operam fora do Brasil — o banco de dados que armazena seus dados
+              fica nos Estados Unidos, e os serviços de hospedagem e CDN podem operar em diferentes
+              localidades internacionais. Assim, seus dados são transferidos e processados fora do
+              Brasil. Essa transferência é necessária para a execução do serviço que você contrata.
+              Ao usar o Hivvo, você está ciente dessa transferência.
             </P>
           </Section>
 
-          <Section title="8. Cookies">
+          <Section title="7. Segurança dos Dados">
+            <Ul items={[
+              'Senhas com hash bcrypt (custo 12).',
+              'Autenticação por JWT em cookie httpOnly.',
+              'Comunicação por HTTPS.',
+              'Isolamento por usuário nas consultas e RLS ativado no banco.',
+              'No monitoramento de erros (Sentry), configuração que descarta corpo de requisição, cookies, cabeçalhos sensíveis e variáveis de execução — recebemos apenas metadados de falha, nunca seus dados financeiros.',
+            ]} />
+          </Section>
+
+          <Section title="8. Seus Direitos (LGPD, art. 18)">
             <P>
-              Apenas um cookie essencial de autenticação (httpOnly). Sem cookies de rastreamento ou
-              publicidade.
+              Você tem direito a acesso, correção, exclusão, portabilidade, informação sobre
+              compartilhamento e revogação do consentimento. Como exercer:
+            </P>
+            <Ul items={[
+              <>
+                <span className="text-text-primary font-medium">Excluir conta</span>{' '}
+                (Configurações → Meus dados): remoção imediata e permanente dos seus dados no app.
+              </>,
+              <>
+                <span className="text-text-primary font-medium">Começar do zero</span>{' '}
+                (Configurações → Meus dados): apaga todos os seus dados financeiros, mantendo a
+                conta.
+              </>,
+              <>Ou pelo canal contato@hivvo.app.</>,
+            ]} />
+          </Section>
+
+          <Section title="9. Retenção de Dados">
+            <P>
+              Mantemos seus dados enquanto a conta estiver ativa. Ao excluir a conta, seus dados no
+              app são removidos imediatamente; cópias de segurança podem persistir por um período
+              limitado, conforme a política do provedor de banco de dados. Metadados de erro no
+              Sentry são retidos por até 90 dias.
             </P>
           </Section>
 
-          <Section title="9. Menores de Idade">
+          <Section title="10. Cookies">
             <P>
-              Permitido a partir de 13 anos. Entre 13 e 15 anos requer consentimento dos
-              responsáveis. Não coletamos dados de menores de 13 anos.
+              Usamos apenas cookies essenciais de autenticação (tokens de acesso e de sessão,
+              httpOnly). Não usamos cookies de publicidade nem de rastreamento de terceiros.
             </P>
           </Section>
 
-          <Section title="10. Alterações nesta Política">
+          <Section title="11. Menores de Idade">
             <P>
-              Comunicadas por email com antecedência mínima de 15 dias.
+              O Hivvo é destinado a maiores de 18 anos. Não coletamos intencionalmente dados de
+              menores de 18 anos.
             </P>
           </Section>
 
-          <Section title="11. Contato e DPO">
+          <Section title="12. Alterações nesta Política">
             <P>
-              Lucas Jannuzzi Reis Donnangelo — São Paulo, SP
+              Avisaremos por e-mail e/ou no aplicativo antes que mudanças relevantes entrem em
+              vigor.
+            </P>
+          </Section>
+
+          <Section title="13. Contato e Encarregado (DPO)">
+            <P>
+              Lucas Jannuzzi Reis Donnangelo — São Paulo/SP
               <br />
               contato@hivvo.app
             </P>
