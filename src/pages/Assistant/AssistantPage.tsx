@@ -279,9 +279,10 @@ export default function AssistantPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // Roda só no mount (deps []), e isHistoryLoading já nasce true no useState —
+  // por isso o carregamento não precisa (nem deve) setar o estado aqui.
   useEffect(() => {
     let cancelled = false
-    setIsHistoryLoading(true)
     getHistorico()
       .then((items) => {
         if (cancelled) return
