@@ -14,20 +14,33 @@ const STYLES: Record<ToastType, string> = {
   info: 'bg-amber/10 border-amber/30 text-amber',
 }
 
-function ToastItem({ id, message, type }: { id: string; message: string; type: ToastType }) {
+function ToastItem({
+  id,
+  message,
+  type,
+  duration,
+}: {
+  id: string
+  message: string
+  type: ToastType
+  duration: number
+}) {
   const removeToast = useUIStore((s) => s.removeToast)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     const enter = setTimeout(() => setVisible(true), 10)
-    const exit = setTimeout(() => setVisible(false), 2700)
-    const remove = setTimeout(() => removeToast(id), 3000)
+    // duration === 0 → persistente: entra e fica; só sai no clique (dismiss).
+    if (duration === 0) return () => clearTimeout(enter)
+    // Mantém a folga de 300ms entre iniciar o fade e remover do DOM.
+    const exit = setTimeout(() => setVisible(false), duration - 300)
+    const remove = setTimeout(() => removeToast(id), duration)
     return () => {
       clearTimeout(enter)
       clearTimeout(exit)
       clearTimeout(remove)
     }
-  }, [id, removeToast])
+  }, [id, duration, removeToast])
 
   function dismiss() {
     setVisible(false)

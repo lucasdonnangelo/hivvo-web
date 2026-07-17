@@ -26,6 +26,30 @@ export interface TransactionCreatePayload {
   total_parcelas?: number
 }
 
+// #9 — Uma fatura-alvo (cartão + competência) tocada pela compra. Estrutura pura,
+// espelha CompetenciaFatura do backend; a copy do aviso é composta no frontend.
+export interface CompetenciaFatura {
+  cartao_id: number
+  fatura_mes: number
+  fatura_ano: number
+}
+
+// #9 — Aviso NÃO-bloqueante: a compra caiu em competência(s) já marcada(s) como
+// paga(s). O backend não embute texto de UI — só a estrutura. Hoje o backend
+// emite no máximo um aviso, mas o contrato é uma lista (retrocompatível: vazia).
+export interface AvisoFaturaPaga {
+  codigo: 'fatura_paga'
+  competencias: CompetenciaFatura[]
+}
+
+// Corpo completo do POST /transactions (TransacaoCreateResponse do backend):
+// a Transaction + metadados da criação. Antes descartávamos tudo menos a
+// Transaction; #9 exige o corpo inteiro por causa de `avisos`.
+export interface TransactionCreateResponse extends Transaction {
+  parcelas_criadas: number
+  avisos: AvisoFaturaPaga[]
+}
+
 export const getTransactions = (mes: number, ano: number) =>
   api.get<Transaction[]>('/transactions', { params: { mes, ano } }).then((r) => unwrapList<Transaction>(r.data))
 
@@ -36,7 +60,7 @@ export const getAllTransactions = () =>
   api.get<Transaction[]>('/transactions/export').then((r) => unwrapList<Transaction>(r.data))
 
 export const createTransaction = (payload: TransactionCreatePayload) =>
-  api.post<Transaction>('/transactions', payload).then((r) => r.data)
+  api.post<TransactionCreateResponse>('/transactions', payload).then((r) => r.data)
 
 export const updateTransaction = (id: number, payload: Partial<Transaction>) =>
   api.put<Transaction>(`/transactions/${id}`, payload).then((r) => r.data)
