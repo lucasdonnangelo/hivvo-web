@@ -74,8 +74,10 @@ export default function TermsPage() {
           <Section title="5. Dados Financeiros">
             <P>
               O Hivvo não se conecta automaticamente a instituições financeiras. Os dados são
-              inseridos por você — manualmente ou por importação de arquivo (CSV). O Hivvo não
-              oferece serviços de intermediação financeira, investimento ou crédito.
+              inseridos por você — manualmente ou por importação de arquivo (CSV, ou fatura/extrato
+              em PDF, com reconhecimento automático por inteligência artificial; veja a Política de
+              Privacidade §4). O Hivvo não oferece serviços de intermediação financeira,
+              investimento ou crédito.
             </P>
           </Section>
 

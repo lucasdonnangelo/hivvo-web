@@ -93,7 +93,8 @@ export default function PrivacyPage() {
               </>,
               <>
                 <span className="text-text-primary font-medium">Consentimento:</span>{' '}
-                envio de dados ao assistente de IA (você escolhe usá-lo).
+                envio de dados ao assistente de IA e à importação de fatura/extrato (você escolhe
+                usar cada um).
               </>,
               <>
                 <span className="text-text-primary font-medium">Legítimo interesse:</span>{' '}
@@ -112,19 +113,31 @@ export default function PrivacyPage() {
               exibir painel, projeções, relatórios e análises.
             </P>
             <P>
-              <span className="text-text-primary font-medium">Assistente de IA (Google Gemini):</span>{' '}
-              ao usar o assistente ou a sugestão automática de categoria, enviamos ao Google (API
-              Gemini) o seu nome de usuário, valores financeiros agregados e o texto que você digita
-              (perguntas no chat e descrições de transação). Não enviamos CPF, e-mail ou nome
-              completo. Atenção: o texto livre que você escreve pode conter dados pessoais (seus ou
-              de terceiros) — evite incluir informações sensíveis nas descrições e conversas.
+              <span className="text-text-primary font-medium">Assistente de IA e importação (Google Gemini):</span>{' '}
+              utilizamos a API paga do Google Gemini. Conforme os Termos da API paga, o Google não
+              usa o conteúdo enviado para treinar ou melhorar seus produtos e modelos, e o retém
+              apenas por período limitado para segurança e conformidade.
             </P>
+            <Ul items={[
+              <>
+                Ao usar o assistente ou a sugestão automática de categoria, enviamos ao Google o
+                seu nome de usuário, valores financeiros agregados e o texto que você digita
+                (perguntas no chat e descrições de transação). Não enviamos CPF, e-mail ou senha.
+              </>,
+              <>
+                Ao <span className="text-text-primary font-medium">importar uma fatura ou
+                extrato</span>, enviamos ao Google o texto extraído do arquivo para o
+                reconhecimento automático das transações. Esse texto pode conter dados pessoais
+                impressos no documento — como seu nome, endereço e os últimos dígitos do cartão.
+                Removemos o CPF e os números de cartão antes do envio; os demais dados do documento
+                são enviados como estão.
+              </>,
+            ]} />
             <P>
-              Atualmente utilizamos o nível gratuito da API do Google Gemini. Conforme os Termos da
-              API do Gemini para serviços não pagos, o conteúdo enviado pode ser usado pelo Google
-              para desenvolver e melhorar seus produtos e modelos de IA e pode ser analisado por
-              revisores humanos. Por isso, reforçamos: não inclua informações que você não queira
-              compartilhar.
+              <span className="text-text-primary font-medium">Atenção:</span>{' '}
+              o texto livre que você escreve ou o documento que você importa pode conter dados
+              pessoais (seus ou de terceiros). Evite incluir informações sensíveis que não sejam
+              necessárias.
             </P>
             <P>
               <span className="text-text-primary font-medium">Comunicações:</span>{' '}
@@ -140,9 +153,9 @@ export default function PrivacyPage() {
             </P>
             <div className="flex flex-col gap-3">
               <Subprocessor
-                name="Google (API Gemini)"
-                purpose="Assistente de IA"
-                data="Nome de usuário, valores agregados, texto livre (ver §4)"
+                name="Google (API Gemini, tier pago)"
+                purpose="Assistente de IA e reconhecimento de faturas/extratos importados"
+                data="Nome de usuário, valores agregados, texto livre digitado e texto de documentos importados (ver §4)"
               />
               <Subprocessor
                 name="Supabase"
