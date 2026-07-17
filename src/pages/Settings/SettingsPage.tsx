@@ -555,6 +555,16 @@ export default function SettingsPage() {
 
         <SettingsRow>
           <p className="text-sm text-text-muted mb-3">
+            Importe a fatura de um cartão de crédito em PDF. Revise as despesas e as categorias
+            antes de confirmar.
+          </p>
+          <Button variant="ghost" onClick={() => navigate('/import/fatura')}>
+            ↑ Importar fatura (PDF)
+          </Button>
+        </SettingsRow>
+
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
             Baixa um arquivo JSON com as suas transações. Não inclui cartões, parcelas,
             recorrências nem categorias — não é um backup da conta.
           </p>
