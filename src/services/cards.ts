@@ -30,13 +30,23 @@ export interface CardPayload {
 }
 
 // Estado derivado da fatura (backend calcula a partir de PagamentoFatura + venc.):
-// - paga     → o usuário confirmou o pagamento.
-// - aberta   → ainda aceita compras (fechamento não passou). NÃO é confirmável.
-// - a_vencer → fechada, não confirmada, vencimento >= hoje.
-// - atrasada → fechada, não confirmada, vencimento < hoje (exige ação).
-// - vazia    → competência SEM lançamento algum (nada a pagar) — estado neutro,
-//              NUNCA alerta; não confundir com `paga`.
-export type InvoiceStatus = 'vazia' | 'paga' | 'aberta' | 'a_vencer' | 'atrasada'
+// - paga         → o usuário confirmou o pagamento integral.
+// - paga_parcial → parte da fatura foi paga; ainda resta saldo (#9).
+// - aberta       → ainda aceita compras (fechamento não passou). NÃO é confirmável.
+// - a_vencer     → fechada, não confirmada, vencimento >= hoje.
+// - atrasada     → fechada, não confirmada, vencimento < hoje (exige ação).
+// - vazia        → competência SEM lançamento algum (nada a pagar) — estado neutro,
+//                  NUNCA alerta; não confundir com `paga`.
+// O front NUNCA assume que esta união é exaustiva em runtime: a API pode mandar um
+// status futuro que ainda não conhecemos, e o badge degrada para um estado neutro
+// em vez de quebrar (ver InvoiceStatusBadge).
+export type InvoiceStatus =
+  | 'vazia'
+  | 'paga'
+  | 'paga_parcial'
+  | 'aberta'
+  | 'a_vencer'
+  | 'atrasada'
 
 export interface InvoiceListItem {
   ano: number
@@ -68,6 +78,10 @@ export interface InvoiceDetail {
   total: string
   data_vencimento: string
   status: InvoiceStatus
+  // #9 — quanto já foi pago da fatura. Opcional/aditivo: só o detalhe expõe. Quando
+  // presente (status `paga_parcial`), a UI mostra "faltam R$ X" = total − valor_pago.
+  // Ausente → nada é inventado, mostra só o badge.
+  valor_pago?: string | null
   parcelas: ParcelaFaturaItem[]
   avulsas: TransacaoFaturaItem[]
 }

@@ -47,12 +47,25 @@ export default function InvoiceDetail({ detail, cardId, mes, ano }: InvoiceDetai
 
   // Ação só existe em faturas fechadas com lançamentos. `aberta` é rejeitada pelo
   // backend (422) e fatura vazia também — nesses casos nenhum botão aparece.
-  const isConfirmable = detail.status === 'a_vencer' || detail.status === 'atrasada'
+  // `paga_parcial` também confirma: o MESMO PUT pago:true regrava valor_pago =
+  // total atual → cobre a descoberta → volta a `paga`. Sem lógica de pagamento
+  // parcial no front (o modelo só tem um valor_pago); a ação é "está paga pelo total".
+  const isConfirmable =
+    detail.status === 'a_vencer' ||
+    detail.status === 'atrasada' ||
+    detail.status === 'paga_parcial'
   const isPaid = detail.status === 'paga'
   const showPaymentAction = !isEmpty && (isConfirmable || isPaid)
 
   const togglePayment = () =>
     setPayment.mutate({ cardId, ano, mes, pago: !isPaid })
+
+  // "faltam R$ X" só quando o backend expõe valor_pago (fatura paga parcial). Sem
+  // esse dado, nada é inventado — mostra só o badge. total − valor_pago, 2 casas.
+  const faltante =
+    detail.status === 'paga_parcial' && detail.valor_pago != null
+      ? parseFloat(detail.total) - parseFloat(detail.valor_pago)
+      : null
 
   return (
     <div className="flex flex-col gap-5">
@@ -76,6 +89,9 @@ export default function InvoiceDetail({ detail, cardId, mes, ano }: InvoiceDetai
           <p className={`text-lg font-semibold ${parseFloat(detail.total) > 0 ? 'text-danger' : 'text-text-muted'}`}>
             {formatBRL(detail.total)}
           </p>
+          {faltante != null && faltante > 0 && (
+            <p className="text-xs text-amber mt-0.5">faltam {formatBRL(faltante.toFixed(2))}</p>
+          )}
         </div>
       </div>
 
