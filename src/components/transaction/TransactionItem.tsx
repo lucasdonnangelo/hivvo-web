@@ -1,4 +1,5 @@
 import type { Transaction } from '../../services/transactions'
+import { presentTipo } from '../../lib/tipoTransacao'
 
 const formatBRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
@@ -10,7 +11,7 @@ interface Props {
 }
 
 export default function TransactionItem({ tx, onEdit, onDelete }: Props) {
-  const isReceita = tx.tipo === 'receita'
+  const pres = presentTipo(tx.tipo)
   const valor = Math.abs(parseFloat(tx.valor))
 
   return (
@@ -24,14 +25,15 @@ export default function TransactionItem({ tx, onEdit, onDelete }: Props) {
               {tx.total_parcelas}x
             </span>
           )}
+          {pres.badge && (
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${pres.badgeClass}`}>
+              {pres.badge}
+            </span>
+          )}
         </span>
       </div>
-      <span
-        className={`text-sm font-medium shrink-0 ${
-          isReceita ? 'text-success' : 'text-danger'
-        }`}
-      >
-        {isReceita ? '+' : '−'}{formatBRL(valor)}
+      <span className={`text-sm font-medium shrink-0 ${pres.amountClass}`}>
+        {pres.sign}{formatBRL(valor)}
       </span>
       <div className="flex gap-1 shrink-0">
         <button

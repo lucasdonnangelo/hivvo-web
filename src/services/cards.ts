@@ -72,6 +72,9 @@ export interface TransacaoFaturaItem {
   valor: string
   categoria: string
   data: string
+  // `estorno` = crédito que abate a fatura; demais avulsas são `despesa`. Como todo
+  // `tipo` no front, a apresentação tolera um valor fora da união em runtime (neutro).
+  tipo: 'despesa' | 'estorno'
 }
 
 export interface InvoiceDetail {

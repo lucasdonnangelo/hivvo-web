@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import type { Transaction } from '../../services/transactions'
+import { presentTipo } from '../../lib/tipoTransacao'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
@@ -40,6 +41,10 @@ export default function EditTransactionModal({
   onClose,
   isLoading,
 }: Props) {
+  // O form só edita receita/despesa. Estorno (crédito importado) e qualquer tipo
+  // futuro caem no painel read-only abaixo — nunca são reetiquetados em silêncio.
+  const isEditableTipo = tx.tipo === 'receita' || tx.tipo === 'despesa'
+
   const {
     register,
     handleSubmit,
@@ -48,7 +53,7 @@ export default function EditTransactionModal({
     resolver: zodResolver(schema) as Resolver<z.infer<typeof schema>>,
     mode: 'onChange',
     defaultValues: {
-      tipo: tx.tipo,
+      tipo: tx.tipo === 'receita' || tx.tipo === 'despesa' ? tx.tipo : 'despesa',
       descricao: tx.descricao,
       valor: parseFloat(tx.valor),
       categoria: tx.categoria,
@@ -72,6 +77,43 @@ export default function EditTransactionModal({
               Transações parceladas não podem ser editadas diretamente — as parcelas
               já foram distribuídas ao longo dos meses. Para alterá-la, exclua esta
               transação e registre novamente.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-xs text-text-muted mb-1">Descrição</p>
+              <p className="text-sm text-text-primary">{tx.descricao}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-text-muted mb-1">Valor</p>
+                <p className="text-sm text-text-primary">
+                  R$ {parseFloat(tx.valor).toFixed(2).replace('.', ',')}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-text-muted mb-1">Categoria</p>
+                <p className="text-sm text-text-primary">{tx.categoria}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+
+  // Estorno / tipo desconhecido: read-only (o form só sabe receita/despesa). Mesmo
+  // padrão do painel de parcelada — mostra os dados, sem campos nem "Salvar".
+  if (!isEditableTipo) {
+    const pres = presentTipo(tx.tipo)
+    return (
+      <Modal title="Editar transação" onClose={onClose}>
+        <div className="flex flex-col gap-4">
+          <div className="rounded-md bg-amber/10 border border-amber/30 px-4 py-3">
+            <p className="text-sm font-medium text-amber">{pres.label}</p>
+            <p className="text-xs text-text-muted mt-1">
+              Este lançamento não é editado por aqui — estornos são créditos importados
+              da fatura, que abatem o consumo. Para removê-lo, use excluir.
             </p>
           </div>
           <div className="flex flex-col gap-3">

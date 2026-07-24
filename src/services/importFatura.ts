@@ -100,8 +100,9 @@ export interface FaturaCommitResponse {
   faturas_marcadas_pagas: number
   // parceladas puladas por dedup entre importações (MULTI-FATURA)
   parceladas_deduplicadas: number
-  // estornos (compra negativa) não são graváveis (CHECK valor>0) — só contados
-  estornos_ignorados: number
+  // estornos (crédito) agora são MATERIALIZADOS como transações tipo=estorno — este
+  // é o total gravado (antes eram descartados; o sentido inverteu, ex-estornos_ignorados)
+  estornos_importados: number
   reconciliacao_bate: boolean
 }
 

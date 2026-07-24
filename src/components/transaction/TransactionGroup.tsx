@@ -1,4 +1,5 @@
 import type { Transaction } from '../../services/transactions'
+import { tipoNetFactor } from '../../lib/tipoTransacao'
 import TransactionItem from './TransactionItem'
 
 const formatBRL = (v: number) =>
@@ -26,10 +27,12 @@ interface Props {
 }
 
 export default function TransactionGroup({ date, transactions, onEdit, onDelete }: Props) {
-  const subtotal = transactions.reduce((acc, tx) => {
-    const v = parseFloat(tx.valor)
-    return acc + (tx.tipo === 'receita' ? v : -v)
-  }, 0)
+  // Soma o que está no grupo (não reconstrói agregado do backend): estorno é crédito
+  // e SOMA (+), despesa subtrai, tipo desconhecido é neutro (0). Ver tipoNetFactor.
+  const subtotal = transactions.reduce(
+    (acc, tx) => acc + tipoNetFactor(tx.tipo) * parseFloat(tx.valor),
+    0,
+  )
 
   return (
     <div className="mb-4">

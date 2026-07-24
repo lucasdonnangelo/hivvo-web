@@ -3,7 +3,11 @@ import { unwrapList } from '../lib/unwrapList'
 
 export interface Transaction {
   id: number
-  tipo: 'receita' | 'despesa'
+  // `estorno` = crédito/reembolso importado de fatura (abate o consumo; não é renda
+  // nem despesa). O front NUNCA assume que esta união é exaustiva em runtime: a API
+  // pode mandar um tipo futuro e a apresentação degrada para neutro (ver
+  // lib/tipoTransacao — presentTipo).
+  tipo: 'receita' | 'despesa' | 'estorno'
   valor: string
   descricao: string
   categoria: string

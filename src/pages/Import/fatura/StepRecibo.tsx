@@ -31,25 +31,27 @@ export default function StepRecibo({ recibo }: StepReciboProps) {
         ))}
       </ul>
 
+      {/* Estornos importados: resultado POSITIVO (créditos gravados que abatem o
+          consumo), em amber — a mesma linguagem visual do estorno no resto do app. */}
+      {recibo.estornos_importados > 0 && (
+        <p className="text-sm text-amber flex items-center gap-1.5">
+          <span aria-hidden>↩</span>
+          <span>
+            {plural(recibo.estornos_importados, 'estorno importado', 'estornos importados')}
+          </span>
+          <span className="text-xs text-text-muted">— créditos que abatem o consumo</span>
+        </p>
+      )}
+
       {/* Explicações só quando houve algo a explicar (senão viram ruído). */}
-      {(recibo.estornos_ignorados > 0 || recibo.parceladas_deduplicadas > 0) && (
+      {recibo.parceladas_deduplicadas > 0 && (
         <div className="flex flex-col gap-2 rounded-md border border-bg-border bg-bg-surface p-3">
-          {recibo.parceladas_deduplicadas > 0 && (
-            <p className="text-xs text-text-muted">
-              <span className="text-text-primary">
-                {plural(recibo.parceladas_deduplicadas, 'parcela já existente', 'parcelas já existentes')}
-              </span>{' '}
-              — a mesma compra parcelada já tinha sido importada em outra fatura; não duplicamos.
-            </p>
-          )}
-          {recibo.estornos_ignorados > 0 && (
-            <p className="text-xs text-text-muted">
-              <span className="text-text-primary">
-                {plural(recibo.estornos_ignorados, 'estorno ignorado', 'estornos ignorados')}
-              </span>{' '}
-              — créditos (compra negativa) não entram como despesa.
-            </p>
-          )}
+          <p className="text-xs text-text-muted">
+            <span className="text-text-primary">
+              {plural(recibo.parceladas_deduplicadas, 'parcela já existente', 'parcelas já existentes')}
+            </span>{' '}
+            — a mesma compra parcelada já tinha sido importada em outra fatura; não duplicamos.
+          </p>
         </div>
       )}
 

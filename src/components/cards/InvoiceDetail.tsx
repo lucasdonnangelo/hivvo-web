@@ -1,5 +1,6 @@
 import type { InvoiceDetail as InvoiceDetailType, InvoiceListItem } from '../../services/cards'
 import { useSetInvoicePayment } from '../../hooks/useCards'
+import { presentTipo } from '../../lib/tipoTransacao'
 import Button from '../ui/Button'
 import InvoiceStatusBadge from './InvoiceStatusBadge'
 
@@ -67,6 +68,18 @@ export default function InvoiceDetail({ detail, cardId, mes, ano }: InvoiceDetai
       ? parseFloat(detail.total) - parseFloat(detail.valor_pago)
       : null
 
+  // O total pode vir NEGATIVO no caso raro (mais estorno que compra) → é crédito a
+  // favor (amber), não dívida. Guarda NaN para nunca exibir "R$ NaN"/branco.
+  const totalNum = parseFloat(detail.total)
+  const totalValido = Number.isFinite(totalNum)
+  const totalClass = !totalValido
+    ? 'text-text-muted'
+    : totalNum > 0
+      ? 'text-danger'
+      : totalNum < 0
+        ? 'text-amber'
+        : 'text-text-muted'
+
   return (
     <div className="flex flex-col gap-5">
       {/* Header */}
@@ -86,9 +99,12 @@ export default function InvoiceDetail({ detail, cardId, mes, ano }: InvoiceDetai
         </div>
         <div className="text-right">
           <p className="text-xs text-text-muted">Total</p>
-          <p className={`text-lg font-semibold ${parseFloat(detail.total) > 0 ? 'text-danger' : 'text-text-muted'}`}>
-            {formatBRL(detail.total)}
+          <p className={`text-lg font-semibold ${totalClass}`}>
+            {totalValido ? formatBRL(detail.total) : '—'}
           </p>
+          {totalValido && totalNum < 0 && (
+            <p className="text-xs text-amber mt-0.5">crédito a favor</p>
+          )}
           {faltante != null && faltante > 0 && (
             <p className="text-xs text-amber mt-0.5">faltam {formatBRL(faltante.toFixed(2))}</p>
           )}
@@ -141,20 +157,32 @@ export default function InvoiceDetail({ detail, cardId, mes, ano }: InvoiceDetai
             <div>
               <SectionHeader title="Avulsas" count={detail.avulsas.length} />
               <div className="flex flex-col gap-1">
-                {detail.avulsas.map((t) => (
-                  <div
-                    key={t.id}
-                    className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-bg-surface transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm text-text-primary truncate">{t.descricao}</p>
-                      <p className="text-xs text-text-muted">{t.categoria} · {formatDate(t.data)}</p>
+                {detail.avulsas.map((t) => {
+                  // despesa → vermelho (como antes); estorno → amber + selo "Estorno";
+                  // tipo desconhecido → neutro. Sem sinal +/− (avulsas/parcelas não usam).
+                  const pres = presentTipo(t.tipo)
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-bg-surface transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-text-primary truncate">{t.descricao}</p>
+                        <p className="text-xs text-text-muted flex items-center gap-1.5">
+                          <span className="truncate">{t.categoria} · {formatDate(t.data)}</span>
+                          {pres.badge && (
+                            <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${pres.badgeClass}`}>
+                              {pres.badge}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <span className={`text-sm font-medium shrink-0 ml-3 ${pres.amountClass}`}>
+                        {formatBRL(t.valor)}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-danger shrink-0 ml-3">
-                      {formatBRL(t.valor)}
-                    </span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}

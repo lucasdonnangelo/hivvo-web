@@ -4,6 +4,7 @@ import { useMonthlyStats, useProjection } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useCards } from '../../hooks/useCards'
 import type { Transaction } from '../../services/transactions'
+import { presentTipo } from '../../lib/tipoTransacao'
 import type { ProjectionMonth } from '../../services/statistics'
 import DonutChart from '../../components/charts/DonutChart'
 import OnboardingBanner from '../../components/ui/OnboardingBanner'
@@ -106,22 +107,23 @@ function MetricCard({ label, value, color, variacao, emphasis = false }: MetricC
 }
 
 function TransactionItem({ tx }: { tx: Transaction }) {
-  const isReceita = tx.tipo === 'receita'
+  const pres = presentTipo(tx.tipo)
   const valor = Math.abs(parseFloat(tx.valor))
   return (
     <div className="flex items-center justify-between py-3 border-b border-bg-border last:border-0">
       <div className="flex flex-col min-w-0">
         <span className="text-sm text-text-primary truncate">{tx.descricao}</span>
-        <span className="text-xs text-text-muted">
-          {tx.categoria} · {formatDate(tx.data)}
+        <span className="text-xs text-text-muted flex items-center gap-1.5">
+          <span className="truncate">{tx.categoria} · {formatDate(tx.data)}</span>
+          {pres.badge && (
+            <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${pres.badgeClass}`}>
+              {pres.badge}
+            </span>
+          )}
         </span>
       </div>
-      <span
-        className={`text-sm font-medium ml-4 shrink-0 ${
-          isReceita ? 'text-success' : 'text-danger'
-        }`}
-      >
-        {isReceita ? '+' : '-'}{formatBRL(valor)}
+      <span className={`text-sm font-medium ml-4 shrink-0 ${pres.amountClass}`}>
+        {pres.sign}{formatBRL(valor)}
       </span>
     </div>
   )

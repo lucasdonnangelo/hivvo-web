@@ -4,6 +4,7 @@ import { useBreakpoint } from '../../hooks/useBreakpoint'
 import { useTransactions, useDeleteTransaction, useUpdateTransaction } from '../../hooks/useTransactions'
 import { useCategories } from '../../hooks/useCategories'
 import type { Transaction } from '../../services/transactions'
+import { tipoNetFactor } from '../../lib/tipoTransacao'
 import TransactionGroup from '../../components/transaction/TransactionGroup'
 import EditTransactionModal from '../../components/transaction/EditTransactionModal'
 import DeleteConfirmModal from '../../components/transaction/DeleteConfirmModal'
@@ -148,10 +149,10 @@ export default function TransactionsPage() {
   // Net total of filtered transactions
   const totalFiltrado = useMemo(
     () =>
-      filteredTx.reduce((acc, tx) => {
-        const v = parseFloat(tx.valor)
-        return acc + (tx.tipo === 'receita' ? v : -v)
-      }, 0),
+      filteredTx.reduce(
+        (acc, tx) => acc + tipoNetFactor(tx.tipo) * parseFloat(tx.valor),
+        0,
+      ),
     [filteredTx],
   )
 
