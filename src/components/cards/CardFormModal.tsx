@@ -147,6 +147,29 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
 
   const tipo = watch('tipo')
   const isDebito = tipo === 'Débito'
+  // O erro CRUZADO mora em `dia_vencimento`, mas depende também de
+  // `dia_fechamento` e `mes_offset_vencimento`. No modo onChange o RHF revalida
+  // só o campo que mudou, então mexer nos OUTROS dois não mexia no erro: ele
+  // ficava pendurado (ou ausente) até o submit. `deps` manda revalidar o campo
+  // que HOSPEDA o erro sempre que uma das outras duas pontas muda.
+  // `dia_vencimento` não precisa se declarar aqui: ele já é revalidado por ser
+  // o campo alterado.
+  //
+  // Só depende com o vencimento JÁ PREENCHIDO. Sem essa guarda, na criação o
+  // primeiro dígito do fechamento revalidaria um vencimento ainda vazio e
+  // pintaria de vermelho um campo que o usuário nem visitou — o cruzamento nem
+  // roda sem os dois dias, então não há nada a reavaliar nesse estado. `deps`
+  // explicitamente undefined (e não a chave ausente) porque o `register` do RHF
+  // faz merge das opções: chave ausente MANTERIA a dependência antiga.
+  const diaVencimento = watch('dia_vencimento')
+  const vencimentoPreenchido =
+    diaVencimento !== undefined &&
+    diaVencimento !== null &&
+    String(diaVencimento) !== '' &&
+    !Number.isNaN(Number(diaVencimento))
+  const depsVencimento = {
+    deps: vencimentoPreenchido ? ('dia_vencimento' as const) : undefined,
+  }
   // Identifica o erro CRUZADO pela mensagem (a constante é a fonte única, tanto
   // do addIssue quanto daqui) para renderizá-lo fora da célula da grade.
   const erroCruzado = errors.dia_vencimento?.message === MSG_VENCIMENTO_ANTES_DO_FECHAMENTO
@@ -247,7 +270,7 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
                   readOnly={locked}
                   className={lockClass}
                   error={errors.dia_fechamento?.message}
-                  {...register('dia_fechamento')}
+                  {...register('dia_fechamento', depsVencimento)}
                 />
                 <Input
                   label="Dia vencimento"
@@ -281,7 +304,7 @@ export default function CardFormModal({ card, onSave, onClose, isLoading }: Card
                   descartar o valor) — pointer-events + tabIndex/aria mantêm o valor
                   atual registrado e válido no submit. */}
               <select
-                {...register('mes_offset_vencimento')}
+                {...register('mes_offset_vencimento', depsVencimento)}
                 tabIndex={locked ? -1 : undefined}
                 aria-disabled={locked || undefined}
                 className={[
