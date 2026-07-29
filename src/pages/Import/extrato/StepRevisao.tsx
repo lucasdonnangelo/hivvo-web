@@ -1,0 +1,539 @@
+import type {
+  EnriquecimentoLinha,
+  ExtratoExtraido,
+  LinhaExtrato,
+  ReconciliacaoExtrato,
+} from '../../../services/importExtrato'
+import {
+  formatBRL,
+  formatCompetencia,
+  neutralBadge,
+  presentBalde,
+  resolverProposta,
+} from './helpers'
+
+const catSelectClass =
+  'w-full px-2 py-1.5 rounded-sm text-xs text-text-primary bg-bg border border-bg-border focus:outline-none focus:border-amber transition-colors'
+
+const dateInputClass =
+  'px-3 py-2 rounded-sm text-sm text-text-primary bg-bg-surface border border-bg-border focus:outline-none focus:border-amber transition-colors'
+
+interface StepRevisaoProps {
+  isMobile: boolean
+  extrato: ExtratoExtraido
+  reconciliacao: ReconciliacaoExtrato
+  // join por `indice` explícito (Map montado no container) — nunca por posição
+  enriquecimento: Map<number, EnriquecimentoLinha>
+  importar: Record<number, boolean>
+  // só EDIÇÕES; o default por linha é categoria_sugerida ?? 'Outros'
+  categorias: Record<number, string>
+  // índice em candidatas por linha; default 0 (a primeira, ordenada por confiança)
+  candidataEscolhida: Record<number, number>
+  categoriasReceita: string[]
+  categoriasDespesa: string[]
+  importarRendimento: boolean
+  // editor só aparece quando o extrato não imprime o período (o commit o exige)
+  periodoFaltante: boolean
+  periodoDe: string
+  periodoAte: string
+  onToggleImportar: (idx: number) => void
+  onSetCategoria: (idx: number, cat: string) => void
+  onSetCandidata: (idx: number, i: number) => void
+  onToggleRendimento: () => void
+  onSetPeriodo: (campo: 'de' | 'ate', valor: string) => void
+  error: string
+}
+
+// ── Banner do balance walk (sinal de qualidade; NUNCA bloqueia). Três estados:
+// fecha (verde) · não fecha (âmbar, aviso) · não aplicável (neutro — o extrato
+// não imprime os saldos, não há o que conferir). ──
+function WalkBanner({ rec }: { rec: ReconciliacaoExtrato }) {
+  if (!rec.aplicavel) {
+    return (
+      <div className="rounded-md border border-bg-border bg-bg-surface px-3 py-2.5 flex items-start gap-2">
+        <span className="text-text-muted text-sm leading-none mt-0.5">·</span>
+        <p className="text-xs text-text-muted">
+          O extrato não imprime os saldos — não dá para conferir o fechamento. Revise as
+          linhas normalmente.
+        </p>
+      </div>
+    )
+  }
+  if (rec.bate) {
+    return (
+      <div className="rounded-md border border-success/40 bg-success/5 px-3 py-2.5 flex items-start gap-2">
+        <span className="text-success text-sm leading-none mt-0.5">✓</span>
+        <p className="text-xs text-text-primary">
+          O extrato fecha — as movimentações batem com os saldos informados pelo banco.
+        </p>
+      </div>
+    )
+  }
+  const dif = Number(rec.diferenca) // saldo_final_calc − saldo_final_declarado
+  const abs = formatBRL(Math.abs(dif))
+  const frase =
+    dif < 0
+      ? `faltam ${abs} para chegar ao saldo declarado`
+      : `há ${abs} a mais em relação ao saldo declarado`
+  return (
+    <div className="rounded-md border border-amber/40 bg-amber/5 px-3 py-2.5 flex items-start gap-2">
+      <span className="text-amber text-sm leading-none mt-0.5">⚠</span>
+      <div className="flex flex-col gap-0.5">
+        <p className="text-xs text-text-primary">Confira o extrato: {frase}.</p>
+        <p className="text-xs text-text-muted">
+          É só um aviso — você ainda pode importar. Saldo calculado{' '}
+          {formatBRL(Number(rec.saldo_final_calc))} contra{' '}
+          {formatBRL(Number(rec.saldo_final_declarado))} declarado pelo banco.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export default function StepRevisao({
+  isMobile,
+  extrato,
+  reconciliacao,
+  enriquecimento,
+  importar,
+  categorias,
+  candidataEscolhida,
+  categoriasReceita,
+  categoriasDespesa,
+  importarRendimento,
+  periodoFaltante,
+  periodoDe,
+  periodoAte,
+  onToggleImportar,
+  onSetCategoria,
+  onSetCandidata,
+  onToggleRendimento,
+  onSetPeriodo,
+  error,
+}: StepRevisaoProps) {
+  const linhas = extrato.linhas.map((l, idx) => ({ l, idx, enr: enriquecimento.get(idx) }))
+  const receitas = linhas.filter(({ l }) => l.balde === 'receita')
+  const debitos = linhas.filter(({ l }) => l.balde === 'debito')
+  const pagamentos = linhas.filter(({ l }) => l.balde === 'pagamento_fatura')
+  // fallback neutro: balde fora da união conhecida — exibidas, nunca importadas
+  const desconhecidas = linhas.filter(({ l }) => !presentBalde(l.balde).known)
+
+  const rendimento = Number(extrato.rendimento)
+
+  const catValor = (idx: number, enr: EnriquecimentoLinha | undefined) =>
+    categorias[idx] ?? enr?.categoria_sugerida ?? 'Outros'
+
+  // Se o valor atual (ex.: sugestão do backend de categoria já desativada) não
+  // está nas opções, ele entra na lista — o select nunca coage em silêncio.
+  const opcoesCom = (valor: string, opcoes: string[]) =>
+    opcoes.includes(valor) ? opcoes : [valor, ...opcoes]
+
+  const marcadas = (grupo: typeof linhas) =>
+    grupo.filter(({ idx }) => importar[idx]).length
+
+  // ── Aviso de recorrência (a armadilha do salário): visível SEMPRE que a
+  // receita foi flagada — explica por que nasceu desmarcada; marcar continua
+  // possível. ──
+  const avisoRecorrencia = (enr: EnriquecimentoLinha | undefined) => {
+    if (!enr?.provavel_recorrencia) return null
+    const rec = enr.recorrencia_casada
+    return (
+      <p className="text-[11px] text-amber flex items-start gap-1">
+        <span aria-hidden className="mt-px">⚠</span>
+        <span>
+          {rec
+            ? `Provavelmente já é a recorrência “${rec.descricao}” (${formatBRL(
+                Number(rec.valor_vigente),
+              )}, dia ${rec.dia_do_mes}) — importar duplicaria a receita.`
+            : 'Provavelmente já coberta por uma recorrência — importar duplicaria a receita.'}
+        </span>
+      </p>
+    )
+  }
+
+  // ── Uma linha de receita/débito (mobile = card). Funções, não componentes
+  // aninhados: o JSX entra inline na árvore, sem novo tipo por render → o
+  // <select> não remonta ao editar (mesma nota do StepRevisao da fatura). ──
+  const linhaMobile = (l: LinhaExtrato, idx: number, enr: EnriquecimentoLinha | undefined, opcoes: string[]) => {
+    const marcada = !!importar[idx]
+    const pres = presentBalde(l.balde)
+    return (
+      <div
+        key={idx}
+        className={`rounded-md border border-bg-border bg-bg-surface p-3 flex flex-col gap-2 ${
+          marcada ? '' : 'opacity-60'
+        }`}
+      >
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={marcada}
+            onChange={() => onToggleImportar(idx)}
+            className="accent-amber w-4 h-4 mt-0.5"
+            aria-label={`Importar ${l.descricao}`}
+          />
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <span className="text-sm text-text-primary truncate">{l.descricao}</span>
+            <span className="text-xs text-text-muted">{l.data}</span>
+          </div>
+          <span className={`text-sm shrink-0 ${pres.amountClass}`}>
+            {pres.sign}
+            {formatBRL(Number(l.valor))}
+          </span>
+        </label>
+        {avisoRecorrencia(enr)}
+        {marcada && (
+          <select
+            value={catValor(idx, enr)}
+            onChange={(e) => onSetCategoria(idx, e.target.value)}
+            className={catSelectClass}
+            aria-label={`Categoria de ${l.descricao}`}
+          >
+            {opcoesCom(catValor(idx, enr), opcoes).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+    )
+  }
+
+  // ── Uma linha de receita/débito (desktop = <tr>) ──
+  const linhaDesktop = (l: LinhaExtrato, idx: number, enr: EnriquecimentoLinha | undefined, opcoes: string[]) => {
+    const marcada = !!importar[idx]
+    const pres = presentBalde(l.balde)
+    return (
+      <tr key={idx} className={`border-b border-bg-border ${marcada ? '' : 'opacity-60'}`}>
+        <td className="py-2 pr-3 align-top">
+          <input
+            type="checkbox"
+            checked={marcada}
+            onChange={() => onToggleImportar(idx)}
+            className="accent-amber w-4 h-4 mt-0.5"
+            aria-label={`Importar ${l.descricao}`}
+          />
+        </td>
+        <td className="py-2 pr-3 text-xs text-text-muted whitespace-nowrap align-top">{l.data}</td>
+        <td className="py-2 pr-3 align-top">
+          <span className="text-sm text-text-primary">{l.descricao}</span>
+          {avisoRecorrencia(enr)}
+        </td>
+        <td
+          className={`py-2 pr-3 text-sm text-right whitespace-nowrap align-top ${pres.amountClass}`}
+        >
+          {pres.sign}
+          {formatBRL(Number(l.valor))}
+        </td>
+        <td className="py-2 align-top w-44">
+          {marcada ? (
+            <select
+              value={catValor(idx, enr)}
+              onChange={(e) => onSetCategoria(idx, e.target.value)}
+              className={catSelectClass}
+              aria-label={`Categoria de ${l.descricao}`}
+            >
+              {opcoesCom(catValor(idx, enr), opcoes).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-xs text-text-muted">não importar</span>
+          )}
+        </td>
+      </tr>
+    )
+  }
+
+  // ── Seção de receitas/débitos (mobile = cards, desktop = tabela) ──
+  const secaoLinhas = (
+    titulo: string,
+    grupo: typeof linhas,
+    opcoes: string[],
+  ) => {
+    if (grupo.length === 0) return null
+    return (
+      <div className="flex flex-col gap-2">
+        <h2 className="text-sm font-medium text-text-primary">
+          {titulo} ({marcadas(grupo)}/{grupo.length})
+        </h2>
+        {isMobile ? (
+          <div className="flex flex-col gap-2">
+            {grupo.map(({ l, idx, enr }) => linhaMobile(l, idx, enr, opcoes))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-bg-border text-left">
+                  <th className="py-2 pr-3 w-8" />
+                  <th className="py-2 pr-3 text-[11px] font-medium text-text-muted uppercase tracking-wide">Data</th>
+                  <th className="py-2 pr-3 text-[11px] font-medium text-text-muted uppercase tracking-wide">Descrição</th>
+                  <th className="py-2 pr-3 text-[11px] font-medium text-text-muted uppercase tracking-wide text-right">Valor</th>
+                  <th className="py-2 text-[11px] font-medium text-text-muted uppercase tracking-wide">Categoria</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grupo.map(({ l, idx, enr }) => linhaDesktop(l, idx, enr, opcoes))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Indicador de confiança de uma candidata (valor_bate) + nota ja_paga ──
+  const notasCandidata = (diferenca: string, valorBate: boolean, jaPaga: boolean) => (
+    <span className="flex flex-col gap-0.5">
+      {valorBate ? (
+        <span className="text-[11px] text-success">✓ valor confere</span>
+      ) : (
+        <span className="text-[11px] text-amber">
+          ⚠ difere {formatBRL(Math.abs(Number(diferenca)))} — pagamento parcial?
+        </span>
+      )}
+      {jaPaga && (
+        <span className="text-[11px] text-text-muted">
+          essa fatura já constava paga — o valor será substituído pelo real do extrato
+        </span>
+      )}
+    </span>
+  )
+
+  // ── Um pagamento de fatura (card nos dois layouts — radios não cabem em tabela) ──
+  const cardPagamento = (l: LinhaExtrato, idx: number, enr: EnriquecimentoLinha | undefined) => {
+    const proposta = resolverProposta(enr)
+
+    // fora do import: sem_match, proposta ausente/vazia ou status desconhecido —
+    // card cinza read-only, com selo neutro quando o status é desconhecido
+    if (proposta.kind === 'fora') {
+      const selo = proposta.known ? null : neutralBadge(proposta.status)
+      return (
+        <div
+          key={idx}
+          className="rounded-md border border-bg-border bg-bg px-3 py-2.5 flex flex-col gap-1"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-sm text-text-muted truncate">
+                {l.descricao}
+                {selo && (
+                  <span
+                    className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${selo.className}`}
+                  >
+                    {selo.label}
+                  </span>
+                )}
+              </span>
+              <span className="text-[11px] text-text-muted">{l.data} · não será importado</span>
+            </div>
+            <span className="text-sm text-text-muted shrink-0">{formatBRL(Number(l.valor))}</span>
+          </div>
+          <p className="text-[11px] text-text-muted">{proposta.motivo}</p>
+        </div>
+      )
+    }
+
+    const marcada = !!importar[idx]
+    const escolhida = candidataEscolhida[idx] ?? 0
+    const ambigua = proposta.candidatas.length > 1
+
+    return (
+      <div
+        key={idx}
+        className={`rounded-md border border-bg-border bg-bg-surface p-3 flex flex-col gap-2 ${
+          marcada ? '' : 'opacity-60'
+        }`}
+      >
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={marcada}
+            onChange={() => onToggleImportar(idx)}
+            className="accent-amber w-4 h-4 mt-0.5"
+            aria-label={`Importar pagamento ${l.descricao}`}
+          />
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <span className="text-sm text-text-primary truncate">{l.descricao}</span>
+            <span className="text-xs text-text-muted">{l.data}</span>
+          </div>
+          <span className="text-sm text-text-primary shrink-0">
+            −{formatBRL(Number(l.valor))}
+          </span>
+        </label>
+
+        {marcada &&
+          (ambigua ? (
+            <div className="flex flex-col gap-1.5 pl-7">
+              <p className="text-[11px] text-amber">
+                ⚠ Mais de uma fatura pode ser a quitada — confirme qual.
+              </p>
+              {proposta.candidatas.map((c, i) => (
+                <label
+                  key={`${c.cartao_id}-${c.fatura_mes}-${c.fatura_ano}`}
+                  className="flex items-start gap-2.5 px-3 py-2 rounded-md border border-bg-border bg-bg cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    name={`pf-${idx}`}
+                    checked={escolhida === i}
+                    onChange={() => onSetCandidata(idx, i)}
+                    className="accent-amber w-3.5 h-3.5 mt-0.5"
+                  />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-xs text-text-primary">
+                      {c.cartao_nome} · fatura {formatCompetencia(c.fatura_mes, c.fatura_ano)} ·{' '}
+                      {formatBRL(Number(c.total_fatura))}
+                    </span>
+                    {notasCandidata(c.diferenca, c.valor_bate, c.ja_paga)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-0.5 pl-7">
+              <span className="text-xs text-text-primary">
+                → {proposta.candidatas[0].cartao_nome} · fatura{' '}
+                {formatCompetencia(
+                  proposta.candidatas[0].fatura_mes,
+                  proposta.candidatas[0].fatura_ano,
+                )}{' '}
+                · {formatBRL(Number(proposta.candidatas[0].total_fatura))}
+              </span>
+              {notasCandidata(
+                proposta.candidatas[0].diferenca,
+                proposta.candidatas[0].valor_bate,
+                proposta.candidatas[0].ja_paga,
+              )}
+            </div>
+          ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <WalkBanner rec={reconciliacao} />
+
+      {/* ── Período (o commit o exige como chave de idempotência; o preview
+          tolera ausente — aqui o usuário informa as datas) ── */}
+      {periodoFaltante && (
+        <div className="rounded-md border border-amber/40 bg-amber/5 px-3 py-2.5 flex flex-col gap-2">
+          <p className="text-xs text-text-primary">
+            ⚠ O extrato não informa o período — preencha para importar.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-2 text-xs text-text-muted">
+              De
+              <input
+                type="date"
+                value={periodoDe}
+                onChange={(e) => onSetPeriodo('de', e.target.value)}
+                className={dateInputClass}
+                aria-label="Início do período"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-text-muted">
+              Até
+              <input
+                type="date"
+                value={periodoAte}
+                onChange={(e) => onSetPeriodo('ate', e.target.value)}
+                className={dateInputClass}
+                aria-label="Fim do período"
+              />
+            </label>
+          </div>
+        </div>
+      )}
+
+      {extrato.linhas.length === 0 && (
+        <p className="text-sm text-text-muted py-4 text-center">
+          Nenhuma movimentação reconhecida neste extrato.
+        </p>
+      )}
+
+      {secaoLinhas('Receitas', receitas, categoriasReceita)}
+      {secaoLinhas('Débitos', debitos, categoriasDespesa)}
+
+      {/* ── Pagamentos de fatura ── */}
+      {pagamentos.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-text-primary">
+            Pagamentos de fatura ({marcadas(pagamentos)}/{pagamentos.length})
+          </h2>
+          <p className="text-xs text-text-muted">
+            Saída de caixa que não é consumo — vira pagamento da fatura confirmada, com o
+            valor e a data reais do extrato.
+          </p>
+          <div className="flex flex-col gap-2">
+            {pagamentos.map(({ l, idx, enr }) => cardPagamento(l, idx, enr))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Rendimento do RESUMO (não é linha de movimentação) ── */}
+      {rendimento > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-text-primary">Rendimento</h2>
+          <label className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-bg-border bg-bg-surface cursor-pointer">
+            <input
+              type="checkbox"
+              checked={importarRendimento}
+              onChange={onToggleRendimento}
+              className="accent-amber w-4 h-4"
+              aria-label="Importar rendimento"
+            />
+            <span className="text-sm text-text-primary">
+              Rendimento <span className="text-success">+{formatBRL(rendimento)}</span> →
+              receita “Rendimentos”
+            </span>
+          </label>
+        </div>
+      )}
+
+      {/* ── Fallback neutro: baldes que o front não conhece — exibidos, nunca
+          importados, selo neutro humanizado (nunca alerta, nunca quebra) ── */}
+      {desconhecidas.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-text-muted">Não reconhecidas</h2>
+          <p className="text-xs text-text-muted">
+            Estas linhas vieram num formato que o app ainda não conhece — não serão importadas.
+          </p>
+          <div className="flex flex-col gap-2">
+            {desconhecidas.map(({ l, idx }) => {
+              const selo = neutralBadge(l.balde)
+              return (
+                <div
+                  key={idx}
+                  className="rounded-md border border-bg-border bg-bg px-3 py-2.5 flex items-start justify-between gap-2"
+                >
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-sm text-text-muted truncate">
+                      {l.descricao}
+                      <span
+                        className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${selo.className}`}
+                      >
+                        {selo.label}
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-text-muted">{l.data}</span>
+                  </div>
+                  <span className="text-sm text-text-muted shrink-0">
+                    {formatBRL(Number(l.valor))}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  )
+}

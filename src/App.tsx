@@ -22,6 +22,7 @@ const CardsPage = lazy(() => import('./pages/Cards/CardsPage'))
 const DashboardPage = lazy(() => import('./pages/Dashboard/DashboardPage'))
 const ImportPage = lazy(() => import('./pages/Import/ImportPage'))
 const ImportFaturaPage = lazy(() => import('./pages/Import/ImportFaturaPage'))
+const ImportExtratoPage = lazy(() => import('./pages/Import/ImportExtratoPage'))
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'))
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'))
 const TransactionsPage = lazy(() => import('./pages/Transactions/TransactionsPage'))
@@ -96,6 +97,7 @@ export default function App() {
             <Route path="/assistant" element={<AssistantPage />} />
             <Route path="/import" element={<ImportPage />} />
             <Route path="/import/fatura" element={<ImportFaturaPage />} />
+            <Route path="/import/extrato" element={<ImportExtratoPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

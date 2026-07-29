@@ -565,6 +565,16 @@ export default function SettingsPage() {
 
         <SettingsRow>
           <p className="text-sm text-text-muted mb-3">
+            Importe o extrato da sua conta em PDF. Receitas, débitos e pagamentos de fatura
+            são revisados antes de confirmar.
+          </p>
+          <Button variant="ghost" onClick={() => navigate('/import/extrato')}>
+            ↑ Importar extrato (PDF)
+          </Button>
+        </SettingsRow>
+
+        <SettingsRow>
+          <p className="text-sm text-text-muted mb-3">
             Baixa um arquivo JSON com as suas transações. Não inclui cartões, parcelas,
             recorrências nem categorias — não é um backup da conta.
           </p>
