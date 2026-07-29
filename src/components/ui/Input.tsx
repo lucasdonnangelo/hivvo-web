@@ -3,6 +3,11 @@ import { forwardRef, useState, type InputHTMLAttributes } from 'react'
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
+  // Marca o campo como inválido SEM imprimir mensagem aqui — para quando o texto
+  // do erro é longo demais para a largura do campo e é renderizado fora dele
+  // (ex.: erro cruzado entre dois campos de uma grade). `error` continua fazendo
+  // as duas coisas de uma vez.
+  invalid?: boolean
   showToggle?: boolean
 }
 
@@ -26,7 +31,7 @@ function EyeOffIcon() {
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, id, className = '', showToggle, type, ...props }, ref) => {
+  ({ label, error, invalid, id, className = '', showToggle, type, ...props }, ref) => {
     const [visible, setVisible] = useState(false)
     const effectiveType = showToggle ? (visible ? 'text' : 'password') : type
 
@@ -40,7 +45,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           'bg-bg-surface placeholder:text-text-muted',
           'border focus:outline-none focus:border-amber',
           'transition-colors duration-150',
-          error ? 'border-danger' : 'border-bg-border',
+          error || invalid ? 'border-danger' : 'border-bg-border',
           showToggle ? 'pr-10' : '',
           className,
         ].join(' ')}
