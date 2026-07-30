@@ -1,4 +1,5 @@
 import type {
+  EnriquecimentoFaturaLinha,
   FaturaExtraida,
   ReconciliacaoFatura,
   TransacaoFatura,
@@ -9,15 +10,18 @@ import {
   formatPortador,
   isDespesaLinha,
   motivoExclusao,
+  rotuloSugestao,
 } from './helpers'
 
 const catSelectClass =
-  'w-full px-2 py-1.5 rounded-sm text-xs text-text-primary bg-bg border border-bg-border focus:outline-none focus:border-amber transition-colors'
+  'w-full px-2 py-1.5 rounded-sm text-xs text-text-primary bg-bg border focus:outline-none focus:border-amber transition-colors'
 
 interface StepRevisaoProps {
   isMobile: boolean
   fatura: FaturaExtraida
   reconciliacao: ReconciliacaoFatura
+  // Auto-categoria por `indice` (join explícito). Ausente = linha sem sugestão.
+  enriquecimento: Map<number, EnriquecimentoFaturaLinha>
   categorias: Record<number, string>
   apagadas: Record<number, true>
   categoriaOptions: string[]
@@ -61,6 +65,7 @@ export default function StepRevisao({
   isMobile,
   fatura,
   reconciliacao,
+  enriquecimento,
   categorias,
   apagadas,
   categoriaOptions,
@@ -72,7 +77,49 @@ export default function StepRevisao({
   const excluidas = linhas.filter(({ t }) => !isDespesaLinha(t))
   const ativas = despesas.filter(({ idx }) => !apagadas[idx]).length
 
-  const catValor = (idx: number) => categorias[idx] ?? 'Outros'
+  // A sugestão nasce SELECIONADA — senão a feature não faz nada. Precedência:
+  // edição do usuário > sugestão do backend > 'Outros' (o neutro).
+  const catValor = (idx: number) =>
+    categorias[idx] ?? enriquecimento.get(idx)?.categoria_sugerida ?? 'Outros'
+
+  // Se o valor atual (sugestão de categoria desativada entre o preview e agora)
+  // não está nas opções, ele entra na lista — o select nunca coage em silêncio.
+  const opcoesCom = (valor: string) =>
+    categoriaOptions.includes(valor) ? categoriaOptions : [valor, ...categoriaOptions]
+
+  // "Ainda é PROPOSTA?" — o rótulo quando sim, null quando não. Uma condição
+  // só, consumida pela marca e pela borda (que precisam concordar sempre).
+  //
+  // Tocar no seletor DESLIGA a marca: ela significa "isto foi proposto, você
+  // ainda não olhou". Enquanto ela some ao escolher, é impossível lê-la como
+  // "confirmado" — que foi o erro do "✦ IA" em âmbar.
+  const propostaDe = (idx: number): string | null =>
+    categorias[idx] !== undefined
+      ? null
+      : rotuloSugestao(enriquecimento.get(idx)?.origem_sugestao ?? null)
+
+  const marcaSugestao = (idx: number) => {
+    const rotulo = propostaDe(idx)
+    if (!rotulo) return null
+    return (
+      <span className="text-[11px] text-suggest flex items-center gap-1 whitespace-nowrap">
+        <span aria-hidden>◇</span>
+        {rotulo}
+      </span>
+    )
+  }
+
+  // Borda fria enquanto é proposta; borda normal assim que vira escolha.
+  const borda = (idx: number) =>
+    propostaDe(idx) ? 'border-suggest/40' : 'border-bg-border'
+
+  // O ◇ é decorativo (aria-hidden) e o rótulo é um irmão do <select>, não algo
+  // que o leitor de tela anuncie junto com o valor. Sem isto, quem não vê a
+  // marca ouve "Alimentação" e não tem como saber que ninguém confirmou.
+  const ariaCategoria = (t: TransacaoFatura, idx: number) => {
+    const rotulo = propostaDe(idx)
+    return `Categoria de ${t.descricao}${rotulo ? ` — ${rotulo}, ainda não confirmada` : ''}`
+  }
 
   // ── Uma linha de despesa (mobile = card) ──
   // Funções (não componentes aninhados): chamadas como linhaMobile(t, idx) o JSX
@@ -111,26 +158,29 @@ export default function StepRevisao({
             Restaurar linha
           </button>
         ) : (
-          <div className="flex items-center gap-2">
-            <select
-              value={catValor(idx)}
-              onChange={(e) => onSetCategoria(idx, e.target.value)}
-              className={catSelectClass}
-              aria-label={`Categoria de ${t.descricao}`}
-            >
-              {categoriaOptions.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => onToggleApagar(idx)}
-              className="shrink-0 w-8 h-8 flex items-center justify-center rounded text-text-muted hover:text-danger hover:bg-bg-border transition-colors text-xs"
-              aria-label={`Apagar ${t.descricao}`}
-            >
-              ✕
-            </button>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <select
+                value={catValor(idx)}
+                onChange={(e) => onSetCategoria(idx, e.target.value)}
+                className={`${catSelectClass} ${borda(idx)}`}
+                aria-label={ariaCategoria(t, idx)}
+              >
+                {opcoesCom(catValor(idx)).map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => onToggleApagar(idx)}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded text-text-muted hover:text-danger hover:bg-bg-border transition-colors text-xs"
+                aria-label={`Apagar ${t.descricao}`}
+              >
+                ✕
+              </button>
+            </div>
+            {marcaSugestao(idx)}
           </div>
         )}
       </div>
@@ -168,18 +218,21 @@ export default function StepRevisao({
           {apagada ? (
             <span className="text-xs text-text-muted">removida</span>
           ) : (
-            <select
-              value={catValor(idx)}
-              onChange={(e) => onSetCategoria(idx, e.target.value)}
-              className={catSelectClass}
-              aria-label={`Categoria de ${t.descricao}`}
-            >
-              {categoriaOptions.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-1">
+              <select
+                value={catValor(idx)}
+                onChange={(e) => onSetCategoria(idx, e.target.value)}
+                className={`${catSelectClass} ${borda(idx)}`}
+                aria-label={ariaCategoria(t, idx)}
+              >
+                {opcoesCom(catValor(idx)).map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              {marcaSugestao(idx)}
+            </div>
           )}
         </td>
         <td className="py-2 align-top text-right">

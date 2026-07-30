@@ -18,7 +18,7 @@ import StepUpload from './fatura/StepUpload'
 import StepRevisao from './fatura/StepRevisao'
 import StepPassadas from './fatura/StepPassadas'
 import StepRecibo from './fatura/StepRecibo'
-import { isDespesaLinha } from './fatura/helpers'
+import { isDespesaLinha, mapEnriquecimento } from './fatura/helpers'
 
 // ── Estado do wizard (UI-STATE efêmero — vive só nesta rota, fora do TanStack) ──
 // useReducer e não Zustand: a fatura + edições não cruzam navegação nem persistem;
@@ -32,7 +32,9 @@ interface State {
   arquivo: File | null
   uploadError: string
   preview: FaturaPreviewResponse | null
-  // edições mapeadas pelo ÍNDICE ORIGINAL em preview.fatura.transacoes
+  // Só EDIÇÕES do usuário, pelo ÍNDICE ORIGINAL em preview.fatura.transacoes.
+  // Ausente = ele não tocou no seletor: a tela mostra a sugestão do backend e o
+  // commit manda `null` (tri-estado — o servidor recomputa).
   categorias: Record<number, string>
   apagadas: Record<number, true>
   // só competências controláveis (ja_paga=false); chave "mes-ano"; default true
@@ -141,6 +143,12 @@ export default function ImportFaturaPage() {
   const cardNome =
     allCards.find((c) => c.id === state.preview?.cartao_id)?.nome ?? ''
 
+  // Join linhas↔enriquecimento por `indice` explícito — nunca por posição.
+  const enrMap = useMemo(
+    () => mapEnriquecimento(state.preview?.enriquecimento ?? []),
+    [state.preview],
+  )
+
   // ── Preview (chama o Gemini) ──
   function handleExtrair() {
     if (state.cartaoId == null) {
@@ -167,14 +175,21 @@ export default function ImportFaturaPage() {
 
   // ── Monta o payload do commit: a fatura INTEIRA de volta (menos linhas apagadas),
   // categoria por linha. As linhas cinzas (pagamento/ajuste/estorno) VIAJAM — o
-  // backend as filtra e conta estornos_ignorados/excluidos a partir delas. ──
+  // backend as filtra e conta estornos_importados/excluidos a partir delas.
+  //
+  // TRI-ESTADO da categoria: só vai string quando o usuário MEXEU no seletor.
+  // Linha intocada (e toda linha cinza, que nem tem seletor) vai `null` e o
+  // servidor recomputa a sugestão — a tela PROPÕE, o servidor DECIDE de novo.
+  // Mandar de volta o que está na tela pareceria mais direto, mas transformaria
+  // a proposta do servidor em decisão do usuário, e o estorno (sem seletor)
+  // continuaria preso em "Outros" para sempre. ──
   function buildPayload(preview: FaturaPreviewResponse): FaturaCommitRequest {
     const transacoes: TransacaoCommit[] = preview.fatura.transacoes
       .map((t, idx) => ({ t, idx }))
       .filter(({ idx }) => !state.apagadas[idx])
       .map(({ t, idx }) => ({
         ...t,
-        categoria: isDespesaLinha(t) ? state.categorias[idx] ?? 'Outros' : 'Outros',
+        categoria: isDespesaLinha(t) ? state.categorias[idx] ?? null : null,
       }))
     const fatura: FaturaCommit = { ...preview.fatura, transacoes }
     const competencias_pagas: CompetenciaFatura[] = preview.faturas_passadas
@@ -238,6 +253,7 @@ export default function ImportFaturaPage() {
             isMobile={isMobile}
             fatura={state.preview.fatura}
             reconciliacao={state.preview.reconciliacao}
+            enriquecimento={enrMap}
             categorias={state.categorias}
             apagadas={state.apagadas}
             categoriaOptions={categoriaOptions}

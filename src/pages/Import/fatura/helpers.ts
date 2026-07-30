@@ -1,4 +1,7 @@
-import type { TransacaoFatura } from '../../../services/importFatura'
+import type {
+  EnriquecimentoFaturaLinha,
+  TransacaoFatura,
+} from '../../../services/importFatura'
 
 export const formatBRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
@@ -30,3 +33,24 @@ export const formatParcela = (t: TransacaoFatura): string | null =>
 
 export const formatPortador = (t: TransacaoFatura): string =>
   t.portador_final ? `•••• ${t.portador_final}` : '—'
+
+// Join linhas↔enriquecimento por `indice` EXPLÍCITO, nunca por posição: as
+// linhas não-materializáveis (pagamento/ajuste_saldo) não têm item, então
+// posição e índice divergem. Gêmeo do mapEnriquecimento do extrato.
+export function mapEnriquecimento(
+  enriquecimento: EnriquecimentoFaturaLinha[],
+): Map<number, EnriquecimentoFaturaLinha> {
+  return new Map(enriquecimento.map((e) => [e.indice, e]))
+}
+
+// Rótulo da marca de sugestão. Diz QUAL camada propôs, porque as duas frases
+// pesam diferente para o usuário: "eu já decidi isso antes" convence mais que
+// "o sistema achou". `null` = sem marca (nada foi sugerido, ou o usuário já
+// mexeu no seletor — aí a categoria é decisão dele, não proposta).
+export const rotuloSugestao = (
+  origem: EnriquecimentoFaturaLinha['origem_sugestao'],
+): string | null => {
+  if (origem === 'historico') return 'como você já categorizou'
+  if (origem === 'regra') return 'sugerida'
+  return null
+}

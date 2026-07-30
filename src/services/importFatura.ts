@@ -71,17 +71,38 @@ export interface FaturaPassada {
   ja_paga: boolean
 }
 
+// Auto-categoria de UMA linha, endereçada por `indice` em fatura.transacoes —
+// array PARALELO, alinhado por índice EXPLÍCITO (nunca por posição). Só linha
+// que materializa (compra/iof com valor != 0, inclusive estorno) tem item.
+export interface EnriquecimentoFaturaLinha {
+  indice: number
+  // NOME da categoria (não id — não existe id de categoria no modelo).
+  // null = nenhuma camada teve o que dizer; a tela mostra 'Outros'.
+  categoria_sugerida: string | null
+  // Qual camada carregou o peso: 'historico' = o usuário já categorizou esta
+  // descrição antes; 'regra' = prefixo de adquirente ou palavra-chave.
+  origem_sugestao: 'historico' | 'regra' | null
+}
+
 export interface FaturaPreviewResponse {
   cartao_id: number
   fatura: FaturaExtraida
   reconciliacao: ReconciliacaoFatura
   faturas_passadas: FaturaPassada[]
+  enriquecimento: EnriquecimentoFaturaLinha[]
 }
 
 // --- Commit: reenvia a fatura revisada (mesma FaturaExtraida + categoria/linha) ---
 
+// `categoria` é TRI-ESTADO, a mesma forma do `importar` do extrato:
+// - string (INCLUSIVE 'Outros'): o usuário DECIDIU — vale sempre, o servidor só
+//   revalida que a categoria existe para ele, naquele tipo;
+// - null: NÃO decidido → o servidor RECOMPUTA a própria sugestão, com o mesmo
+//   matcher do preview.
+// O front manda null na linha que o usuário não tocou — é o que dá categoria de
+// verdade ao ESTORNO, que não tem seletor na tela (seção cinza).
 export interface TransacaoCommit extends TransacaoFatura {
-  categoria: string
+  categoria: string | null
 }
 
 export interface FaturaCommit extends Omit<FaturaExtraida, 'transacoes'> {

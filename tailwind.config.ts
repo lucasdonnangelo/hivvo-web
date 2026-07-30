@@ -21,6 +21,23 @@ const config: Config = {
         },
         success: '#3DBF7F',
         danger: '#E85D5D',
+        // Marca de "o sistema propôs, você ainda não confirmou" — hoje só a
+        // categoria sugerida na revisão de fatura.
+        //
+        // NÃO pode ser âmbar: o "✦ IA" em âmbar fez o usuário achar que a
+        // categoria já estava confirmada, e âmbar aqui já significa
+        // "selecionado", "paga_parcial", "estorno" e "atenção" (145 usos).
+        // `success`/`danger` carregam juízo de resultado — uma sugestão não é
+        // boa nem ruim, é não-confirmada. `text-muted` significa
+        // "secundário/desabilitado" e mede 4,13:1 sobre bg-surface, abaixo de
+        // AA para os 11px desta tela; este tom mede 6,88:1.
+        //
+        // É o único tom FRIO de uma paleta inteiramente quente (âmbar, creme,
+        // marrons) — distinguível de âmbar em visão periférica, que é
+        // exatamente o modo de falha sendo consertado.
+        //
+        // Quando o tema claro vier (#12), este token precisa de par claro.
+        suggest: '#8FB4C7',
       },
       borderRadius: {
         sm: '8px',
