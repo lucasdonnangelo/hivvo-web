@@ -14,18 +14,33 @@ const MESES_CURTOS = [
 export const formatCompetencia = (mes: number, ano: number) =>
   `${MESES_CURTOS[mes - 1] ?? '?'}/${ano}`
 
-// Só compra/iof COM valor positivo viram despesa (materializam). Pagamento e
-// ajuste_saldo são liquidação/saldo; compra negativa é estorno — ambos ficam na
-// seção cinza "não entra como despesa" (mas VIAJAM no commit, que os filtra e
-// conta estornos_ignorados/excluidos). Espelha _TIPOS_GASTO + valor>0 do backend.
+// Só compra/iof COM valor positivo viram despesa (materializam). Espelha
+// _TIPOS_GASTO + valor>0 do backend.
 export const isDespesaLinha = (t: TransacaoFatura): boolean =>
   (t.tipo === 'compra' || t.tipo === 'iof') && Number(t.valor_brl) > 0
 
-export const motivoExclusao = (t: TransacaoFatura): string => {
-  if (t.tipo === 'pagamento') return 'Pagamento da fatura — abate o saldo, não é gasto.'
+// Compra/iof NEGATIVA é estorno. Não é despesa, mas É IMPORTADA: vira
+// `Transacao(tipo="estorno")` e as agregações a SUBTRAEM do consumo (conta em
+// `estornos_importados` no recibo). É por isso que ela não pode dividir seção
+// com pagamento/ajuste — o destino é o oposto.
+//
+// `< 0`, e não `<= 0`: o backend materializa compra/iof com valor != 0, então a
+// linha de valor EXATAMENTE zero não vira lançamento nenhum e não pode herdar a
+// promessa de importação do estorno.
+export const isEstornoLinha = (t: TransacaoFatura): boolean =>
+  (t.tipo === 'compra' || t.tipo === 'iof') && Number(t.valor_brl) < 0
+
+// Explica UMA linha que não é despesa — dizendo o destino dela, porque as duas
+// seções de baixo têm destinos opostos e nenhuma frase de seção fala por todas.
+// Pagamento/ajuste_saldo/valor zero VIAJAM no commit e o backend os filtra
+// (entram em `excluidos`); o estorno viaja e é GRAVADO.
+export const motivoNaoDespesa = (t: TransacaoFatura): string => {
+  if (t.tipo === 'pagamento')
+    return 'Pagamento da fatura — quita o que já foi gasto, não é um gasto novo.'
   if (t.tipo === 'ajuste_saldo') return 'Ajuste de saldo — não é um gasto.'
-  // sobra: compra/iof com valor <= 0 = estorno (crédito)
-  return 'Estorno (crédito) — não entra como despesa.'
+  if (isEstornoLinha(t)) return 'Estorno (crédito) — entra abatendo o consumo.'
+  // sobra: compra/iof com valor exatamente zero
+  return 'Valor zero — não vira lançamento.'
 }
 
 export const formatParcela = (t: TransacaoFatura): string | null =>

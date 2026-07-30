@@ -9,7 +9,8 @@ import {
   formatParcela,
   formatPortador,
   isDespesaLinha,
-  motivoExclusao,
+  isEstornoLinha,
+  motivoNaoDespesa,
   rotuloSugestao,
 } from './helpers'
 
@@ -74,7 +75,14 @@ export default function StepRevisao({
 }: StepRevisaoProps) {
   const linhas = fatura.transacoes.map((t, idx) => ({ t, idx }))
   const despesas = linhas.filter(({ t }) => isDespesaLinha(t))
-  const excluidas = linhas.filter(({ t }) => !isDespesaLinha(t))
+  // DUAS seções, não uma: o estorno é importado (vira crédito e abate o
+  // consumo) e o resto não vira lançamento nenhum. Numa seção só, a frase de
+  // topo teria de valer para os dois destinos — e a que existia negava a
+  // importação para quem justamente é importado.
+  const creditos = linhas.filter(({ t }) => isEstornoLinha(t))
+  const foraDaImportacao = linhas.filter(
+    ({ t }) => !isDespesaLinha(t) && !isEstornoLinha(t),
+  )
   const ativas = despesas.filter(({ idx }) => !apagadas[idx]).length
 
   // A sugestão nasce SELECIONADA — senão a feature não faz nada. Precedência:
@@ -84,6 +92,11 @@ export default function StepRevisao({
 
   // Se o valor atual (sugestão de categoria desativada entre o preview e agora)
   // não está nas opções, ele entra na lista — o select nunca coage em silêncio.
+  //
+  // Ela SOME da lista assim que o usuário escolhe outra, e isso é DELIBERADO,
+  // não bug: a categoria desativada só estava ali porque era o valor vigente,
+  // não porque voltou a ser oferecível. Mantê-la depois seria oferecer de volta
+  // uma categoria que o próprio usuário desativou.
   const opcoesCom = (valor: string) =>
     categoriaOptions.includes(valor) ? categoriaOptions : [valor, ...categoriaOptions]
 
@@ -257,6 +270,29 @@ export default function StepRevisao({
     )
   }
 
+  // ── Uma linha read-only das DUAS seções de baixo ── (função, ver linhaMobile)
+  // Markup idêntico nas duas: o que muda entre crédito e fora-da-importação é o
+  // destino, e ele é dito pelo título/frase da seção e pelo motivo da linha.
+  const linhaCinza = (t: TransacaoFatura, idx: number) => (
+    <div
+      key={idx}
+      className="rounded-md border border-bg-border bg-bg px-3 py-2.5 flex items-start justify-between gap-2"
+    >
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-sm text-text-muted truncate">{t.descricao}</span>
+        <span className="text-[11px] text-text-muted">{motivoNaoDespesa(t)}</span>
+      </div>
+      {/* O valor do crédito fica em text-muted, NÃO em âmbar — mesmo o
+          StepRecibo usando âmbar para "estornos importados". Lá o estorno é o
+          resultado, sozinho na tela; aqui âmbar já significa "selecionado" (o
+          foco do seletor de categoria, logo acima) e "atenção" (o banner de
+          reconciliação, logo abaixo). Um terceiro sentido na mesma tela é
+          exatamente o erro que a marca de sugestão acabou de pagar — o "✦ IA"
+          âmbar lido como "confirmado". Aqui o destino é dito por escrito. */}
+      <span className="text-sm text-text-muted shrink-0">{formatBRL(Number(t.valor_brl))}</span>
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-5">
       <ReconBanner rec={reconciliacao} />
@@ -299,28 +335,32 @@ export default function StepRevisao({
         )}
       </div>
 
-      {/* ── Não entram como despesa (cinza, read-only) ── */}
-      {excluidas.length > 0 && (
+      {/* ── Entram como CRÉDITO (estornos): read-only, mas importadas ── */}
+      {creditos.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-text-muted">Não entram como despesa</h2>
+          {/* Título em text-primary, e não no muted da seção de baixo: isto é
+              conteúdo que vai ser gravado, do mesmo peso que "Despesas". */}
+          <h2 className="text-sm font-medium text-text-primary">Entram como crédito</h2>
           <p className="text-xs text-text-muted">
-            Estas linhas foram reconhecidas na fatura, mas não são gastos — não serão importadas.
+            Estornos reconhecidos na fatura. Não são gastos — são importados como crédito e abatem
+            o consumo.
           </p>
           <div className="flex flex-col gap-2">
-            {excluidas.map(({ t, idx }) => (
-              <div
-                key={idx}
-                className="rounded-md border border-bg-border bg-bg px-3 py-2.5 flex items-start justify-between gap-2"
-              >
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-sm text-text-muted truncate">{t.descricao}</span>
-                  <span className="text-[11px] text-text-muted">{motivoExclusao(t)}</span>
-                </div>
-                <span className="text-sm text-text-muted shrink-0">
-                  {formatBRL(Number(t.valor_brl))}
-                </span>
-              </div>
-            ))}
+            {creditos.map(({ t, idx }) => linhaCinza(t, idx))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Não entram na importação (read-only) ── */}
+      {foraDaImportacao.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-text-muted">Não entram na importação</h2>
+          <p className="text-xs text-text-muted">
+            Estas linhas foram reconhecidas na fatura, mas não viram lançamento — nem gasto, nem
+            crédito.
+          </p>
+          <div className="flex flex-col gap-2">
+            {foraDaImportacao.map(({ t, idx }) => linhaCinza(t, idx))}
           </div>
         </div>
       )}
