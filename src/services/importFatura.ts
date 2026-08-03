@@ -82,6 +82,19 @@ export interface EnriquecimentoFaturaLinha {
   // Qual camada carregou o peso: 'historico' = o usuário já categorizou esta
   // descrição antes; 'regra' = prefixo de adquirente ou palavra-chave.
   origem_sugestao: 'historico' | 'regra' | null
+  // A data da linha caiu fora do que a fatura permite. Assimétrico DE PROPÓSITO:
+  // só o limite SUPERIOR (`data > emissao`). `periodo.de` NÃO vira limite
+  // inferior — ele é a data de ORIGEM da parcelada mais antiga, então um limite
+  // tirado dali seria derivado das próprias linhas que ele validaria (circular)
+  // e flagaria parcelamento longo LEGÍTIMO.
+  //
+  // null = a regra não flagou OU não rodou (emissao ausente) — e não rodar não
+  // é erro. Nunca bloqueia e nunca corrige: não sabemos qual é a data certa.
+  //
+  // É Literal e não bool para o front NÃO re-derivar de que lado a data caiu —
+  // re-derivar seria reimplementar a regra, do lado errado. Gêmeo do campo em
+  // EnriquecimentoLinha do extrato, que tem DOIS valores pelo mesmo motivo.
+  data_suspeita: 'posterior_a_emissao' | null
 }
 
 export interface FaturaPreviewResponse {

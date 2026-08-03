@@ -164,6 +164,139 @@ window.__h = {
   layout() { return document.getElementById('harness-toggle-mobile').textContent.trim() },
   toggle() { document.getElementById('harness-toggle-mobile').click(); return true },
 }
+
+// ── Probes da MARCA DE DATA SUSPEITA (⚑) ────────────────────────────────────
+// Tudo aqui é lido da página viva. As asserções não olham o código-fonte: se a
+// marca não renderizar, ou renderizar na linha errada, ou colidir com o ◇, é o
+// DOM que vai dizer.
+window.__d = {
+  // Fundo EFETIVO de um elemento: sobe até achar um background-color opaco.
+  // Sem isto o contraste seria medido contra 'rgba(0,0,0,0)' e daria número
+  // fantasia — a marca vive dentro de card sobre card.
+  fundo(el) {
+    for (let n = el; n; n = n.parentElement) {
+      const c = getComputedStyle(n).backgroundColor
+      if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c
+    }
+    return getComputedStyle(document.body).backgroundColor
+  },
+  // O container MAIS APERTADO que contém a descrição — <tr> no desktop, card no
+  // mobile. Pegar o mais curto evita subir para a seção inteira.
+  linha(desc) {
+    return [...document.querySelectorAll('tr, div.rounded-md')]
+      .filter(e => e.textContent.includes(desc))
+      .sort((a, b) => a.textContent.length - b.textContent.length)[0] ?? null
+  },
+  rect(el) {
+    const r = el.getBoundingClientRect()
+    return { x: r.x, y: r.y, w: r.width, h: r.height }
+  },
+  // Estado COMPLETO da marca numa linha: existe? onde? que cor? sobrepõe o ◇?
+  marca(desc) {
+    const linha = window.__d.linha(desc)
+    if (!linha) return { achou: false }
+    // A marca na DATA é um <span class=text-suspect> cujo texto começa com ISO.
+    const naData = [...linha.querySelectorAll('span.text-suspect')]
+      .find(s => /^\d{4}-\d{2}-\d{2}/.test(s.textContent.trim())) ?? null
+    // O aviso é o <p class=text-suspect>.
+    const aviso = linha.querySelector('p.text-suspect')
+    const sugestao = linha.querySelector('span.text-suggest')
+    const glifoNaData = naData
+      ? [...naData.querySelectorAll('span')].find(s => s.textContent.trim() === '⚑') ?? null
+      : null
+    // Controle da linha que o leitor de tela encontra em modo de foco.
+    const controle =
+      linha.querySelector('input[type=checkbox][aria-label]') ??
+      linha.querySelector('select[aria-label]')
+    // (c) colisão: os retângulos do ⚑ e do ◇ se INTERSECTAM?
+    let colide = null
+    if (aviso && sugestao) {
+      const a = aviso.getBoundingClientRect(), b = sugestao.getBoundingClientRect()
+      colide = !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top)
+    }
+    return {
+      achou: true,
+      marcaNaData: !!naData,
+      dataTexto: naData ? naData.textContent.trim() : null,
+      glifoNaData: !!glifoNaData,
+      glifoAriaHidden: glifoNaData ? glifoNaData.getAttribute('aria-hidden') : null,
+      glifoLargura: glifoNaData ? glifoNaData.getBoundingClientRect().width : null,
+      corData: naData ? getComputedStyle(naData).color : null,
+      avisoPresente: !!aviso,
+      avisoTexto: aviso ? aviso.textContent.trim() : null,
+      avisoCor: aviso ? getComputedStyle(aviso).color : null,
+      avisoFontSize: aviso ? getComputedStyle(aviso).fontSize : null,
+      avisoFundo: aviso ? window.__d.fundo(aviso) : null,
+      sugestaoPresente: !!sugestao,
+      sugestaoTexto: sugestao ? sugestao.textContent.trim() : null,
+      sugestaoCor: sugestao ? getComputedStyle(sugestao).color : null,
+      colideComSugestao: colide,
+      rects: aviso && sugestao
+        ? { aviso: window.__d.rect(aviso), sugestao: window.__d.rect(sugestao) }
+        : null,
+      // (d) o aviso chega a quem não vê o glifo
+      controleTag: controle ? controle.tagName.toLowerCase() : null,
+      controleAria: controle ? controle.getAttribute('aria-label') : null,
+      // (f) a linha flagada NÃO foi desmarcada nem removida por conta da marca
+      checkbox: linha.querySelector('input[type=checkbox]')
+        ? linha.querySelector('input[type=checkbox]').checked
+        : null,
+      temSelect: !!linha.querySelector('select'),
+      textoRemovida: /removida|Restaurar/.test(linha.textContent),
+    }
+  },
+  // Tofu: compara a largura do ⚑ com a de um codepoint de uso privado, que
+  // NENHUMA fonte cobre. Larguras iguais = os dois caem na mesma caixa vazia.
+  glifoRenderiza() {
+    const mk = (txt) => {
+      const s = document.createElement('span')
+      s.textContent = txt
+      s.style.cssText = 'position:absolute;visibility:hidden;font-size:11px;white-space:pre'
+      document.body.appendChild(s)
+      const w = s.getBoundingClientRect().width
+      s.remove()
+      return w
+    }
+    const bandeira = mk('⚑'), tofu = mk(''), diamante = mk('◇')
+    return { bandeira, tofu, diamante, ok: bandeira > 0 && Math.abs(bandeira - tofu) > 0.5 }
+  },
+  moduloAtual() { return document.getElementById('harness-toggle-modulo').textContent.trim() },
+  trocaModulo() { document.getElementById('harness-toggle-modulo').click(); return true },
+  periodoBotao() {
+    const b = document.getElementById('harness-toggle-periodo')
+    return b ? b.textContent.trim() : null
+  },
+  trocaPeriodo() { document.getElementById('harness-toggle-periodo').click(); return true },
+  // Quantas marcas existem na tela inteira — para (a) e (e) em uma leitura só.
+  totais() {
+    return {
+      marcasNaData: [...document.querySelectorAll('span.text-suspect')]
+        .filter(s => /^\d{4}-\d{2}-\d{2}/.test(s.textContent.trim())).length,
+      avisos: document.querySelectorAll('p.text-suspect').length,
+      sugestoes: document.querySelectorAll('span.text-suggest').length,
+      avisoNaoReverificadas: (() => {
+        const p = [...document.querySelectorAll('p')]
+          .find(x => x.textContent.includes('não foram reverificadas'))
+        return p ? p.textContent.trim() : null
+      })(),
+    }
+  },
+  // Edita o período do jeito que o React enxerga (setter do PROTÓTIPO).
+  editaPeriodo(rotulo, valor) {
+    const inp = [...document.querySelectorAll('input[type=date]')]
+      .find(i => (i.getAttribute('aria-label') ?? '').includes(rotulo))
+    if (!inp) return 'input não encontrado'
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, valor)
+    inp.dispatchEvent(new Event('input', { bubbles: true }))
+    inp.dispatchEvent(new Event('change', { bubbles: true }))
+    return inp.value
+  },
+  // (f) no extrato: o estado de importar de todas as linhas, por descrição.
+  marcadas() {
+    return [...document.querySelectorAll('input[type=checkbox][aria-label]')]
+      .map(c => ({ aria: c.getAttribute('aria-label'), checked: c.checked }))
+  },
+}
 true`
 
 const LINHAS = {
@@ -227,6 +360,98 @@ await shot('mobile-baseline.png')
 rel.mobile = await rodada()
 await shot('mobile-depois.png')
 
+// ── MARCA DE DATA SUSPEITA (⚑) ───────────────────────────────────────────────
+// As seis verificações exigidas, nos DOIS layouts. `isMobile` vem de
+// useBreakpoint (prop), não de media query: inspecionar CSS não pegaria a
+// divergência entre linhaMobile e linhaDesktop — só montar os dois pega.
+const FAT = {
+  flagadaComSugestao: 'MERCADO DIA',   // ⚑ E ◇ na mesma linha → teste (c)
+  semFlag: 'UBER TRIP',                // controle: não pode ter marca
+  flagadaCatDesativada: 'SMART FIT',   // ⚑ + sugestão fora das opções
+  estornoFlagado: 'ESTORNO COMPRA',    // importado, read-only, sem conserto
+}
+const EXT = {
+  antes: 'MERCADO BOM PRECO',          // antes_do_periodo
+  depois: 'FARMACIA CENTRAL',          // depois_do_periodo  → cópia tem de diferir
+  semFlag: 'POSTO IPIRANGA',           // controle
+  pagamento: 'PAGTO FATURA CARTAO',    // card de pagamento (outro JSX)
+  comRecorrencia: 'ADIANTAMENTO',      // ⚑ e ⚠ âmbar na mesma linha
+}
+
+const marcas = async (mapa) => {
+  const out = {}
+  for (const [k, d] of Object.entries(mapa)) out[k] = await ev(`window.__d.marca(${JSON.stringify(d)})`)
+  return out
+}
+
+const ds = { fatura: {}, extrato: {} }
+
+await carrega()
+ds.glifo = await ev('window.__d.glifoRenderiza()')
+ds.fatura.desktop = { ...(await marcas(FAT)), totais: await ev('window.__d.totais()') }
+await shot('data-fatura-desktop.png')
+await ev('window.__h.toggle()')
+await sleep(400)
+ds.fatura.mobile = { ...(await marcas(FAT)), totais: await ev('window.__d.totais()') }
+await shot('data-fatura-mobile.png')
+
+// (c) a marca tem de sobreviver ao usuário ESCOLHER categoria: o ◇ some (a
+// escolha deixou de ser proposta), o ⚑ FICA (a data continua suspeita, e não há
+// nada nesta tela com que decidir sobre ela).
+await carrega()
+ds.fatura.aposEscolherCategoria = {
+  antes: await ev(`window.__d.marca(${JSON.stringify(FAT.flagadaComSugestao)})`),
+  pick: await ev(`window.__h.pick(${JSON.stringify(FAT.flagadaComSugestao)}, "Lazer")`),
+}
+await sleep(300)
+ds.fatura.aposEscolherCategoria.depois = await ev(`window.__d.marca(${JSON.stringify(FAT.flagadaComSugestao)})`)
+
+// ── Extrato ──
+await carrega()
+await ev('window.__d.trocaModulo()')
+await sleep(400)
+ds.extrato.modulo = await ev('window.__d.moduloAtual()')
+ds.extrato.desktop = { ...(await marcas(EXT)), totais: await ev('window.__d.totais()') }
+ds.extrato.marcadasAntes = await ev('window.__d.marcadas()')
+await shot('data-extrato-desktop.png')
+
+// Com o período do documento PRESENTE a cópia cita a faixa (e o editor some).
+await ev('window.__d.trocaPeriodo()')
+await sleep(400)
+ds.extrato.comPeriodoDoDocumento = {
+  botao: await ev('window.__d.periodoBotao()'),
+  antes: await ev(`window.__d.marca(${JSON.stringify(EXT.antes)})`),
+  depois: await ev(`window.__d.marca(${JSON.stringify(EXT.depois)})`),
+  inputsDeData: await ev('document.querySelectorAll("input[type=date]").length'),
+}
+
+// (e) editar o PERÍODO limpa os flags e acende o aviso de não-reverificação.
+await carrega()
+await ev('window.__d.trocaModulo()')
+await sleep(400)
+ds.extrato.edicaoPeriodo = {
+  antes: await ev('window.__d.totais()'),
+  inputsDeData: await ev('document.querySelectorAll("input[type=date]").length'),
+  set: await ev('window.__d.editaPeriodo("Início do período", "2026-07-01")'),
+}
+await sleep(350)
+ds.extrato.edicaoPeriodo.depois = await ev('window.__d.totais()')
+ds.extrato.edicaoPeriodo.linhaAntesDepois = await ev(`window.__d.marca(${JSON.stringify(EXT.antes)})`)
+// (f) limpar flag não pode ter mexido em NENHUMA decisão de importar.
+ds.extrato.edicaoPeriodo.marcadasDepois = await ev('window.__d.marcadas()')
+await shot('data-extrato-periodo-editado.png')
+
+// Mobile do extrato: JSX duplicado, mesma bateria.
+await carrega()
+await ev('window.__d.trocaModulo()')
+await sleep(300)
+await ev('window.__h.toggle()')
+await sleep(400)
+ds.extrato.mobile = { ...(await marcas(EXT)), totais: await ev('window.__d.totais()') }
+ds.extrato.marcadasMobile = await ev('window.__d.marcadas()')
+await shot('data-extrato-mobile.png')
+
+rel.dataSuspeita = ds
 rel.errosConsole = erros
 writeFileSync(join(OUT, 'relatorio.json'), JSON.stringify(rel, null, 2))
 console.log(JSON.stringify(rel, null, 2))

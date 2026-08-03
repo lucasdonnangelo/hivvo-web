@@ -11,6 +11,7 @@ import {
   presentBalde,
   resolverProposta,
 } from './helpers'
+import { ariaDataExtrato, avisoDataExtrato, marcaData } from '../dataSuspeita'
 
 const catSelectClass =
   'w-full px-2 py-1.5 rounded-sm text-xs text-text-primary bg-bg border border-bg-border focus:outline-none focus:border-amber transition-colors'
@@ -36,6 +37,11 @@ interface StepRevisaoProps {
   periodoFaltante: boolean
   periodoDe: string
   periodoAte: string
+  // O usuário mexeu na ÂNCORA (o período) sem poder mexer nas datas checadas —
+  // então todo `data_suspeita` calculado no preview virou OBSOLETO. Aqui isso
+  // apaga as marcas e acende o aviso: flag obsoleto exibido como válido é PIOR
+  // que flag nenhum, porque ensina o usuário a ignorar aviso.
+  datasNaoReverificadas: boolean
   onToggleImportar: (idx: number) => void
   onSetCategoria: (idx: number, cat: string) => void
   onSetCandidata: (idx: number, i: number) => void
@@ -104,6 +110,7 @@ export default function StepRevisao({
   periodoFaltante,
   periodoDe,
   periodoAte,
+  datasNaoReverificadas,
   onToggleImportar,
   onSetCategoria,
   onSetCandidata,
@@ -130,6 +137,22 @@ export default function StepRevisao({
 
   const marcadas = (grupo: typeof linhas) =>
     grupo.filter(({ idx }) => importar[idx]).length
+
+  // ── Data suspeita: a linha caiu fora do período do extrato. Diferente do
+  // aviso de recorrência abaixo em uma coisa que importa: aquele EXPLICA uma
+  // linha que já nasceu desmarcada; este NÃO desmarca nada. Um falso positivo
+  // que desmarcasse sozinho sumiria com uma transação real, e o usuário não vê
+  // o que não está lá — então aqui a regra só sinaliza.
+  //
+  // `datasNaoReverificadas` zera tudo numa condição só, no ponto mais alto: se
+  // o usuário mexeu no período, nenhum flag desta tela foi calculado contra ele.
+  const suspeitaDe = (enr: EnriquecimentoLinha | undefined) =>
+    datasNaoReverificadas ? null : (enr?.data_suspeita ?? null)
+
+  // A faixa citada na cópia é o período do DOCUMENTO — o que o backend usou como
+  // âncora — e nunca o digitado, que não reverificou nada.
+  const avisoData = (enr: EnriquecimentoLinha | undefined) =>
+    avisoDataExtrato(suspeitaDe(enr), extrato.periodo)
 
   // ── Aviso de recorrência (a armadilha do salário): visível SEMPRE que a
   // receita foi flagada — explica por que nasceu desmarcada; marcar continua
@@ -170,17 +193,18 @@ export default function StepRevisao({
             checked={marcada}
             onChange={() => onToggleImportar(idx)}
             className="accent-amber w-4 h-4 mt-0.5"
-            aria-label={`Importar ${l.descricao}`}
+            aria-label={`Importar ${l.descricao}${ariaDataExtrato(suspeitaDe(enr))}`}
           />
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
             <span className="text-sm text-text-primary truncate">{l.descricao}</span>
-            <span className="text-xs text-text-muted">{l.data}</span>
+            <span className="text-xs text-text-muted">{marcaData(l.data, suspeitaDe(enr))}</span>
           </div>
           <span className={`text-sm shrink-0 ${pres.amountClass}`}>
             {pres.sign}
             {formatBRL(Number(l.valor))}
           </span>
         </label>
+        {avisoData(enr)}
         {avisoRecorrencia(enr)}
         {marcada && (
           <select
@@ -212,12 +236,18 @@ export default function StepRevisao({
             checked={marcada}
             onChange={() => onToggleImportar(idx)}
             className="accent-amber w-4 h-4 mt-0.5"
-            aria-label={`Importar ${l.descricao}`}
+            aria-label={`Importar ${l.descricao}${ariaDataExtrato(suspeitaDe(enr))}`}
           />
         </td>
-        <td className="py-2 pr-3 text-xs text-text-muted whitespace-nowrap align-top">{l.data}</td>
+        <td className="py-2 pr-3 text-xs text-text-muted whitespace-nowrap align-top">
+          {marcaData(l.data, suspeitaDe(enr))}
+        </td>
+        {/* A frase vai na célula de DESCRIÇÃO (a marca fica na data): a coluna de
+            data é whitespace-nowrap e estreita, e uma frase ali estouraria a
+            tabela — mesma escolha do StepRevisao da fatura. */}
         <td className="py-2 pr-3 align-top">
           <span className="text-sm text-text-primary">{l.descricao}</span>
+          {avisoData(enr)}
           {avisoRecorrencia(enr)}
         </td>
         <td
@@ -355,16 +385,21 @@ export default function StepRevisao({
             checked={marcada}
             onChange={() => onToggleImportar(idx)}
             className="accent-amber w-4 h-4 mt-0.5"
-            aria-label={`Importar pagamento ${l.descricao}`}
+            aria-label={`Importar pagamento ${l.descricao}${ariaDataExtrato(suspeitaDe(enr))}`}
           />
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
             <span className="text-sm text-text-primary truncate">{l.descricao}</span>
-            <span className="text-xs text-text-muted">{l.data}</span>
+            <span className="text-xs text-text-muted">{marcaData(l.data, suspeitaDe(enr))}</span>
           </div>
           <span className="text-sm text-text-primary shrink-0">
             −{formatBRL(Number(l.valor))}
           </span>
         </label>
+        {/* Só no card CONFIRMÁVEL. O card 'fora' (sem_match/status desconhecido)
+            já diz por escrito "não será importado" — uma linha que não entra não
+            precisa de aviso sobre a competência em que ela não vai cair, e a
+            ação da cópia ("desmarque a linha") nem existe lá. */}
+        {avisoData(enr)}
 
         {marcada &&
           (ambigua ? (
@@ -448,6 +483,19 @@ export default function StepRevisao({
               />
             </label>
           </div>
+          {/* Só depois que ele MEXE. O flag do preview foi calculado contra o
+              período do documento; ao editar a âncora sem poder editar as datas
+              checadas, o que estava na tela deixou de valer — e exibir flag
+              obsoleto como válido é pior que não exibir nenhum, porque ensina a
+              ignorar aviso. Neutro, não âmbar: é ausência de verificação, não
+              problema encontrado (o âmbar da caixa já é o "preencha para
+              importar"). */}
+          {datasNaoReverificadas && (
+            <p className="text-[11px] text-text-muted border-t border-amber/20 pt-2">
+              Período alterado — as datas das linhas não foram reverificadas contra ele. Se
+              alguma linha tinha aviso de data, ele deixou de valer.
+            </p>
+          )}
         </div>
       )}
 

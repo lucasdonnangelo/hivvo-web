@@ -13,6 +13,7 @@ import {
   motivoNaoDespesa,
   rotuloSugestao,
 } from './helpers'
+import { ariaDataFatura, avisoDataEstorno, avisoDataFatura, marcaData } from '../dataSuspeita'
 
 const catSelectClass =
   'w-full px-2 py-1.5 rounded-sm text-xs text-text-primary bg-bg border focus:outline-none focus:border-amber transition-colors'
@@ -126,12 +127,30 @@ export default function StepRevisao({
   const borda = (idx: number) =>
     propostaDe(idx) ? 'border-suggest/40' : 'border-bg-border'
 
+  // ── Data suspeita: o backend já flagava, nenhum cliente lia. Diferente da
+  // marca ◇ acima em DOIS eixos: ◇ diz "não confirmado" (neutro) e some quando o
+  // usuário decide; esta diz "provavelmente errado" e NÃO some, porque não há
+  // nada nesta tela com que decidir sobre ela (a data não é editável aqui).
+  //
+  // Ela também NÃO desmarca nem remove a linha: um falso positivo que apagasse
+  // sozinho sumiria com uma compra real, e o usuário não vê o que não está lá.
+  const suspeitaDe = (idx: number) => enriquecimento.get(idx)?.data_suspeita ?? null
+  const avisoDe = (idx: number) => avisoDataFatura(suspeitaDe(idx), fatura.emissao)
+
   // O ◇ é decorativo (aria-hidden) e o rótulo é um irmão do <select>, não algo
   // que o leitor de tela anuncie junto com o valor. Sem isto, quem não vê a
   // marca ouve "Alimentação" e não tem como saber que ninguém confirmou.
+  //
+  // O ⚑ da data entra no MESMO aria-label pelo mesmo motivo e no mesmo lugar: o
+  // <select> é onde o leitor de tela para em modo de foco. A frase completa mora
+  // no <p> ao lado da linha, que o modo de leitura já anuncia.
   const ariaCategoria = (t: TransacaoFatura, idx: number) => {
     const rotulo = propostaDe(idx)
-    return `Categoria de ${t.descricao}${rotulo ? ` — ${rotulo}, ainda não confirmada` : ''}`
+    return (
+      `Categoria de ${t.descricao}` +
+      `${rotulo ? ` — ${rotulo}, ainda não confirmada` : ''}` +
+      ariaDataFatura(suspeitaDe(idx))
+    )
   }
 
   // ── Uma linha de despesa (mobile = card) ──
@@ -140,6 +159,7 @@ export default function StepRevisao({
   const linhaMobile = (t: TransacaoFatura, idx: number) => {
     const apagada = !!apagadas[idx]
     const parcela = formatParcela(t)
+    const aviso = avisoDe(idx)
     return (
       <div
         key={idx}
@@ -155,7 +175,7 @@ export default function StepRevisao({
               {t.descricao}
             </span>
             <span className="text-xs text-text-muted">
-              {t.data}
+              {marcaData(t.data, suspeitaDe(idx))}
               {parcela ? ` · parcela ${parcela}` : ''} · {formatPortador(t)}
             </span>
           </div>
@@ -163,6 +183,10 @@ export default function StepRevisao({
             {formatBRL(Number(t.valor_brl))}
           </span>
         </div>
+        {/* Fora do bloco do seletor: o aviso vale mesmo com a linha já removida
+            (a marca é sobre o dado, não sobre a decisão) e assim ele nunca cai
+            na mesma linha do ◇ da categoria, que fica lá embaixo. */}
+        {aviso}
         {apagada ? (
           <button
             onClick={() => onToggleApagar(idx)}
@@ -204,9 +228,16 @@ export default function StepRevisao({
   const linhaDesktop = (t: TransacaoFatura, idx: number) => {
     const apagada = !!apagadas[idx]
     const parcela = formatParcela(t)
+    const aviso = avisoDe(idx)
     return (
       <tr key={idx} className={`border-b border-bg-border ${apagada ? 'opacity-50' : ''}`}>
-        <td className="py-2 pr-3 text-xs text-text-muted whitespace-nowrap align-top">{t.data}</td>
+        <td className="py-2 pr-3 text-xs text-text-muted whitespace-nowrap align-top">
+          {marcaData(t.data, suspeitaDe(idx))}
+        </td>
+        {/* O aviso vai na célula de DESCRIÇÃO, não na de data: a coluna de data é
+            whitespace-nowrap e estreita: uma frase ali estouraria a tabela. A
+            marca (cor + ⚑) fica na data, que é o campo em questão; a frase
+            explica. Aqui ela também nunca divide célula com o ◇ da categoria. */}
         <td className="py-2 pr-3 align-top">
           <span className={`text-sm text-text-primary ${apagada ? 'line-through' : ''}`}>
             {t.descricao}
@@ -216,6 +247,7 @@ export default function StepRevisao({
               parcela {parcela}
             </span>
           )}
+          {aviso}
         </td>
         <td className="py-2 pr-3 text-xs text-text-muted whitespace-nowrap align-top">
           {formatPortador(t)}
@@ -273,7 +305,15 @@ export default function StepRevisao({
   // ── Uma linha read-only das DUAS seções de baixo ── (função, ver linhaMobile)
   // Markup idêntico nas duas: o que muda entre crédito e fora-da-importação é o
   // destino, e ele é dito pelo título/frase da seção e pelo motivo da linha.
-  const linhaCinza = (t: TransacaoFatura, idx: number) => (
+  //
+  // A data só aparece aqui QUANDO flagada, e por isso: pagamento/ajuste/valor
+  // zero não materializam, logo não têm item de enriquecimento e nunca são
+  // flagados — mas o ESTORNO materializa, é importado e PODE ser flagado. Mostrar
+  // a data em toda linha cinza seria ruído; mostrá-la só quando ela é o problema
+  // mantém a marca sobre o campo em questão (e a seção continua read-only).
+  const linhaCinza = (t: TransacaoFatura, idx: number) => {
+    const aviso = avisoDataEstorno(suspeitaDe(idx), fatura.emissao)
+    return (
     <div
       key={idx}
       className="rounded-md border border-bg-border bg-bg px-3 py-2.5 flex items-start justify-between gap-2"
@@ -281,6 +321,14 @@ export default function StepRevisao({
       <div className="flex flex-col gap-0.5 min-w-0">
         <span className="text-sm text-text-muted truncate">{t.descricao}</span>
         <span className="text-[11px] text-text-muted">{motivoNaoDespesa(t)}</span>
+        {aviso && (
+          <>
+            <span className="text-[11px] text-text-muted">
+              {marcaData(t.data, suspeitaDe(idx))}
+            </span>
+            {aviso}
+          </>
+        )}
       </div>
       {/* O valor do crédito fica em text-muted, NÃO em âmbar — mesmo o
           StepRecibo usando âmbar para "estornos importados". Lá o estorno é o
@@ -291,7 +339,8 @@ export default function StepRevisao({
           âmbar lido como "confirmado". Aqui o destino é dito por escrito. */}
       <span className="text-sm text-text-muted shrink-0">{formatBRL(Number(t.valor_brl))}</span>
     </div>
-  )
+    )
+  }
 
   return (
     <div className="flex flex-col gap-5">

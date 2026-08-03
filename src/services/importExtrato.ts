@@ -98,6 +98,18 @@ export interface EnriquecimentoLinha {
   // só receita
   provavel_recorrencia: boolean
   recorrencia_casada: RecorrenciaCasada | null
+  // A data da linha caiu fora do período do extrato. Aqui o intervalo INTEIRO
+  // vale como âncora (ao contrário da fatura, que só checa o limite superior):
+  // no extrato o período é um intervalo real do documento, sem parcela
+  // esticando a faixa.
+  //
+  // null = a regra não flagou OU não rodou (`periodo` ausente ou INVERTIDO — o
+  // preview não rejeita período invertido, só o commit, e sem essa guarda uma
+  // âncora incoerente flagaria TODAS as linhas). Não rodar não é erro.
+  //
+  // DOIS valores e não um bool: a cópia difere por lado, e um bool obrigaria o
+  // front a re-derivar qual — reimplementar a regra do lado errado.
+  data_suspeita: 'antes_do_periodo' | 'depois_do_periodo' | null
 }
 
 export interface ExtratoPreviewResponse {

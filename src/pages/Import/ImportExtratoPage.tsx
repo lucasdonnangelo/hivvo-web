@@ -45,6 +45,10 @@ interface State {
   // período digitado quando o extrato não o imprime (o commit o exige)
   periodoDe: string
   periodoAte: string
+  // O usuário EDITOU o período. O seed do PREVIEW_OK não conta: `data_suspeita`
+  // foi calculado contra a âncora do documento, então mexer nela invalida todo
+  // flag da revisão — e o usuário não tem como editar as datas checadas.
+  periodoEditado: boolean
   commitError: string
   recibo: ExtratoCommitResponse | null
 }
@@ -74,6 +78,7 @@ const initialState: State = {
   importarRendimento: true,
   periodoDe: '',
   periodoAte: '',
+  periodoEditado: false,
   commitError: '',
   recibo: null,
 }
@@ -103,6 +108,8 @@ function reducer(s: State, a: Action): State {
         importarRendimento: true,
         periodoDe: periodo.de,
         periodoAte: periodo.ate,
+        // O seed acima é SUGESTÃO, não edição: nada foi invalidado ainda.
+        periodoEditado: false,
         commitError: '',
         recibo: null,
       }
@@ -116,9 +123,13 @@ function reducer(s: State, a: Action): State {
     case 'TOGGLE_RENDIMENTO':
       return { ...s, importarRendimento: !s.importarRendimento }
     case 'SET_PERIODO':
+      // `periodoEditado` NUNCA volta para false aqui — nem se ele redigitar o
+      // valor original. O que ficou obsoleto foi a VERIFICAÇÃO, e ela não
+      // rodou de novo; um "voltou ao que era, então vale outra vez" estaria
+      // afirmando um check que ninguém fez.
       return a.campo === 'de'
-        ? { ...s, periodoDe: a.valor, commitError: '' }
-        : { ...s, periodoAte: a.valor, commitError: '' }
+        ? { ...s, periodoDe: a.valor, periodoEditado: true, commitError: '' }
+        : { ...s, periodoAte: a.valor, periodoEditado: true, commitError: '' }
     case 'GOTO':
       return { ...s, step: a.step, commitError: '' }
     case 'SET_COMMIT_ERROR':
@@ -281,6 +292,7 @@ export default function ImportExtratoPage() {
             periodoFaltante={state.preview.extrato.periodo === null}
             periodoDe={state.periodoDe}
             periodoAte={state.periodoAte}
+            datasNaoReverificadas={state.periodoEditado}
             onToggleImportar={(idx) => dispatch({ type: 'TOGGLE_IMPORTAR', idx })}
             onSetCategoria={(idx, cat) => dispatch({ type: 'SET_CATEGORIA', idx, cat })}
             onSetCandidata={(idx, i) => dispatch({ type: 'SET_CANDIDATA', idx, i })}
