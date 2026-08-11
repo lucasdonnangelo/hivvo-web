@@ -16,10 +16,20 @@ import { suggestCategory } from '../../services/ai'
 import type { Category } from '../../services/categories'
 import type { RecorrenciaCreate } from '../../services/recorrencias'
 import { useUIStore } from '../../store/uiStore'
+import { presentTipo } from '../../lib/tipoTransacao'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const FORMAS_PAGAMENTO = ['Débito', 'Crédito', 'PIX', 'Dinheiro', 'TED/DOC']
+
+// Os três tipos do seletor. `ativo` são as classes do estado SELECIONADO — o
+// âmbar do estorno espelha `presentTipo('estorno')` (lib/tipoTransacao), que já
+// é a apresentação dele em todo o resto do app.
+const TIPOS = [
+  { valor: 'despesa', rotulo: '↓ Despesa', ativo: 'bg-danger/10 border-danger text-danger' },
+  { valor: 'receita', rotulo: '↑ Receita', ativo: 'bg-success/10 border-success text-success' },
+  { valor: 'estorno', rotulo: '↩ Estorno', ativo: 'bg-amber/10 border-amber text-amber' },
+] as const
 
 const selectClass =
   'w-full px-3 py-3 rounded-sm text-sm text-text-primary bg-bg-surface border border-bg-border focus:outline-none focus:border-amber transition-colors'
@@ -67,7 +77,12 @@ function extractDetail(detail: unknown): string {
 
 const schema = z
   .object({
-    tipo: z.enum(['receita', 'despesa']),
+    // `estorno` (#48): dinheiro de volta — devolução, reembolso, alguém te
+    // pagando de volta. Não é renda nem despesa: ABATE o consumo. O backend
+    // sempre aceitou (POST e PUT); a tela é que nunca ofereceu, e a lacuna
+    // deixava o usuário sem saída quando o import de extrato tipava um
+    // reembolso como receita.
+    tipo: z.enum(['receita', 'despesa', 'estorno']),
     valor: z.coerce
       .number()
       .refine(v => !isNaN(v), { message: 'Valor inválido' })
@@ -158,7 +173,7 @@ function CategoryGrid({ categories, selected, suggested, onSelect }: CategoryGri
 type Impacto = { kind: 'determined'; valor: number } | { kind: 'unknown' }
 
 interface ImpactPreviewProps {
-  tipo: 'receita' | 'despesa'
+  tipo: 'receita' | 'despesa' | 'estorno'
   valor: number
   descricao: string
   categoria: string
@@ -186,7 +201,12 @@ function ImpactPreview({
   mesInicioStr,
   impacto,
 }: ImpactPreviewProps) {
+  // Estorno tem apresentação PRÓPRIA (nem receita nem despesa), vinda da fonte
+  // única `presentTipo` — a mesma que a lista e o dashboard usam. `isReceita`
+  // continua governando só o par receita/despesa.
+  const isEstorno = tipo === 'estorno'
   const isReceita = tipo === 'receita'
+  const pres = presentTipo(tipo)
   const catObj = allCategories.find((c) => c.nome === categoria)
   // Parcela e "saldo após" não se aplicam à recorrência (ela se repete todo mês).
   const valorPorParcela =
@@ -203,22 +223,21 @@ function ImpactPreview({
       <span
         className={[
           'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium self-start',
-          isReceita ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger',
+          isEstorno
+            ? 'bg-amber/10 text-amber'
+            : isReceita
+              ? 'bg-success/10 text-success'
+              : 'bg-danger/10 text-danger',
         ].join(' ')}
       >
-        {isReceita ? '↑' : '↓'} {isReceita ? 'Receita' : 'Despesa'}
+        {isEstorno ? '↩' : isReceita ? '↑' : '↓'} {pres.label}
       </span>
 
       <div>
         <p className="text-xs text-text-muted mb-1">Valor</p>
-        <p
-          className={[
-            'text-2xl font-medium',
-            isReceita ? 'text-success' : 'text-danger',
-          ].join(' ')}
-        >
+        <p className={['text-2xl font-medium', pres.amountClass].join(' ')}>
           {valor > 0
-            ? `${isReceita ? '+' : '−'}${formatBRL(valor)}`
+            ? `${pres.sign}${formatBRL(valor)}`
             : <span className="text-text-muted text-lg">—</span>}
         </p>
         {valorPorParcela && (
@@ -254,7 +273,7 @@ function ImpactPreview({
       {/* Despesa avulsa: Consumo × Impacto neste mês. Ensina o modelo — o consumo é
           o total comprometido; o impacto é o que sai do caixa AGORA (parcelas futuras
           não caem neste mês). O saldo estimado é rebaseado no IMPACTO, não no consumo. */}
-      {!recorrente && !isReceita && valor > 0 ? (
+      {!recorrente && !isReceita && !isEstorno && valor > 0 ? (
         <div className="pt-4 border-t border-bg-border flex flex-col gap-3">
           {impacto.kind === 'determined' && impacto.valor === valor ? (
             // Consumo == Impacto (não-crédito à vista): uma linha só, mais limpa.
@@ -300,6 +319,38 @@ function ImpactPreview({
               <p className="text-xs text-text-muted mt-0.5">Atual: {formatBRL(saldoAtual)}</p>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* Estorno: dinheiro de volta. Não é o split consumo×impacto (não há
+          consumo a comprometer) nem o saldo direto da receita (não é renda) —
+          é o ABATIMENTO, mais o mesmo degradê de impacto da despesa: no crédito
+          a competência é do backend, então a tela não afirma o mês. */}
+      {!recorrente && isEstorno && valor > 0 ? (
+        <div className="pt-4 border-t border-bg-border flex flex-col gap-3">
+          <div>
+            <p className="text-xs text-text-muted mb-0.5">Abate no gasto</p>
+            <p className="text-base font-medium text-amber">−{formatBRL(valor)}</p>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              reduz o consumo do mês — não entra como renda
+            </p>
+          </div>
+          {impacto.kind === 'determined' ? (
+            saldoAtual != null ? (
+              <div>
+                <p className="text-xs text-text-muted mb-1">Saldo estimado após transação</p>
+                <p className={['text-base font-medium', saldoColor(saldoAtual + impacto.valor)].join(' ')}>
+                  {formatBRL(saldoAtual + impacto.valor)}
+                </p>
+                <p className="text-xs text-text-muted mt-0.5">Atual: {formatBRL(saldoAtual)}</p>
+              </div>
+            ) : null
+          ) : (
+            <p className="text-[11px] text-text-muted">
+              Entra abatendo a fatura do cartão — o quanto muda neste mês depende do
+              fechamento.
+            </p>
+          )}
         </div>
       ) : null}
 
@@ -419,18 +470,30 @@ export default function AddTransactionPage() {
 
   const watched = watch()
   const { forma_pagamento, parcelado, tipo, recorrente } = watched
+  // O tipo de CATEGORIA não é o tipo da transação: estorno é gasto que voltou,
+  // então a categoria dele vive no universo de DESPESA (o mesmo recorte do
+  // backend, que categoriza estorno junto com despesa). Um derivado só, três
+  // consumidores — o grid, a sugestão por IA e o modal de nova categoria —
+  // porque os três endpoints tipam `receita | despesa` e recusariam 'estorno'.
+  const tipoCategoria: 'receita' | 'despesa' = tipo === 'estorno' ? 'despesa' : tipo
   // Categorias do tipo corrente vêm do backend (GET /categories?tipo=). Trocar
   // despesa↔receita muda a queryKey → re-filtra (e volta do cache, staleTime 5min).
-  const { data: catsForTipo = [] } = useCategories(tipo)
+  const { data: catsForTipo = [] } = useCategories(tipoCategoria)
   const categories = catsForTipo.filter((c) => c.ativa)
   const visibleCategories = categories
   const valorNum = Number(watched.valor) || 0
   const numParcelas = watched.total_parcelas ? Number(watched.total_parcelas) : undefined
 
   const isCredito = forma_pagamento === 'Crédito'
+  const isEstorno = tipo === 'estorno'
   // Cartão/parcelamento só no modo avulso — recorrência não passa por cartão (§3.4).
+  // O CARTÃO continua disponível no estorno de propósito: devolução que cai na
+  // fatura é caso real, e o POST já deriva a competência certa para ela
+  // (_fatura_cartao_avulso não filtra por tipo) — o estorno abate na fatura
+  // dele. O PARCELAMENTO não: o backend rejeita estorno parcelado.
   const showCartao = isCredito && !recorrente
-  const showParcelamento = isCredito && !recorrente && hasCards && watched.cartao_id != null
+  const showParcelamento =
+    isCredito && !recorrente && !isEstorno && hasCards && watched.cartao_id != null
   const valorPorParcela =
     parcelado && numParcelas && numParcelas >= 2 && valorNum > 0
       ? valorNum / numParcelas
@@ -473,15 +536,20 @@ export default function AddTransactionPage() {
     if (!desc) return
     const seq = ++suggestSeq.current
     const valorAtual = Number(getValues('valor')) || undefined
-    suggestCategory(desc, getValues('tipo'), valorAtual).then((cat) => {
+    const tipoNaChamada = getValues('tipo')
+    const tipoCatNaChamada = tipoNaChamada === 'estorno' ? 'despesa' : tipoNaChamada
+    suggestCategory(desc, tipoCatNaChamada, valorAtual).then((cat) => {
       if (seq !== suggestSeq.current || !cat) return
       // Só marca/aplica a sugestão quando ela DE FATO entra no estado: (1) o
       // usuário ainda não escolheu (escolha manual nunca é sobrescrita) e (2) a
       // categoria existe no grid do tipo corrente. Assim o selo "✦ IA" nunca
       // pinta uma categoria que não está selecionada nem seleciona algo fora do
       // grid visível — destaque e estado ficam sempre sincronizados.
+      // O tipo comparado é o de CATEGORIA (estorno → despesa): comparar com
+      // 'estorno' nunca casaria e a sugestão morreria em silêncio no estorno.
       const tipoAtual = getValues('tipo')
-      const existeNoTipo = categories.some((c) => c.tipo === tipoAtual && c.nome === cat)
+      const tipoCatAtual = tipoAtual === 'estorno' ? 'despesa' : tipoAtual
+      const existeNoTipo = categories.some((c) => c.tipo === tipoCatAtual && c.nome === cat)
       if (!getValues('categoria') && existeNoTipo) {
         setValue('categoria', cat, { shouldValidate: true })
         setSuggestedCategory(cat)
@@ -523,10 +591,23 @@ export default function AddTransactionPage() {
     }
   }, [recorrente]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ao trocar o tipo (despesa↔receita) o grid re-filtra; se a categoria escolhida
-  // não pertence ao novo tipo, limpa a seleção (e o selo de sugestão). Só age com a
-  // lista já carregada (`length > 0`) p/ não zerar durante o refetch. "Outros" existe
-  // nos dois tipos → permanece.
+  // Estorno é avulso por natureza: não é parcelado (o backend rejeita) e não é
+  // recorrente (RecorrenciaCreate só aceita receita/despesa). Ligar estorno
+  // desliga os dois em vez de deixar o usuário montar um payload que o servidor
+  // recusaria — e o toggle "Recorrente" some da tela (ver formFields).
+  useEffect(() => {
+    if (isEstorno) {
+      setValue('parcelado', false, { shouldValidate: false })
+      setValue('total_parcelas', undefined, { shouldValidate: false })
+      setValue('recorrente', false, { shouldValidate: false })
+    }
+  }, [isEstorno]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ao trocar o tipo (despesa↔receita↔estorno) o grid re-filtra; se a categoria
+  // escolhida não pertence ao novo tipo, limpa a seleção (e o selo de sugestão). Só
+  // age com a lista já carregada (`length > 0`) p/ não zerar durante o refetch.
+  // "Outros" existe nos dois tipos → permanece. Despesa→estorno NÃO limpa nada: o
+  // universo de categoria é o mesmo, e perder a escolha ali seria gratuito.
   useEffect(() => {
     const cat = getValues('categoria')
     if (cat && categories.length > 0 && !categories.some((c) => c.nome === cat)) {
@@ -551,6 +632,13 @@ export default function AddTransactionPage() {
 
   const buildRecorrenciaPayload = (data: FormData): RecorrenciaCreate => {
     const [ys, ms] = (data.mes_inicio_str ?? '').split('-')
+    // Estorno não chega aqui: o toggle "Recorrente" não existe nesse tipo e o
+    // efeito o força a false ao ligar estorno. O guard deixa a invariante
+    // VERIFICÁVEL — um cast a esconderia, e `RecorrenciaCreate` recusa estorno
+    // porque o backend recusa: devolução não é lançamento que se repete.
+    if (data.tipo === 'estorno') {
+      throw new Error('recorrência de estorno não existe')
+    }
     return {
       tipo: data.tipo,
       valor: parseFloat(String(data.valor).replace(',', '.')).toFixed(2),
@@ -660,30 +748,42 @@ export default function AddTransactionPage() {
         render={({ field }) => (
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-text-muted">Tipo</label>
+            {/* Três botões pares. O âmbar do estorno NÃO é um quinto sentido da
+                cor (#44): é o MESMO que `presentTipo` já dá a ele na lista, no
+                dashboard e no recibo — a tela de criação passa a combinar com o
+                resultado. */}
             <div className="flex gap-2">
-              {(['despesa', 'receita'] as const).map((t) => (
+              {TIPOS.map(({ valor, rotulo, ativo }) => (
                 <button
-                  key={t}
+                  key={valor}
                   type="button"
-                  onClick={() => field.onChange(t)}
+                  onClick={() => field.onChange(valor)}
                   className={[
                     'flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors',
-                    field.value === t
-                      ? t === 'despesa'
-                        ? 'bg-danger/10 border-danger text-danger'
-                        : 'bg-success/10 border-success text-success'
+                    field.value === valor
+                      ? ativo
                       : 'bg-bg-surface border-bg-border text-text-muted hover:border-text-muted',
                   ].join(' ')}
                 >
-                  {t === 'despesa' ? '↓ Despesa' : '↑ Receita'}
+                  {rotulo}
                 </button>
               ))}
             </div>
+            {isEstorno && (
+              <p className="text-xs text-text-muted">
+                Dinheiro de volta — devolução, reembolso ou alguém te pagando de volta.
+                Abate o gasto em vez de contar como renda.
+              </p>
+            )}
           </div>
         )}
       />
 
-      {/* Recorrente — modo alternativo (troca os campos avulsos) */}
+      {/* Recorrente — modo alternativo (troca os campos avulsos). Ausente no
+          estorno: devolução não se repete todo mês, e RecorrenciaCreate só
+          aceita receita/despesa — oferecer o toggle prometeria um POST que o
+          backend recusaria. */}
+      {!isEstorno && (
       <Controller
         name="recorrente"
         control={control}
@@ -717,6 +817,7 @@ export default function AddTransactionPage() {
           </div>
         )}
       />
+      )}
 
       {/* Valor */}
       <Input
@@ -957,7 +1058,7 @@ export default function AddTransactionPage() {
   // faz o grid refetchar e ela aparece).
   const newCatModal = showNewCatModal && (
     <NewCategoryModal
-      tipo={tipo}
+      tipo={tipoCategoria}
       existingNames={categories.map((c) => c.nome)}
       onClose={() => setShowNewCatModal(false)}
       onCreated={(cat) => {

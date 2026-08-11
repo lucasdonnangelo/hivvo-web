@@ -27,7 +27,11 @@
    fast-refresh de arquivo de app; aqui ela pediria um export inútil. */
 import { useState, type CSSProperties } from 'react'
 import { createRoot } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import '../src/index.css'
+import AddTransactionPage from '../src/pages/AddTransaction/AddTransactionPage'
+import sementes from './sementes-capturadas.json'
 import StepRevisao from '../src/pages/Import/fatura/StepRevisao'
 import { mapEnriquecimento } from '../src/pages/Import/fatura/helpers'
 import type {
@@ -194,6 +198,40 @@ const reconciliacaoExtrato: ReconciliacaoExtrato = {
 
 const enrMapExtrato = mapEnriquecimentoExtrato(enriquecimentoExtrato)
 
+// ─── CRIAÇÃO MANUAL (#48 parte B) ────────────────────────────────────────────
+// O AddTransactionPage não é presentacional: ele consome useCards/useCategories/
+// useMonthlyStats e vive dentro de um Router. Em vez de mockar os hooks (que
+// testaria o mock), o harness SEMEIA O CACHE do TanStack por queryKey e monta o
+// componente REAL — sem rede, sem axios, sem interceptor de auth.
+//
+// As sementes vêm de `sementes-capturadas.json`, gerado chamando os endpoints de
+// VERDADE (FastAPI + SQLite in-memory da suíte, nunca o banco do .env) — não da
+// interface TS. Isso já pagou: os padrões de /categories voltam com `id: null`,
+// e um mock escrito "pela interface" teria inventado ids e verificado ficção.
+// Ver o cabeçalho do próprio JSON para o endpoint de cada chave.
+const semente = (chave: string) => (sementes as Record<string, unknown>)[
+  Object.keys(sementes).find((k) => k.startsWith(chave))!
+]
+
+function novoQueryClient() {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
+  })
+  qc.setQueryData(['cards'], semente("['cards']"))
+  qc.setQueryData(['categories', 'despesa'], semente("['categories','despesa']"))
+  qc.setQueryData(['categories', 'receita'], semente("['categories','receita']"))
+  // A data do captura é 08/2026; useMonthlyStats usa o mês CORRENTE do relógio,
+  // então a chave certa é derivada de `new Date()` — se o relógio sair do mês
+  // capturado, a query fica sem semente e o preview degrada para "sem saldo"
+  // (que é um estado real do app, não uma quebra do harness).
+  const agora = new Date()
+  qc.setQueryData(
+    ['statistics', 'monthly', agora.getMonth() + 1, agora.getFullYear()],
+    semente("['statistics','monthly'"),
+  )
+  return qc
+}
+
 const botao: CSSProperties = {
   fontSize: 12,
   color: '#EF9F27',
@@ -210,10 +248,16 @@ const botao: CSSProperties = {
 // e um harness que o derivasse de outro jeito testaria outra coisa.
 function Harness() {
   const [isMobile, setIsMobile] = useState(false)
-  const [modulo, setModulo] = useState<'fatura' | 'extrato'>('fatura')
+  const [modulo, setModulo] = useState<'fatura' | 'extrato' | 'criar'>('fatura')
+  const [qc] = useState(novoQueryClient)
 
   const [categorias, setCategorias] = useState<Record<number, string>>({})
   const [apagadas, setApagadas] = useState<Record<number, true>>({})
+
+  // #48 — o mesmo TOGGLE_REEMBOLSO do reducer de ImportExtratoPage: marca/
+  // desmarca E DESCARTA a edição de categoria da linha (ela foi feita no outro
+  // universo). Um harness que só marcasse testaria outra coisa.
+  const [reembolso, setReembolso] = useState<Record<number, true>>({})
 
   const [periodoNulo, setPeriodoNulo] = useState(true)
   const [importar, setImportar] = useState<Record<number, boolean>>(() => {
@@ -242,7 +286,9 @@ function Harness() {
         </button>
         <button
           id="harness-toggle-modulo"
-          onClick={() => setModulo((m) => (m === 'fatura' ? 'extrato' : 'fatura'))}
+          onClick={() =>
+            setModulo((m) => (m === 'fatura' ? 'extrato' : m === 'extrato' ? 'criar' : 'fatura'))
+          }
           style={botao}
         >
           módulo: {modulo}
@@ -277,6 +323,23 @@ function Harness() {
             })
           }
         />
+      ) : modulo === 'criar' ? (
+        // O componente REAL, com os providers que ele exige e o cache semeado.
+        //
+        // ATENÇÃO ao botão "layout" acima: ele NÃO vale aqui. Os StepRevisao
+        // recebem `isMobile` como PROP (o botão os controla de verdade), mas o
+        // AddTransactionPage chama `useBreakpoint('md')`, que lê media query —
+        // e media query só muda se a VIEWPORT mudar. Enfiar a página num div de
+        // 360px daria largura estreita com o layout DESKTOP dentro, que é uma
+        // terceira coisa que não existe em lugar nenhum: foi o que a primeira
+        // rodada mediu (botões de 52px "quebrando linha") antes de alguém notar.
+        // Para ver o mobile de verdade, o driver CDP emula a viewport
+        // (Emulation.setDeviceMetricsOverride) — ver dev/harness-cdp*.
+        <QueryClientProvider client={qc}>
+          <MemoryRouter>
+            <AddTransactionPage />
+          </MemoryRouter>
+        </QueryClientProvider>
       ) : (
         <StepRevisaoExtrato
           isMobile={isMobile}
@@ -285,6 +348,7 @@ function Harness() {
           enriquecimento={enrMapExtrato}
           importar={importar}
           categorias={categoriasEx}
+          reembolso={reembolso}
           candidataEscolhida={candidataEscolhida}
           categoriasReceita={['Outros', 'Salário', 'Rendimentos']}
           categoriasDespesa={['Outros', 'Mercado', 'Saúde', 'Transporte', 'Moradia']}
@@ -295,6 +359,20 @@ function Harness() {
           datasNaoReverificadas={periodoEditado}
           onToggleImportar={(idx) => setImportar((s) => ({ ...s, [idx]: !s[idx] }))}
           onSetCategoria={(idx, cat) => setCategoriasEx((s) => ({ ...s, [idx]: cat }))}
+          onToggleReembolso={(idx) => {
+            setReembolso((s) => {
+              const n = { ...s }
+              if (n[idx]) delete n[idx]
+              else n[idx] = true
+              return n
+            })
+            // igual ao reducer: a edição do outro universo é DESCARTADA
+            setCategoriasEx((s) => {
+              const n = { ...s }
+              delete n[idx]
+              return n
+            })
+          }}
           onSetCandidata={(idx, i) => setCandidata((s) => ({ ...s, [idx]: i }))}
           onToggleRendimento={() => {}}
           onSetPeriodo={(campo, valor) => {

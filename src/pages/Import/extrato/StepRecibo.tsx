@@ -32,6 +32,21 @@ export default function StepRecibo({ recibo }: StepReciboProps) {
             · {linha}
           </li>
         ))}
+        {/* #48 — condicional (e não em `principais`) porque reembolso é raro:
+            "0 devoluções" em toda importação seria ruído. A frase diz o EFEITO,
+            não o tipo interno: o usuário marcou "dinheiro de volta", não
+            "estorno". */}
+        {recibo.estornos_criados > 0 && (
+          <li className="text-sm text-text-primary">
+            ·{' '}
+            {plural(
+              recibo.estornos_criados,
+              'entrada importada como dinheiro de volta',
+              'entradas importadas como dinheiro de volta',
+            )}{' '}
+            <span className="text-text-muted">— abatem o gasto do mês</span>
+          </li>
+        )}
         {recibo.rendimento_importado && (
           <li className="text-sm text-text-primary">· rendimento importado como receita “Rendimentos”</li>
         )}

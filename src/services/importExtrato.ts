@@ -129,6 +129,13 @@ export interface LinhaCommit extends LinhaExtrato {
   cartao_id?: number
   fatura_mes?: number
   fatura_ano?: number
+  // #48 — override de tipo da revisão, só no balde `receita` e só para
+  // 'estorno': a linha nasce receita (o modelo não tem como saber se um "Pix
+  // recebido" é salário, devolução de loja ou o amigo pagando de volta) e o
+  // usuário marca as que são dinheiro de volta. O backend RESTRINGE pelo schema
+  // (Literal) e RECOMPUTA a categoria no universo de despesa — mandar a
+  // categoria escolhida como receita não a preserva.
+  reclassificar_como?: 'estorno'
 }
 
 export interface ExtratoCommit extends Omit<ExtratoExtraido, 'linhas'> {
@@ -144,6 +151,9 @@ export interface ExtratoCommitRequest {
 export interface ExtratoCommitResponse {
   receitas_criadas: number
   debitos_criados: number
+  // #48 — receitas que o usuário marcou como dinheiro de volta. FORA de
+  // receitas_criadas: o recibo não chama de receita o que gravou como estorno.
+  estornos_criados: number
   // PagamentoFatura gravados com valor e data REAIS do extrato; duas linhas na
   // mesma (cartão, competência) somam num único registro — contam 1 aqui
   pagamentos_registrados: number

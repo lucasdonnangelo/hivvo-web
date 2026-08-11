@@ -1,0 +1,226 @@
+{
+  "['cards']  <- GET /cards": [
+    {
+      "id": 1,
+      "usuario_id": 1,
+      "nome": "Nubank",
+      "tipo": "Crédito",
+      "limite": null,
+      "dia_vencimento": 13,
+      "dia_fechamento": 6,
+      "mes_offset_vencimento": 1,
+      "ativo": true,
+      "criado_em": "2026-08-11",
+      "fatura_aberta_total": "0.00",
+      "fatura_aberta_mes": 10,
+      "fatura_aberta_ano": 2026,
+      "fatura_aberta_vencimento": "2026-10-13",
+      "tem_lancamentos": false
+    },
+    {
+      "id": 2,
+      "usuario_id": 1,
+      "nome": "Itaú Visa Infinite",
+      "tipo": "Ambos",
+      "limite": null,
+      "dia_vencimento": 8,
+      "dia_fechamento": 1,
+      "mes_offset_vencimento": 0,
+      "ativo": true,
+      "criado_em": "2026-08-11",
+      "fatura_aberta_total": "0.00",
+      "fatura_aberta_mes": 9,
+      "fatura_aberta_ano": 2026,
+      "fatura_aberta_vencimento": "2026-09-08",
+      "tem_lancamentos": false
+    }
+  ],
+  "['categories','despesa']  <- GET /categories?tipo=despesa": [
+    {
+      "id": null,
+      "nome": "Alimentação",
+      "icone": "🍔",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Moradia",
+      "icone": "🏠",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Transporte",
+      "icone": "🚗",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Saúde",
+      "icone": "💊",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Educação",
+      "icone": "📚",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Lazer",
+      "icone": "🎮",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Roupas",
+      "icone": "👕",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Assinaturas",
+      "icone": "📱",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Viagem",
+      "icone": "✈️",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Pets",
+      "icone": "🐾",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Outros",
+      "icone": "📦",
+      "tipo": "despesa",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    }
+  ],
+  "['categories','receita']  <- GET /categories?tipo=receita": [
+    {
+      "id": null,
+      "nome": "Salário",
+      "icone": "💰",
+      "tipo": "receita",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Freelance",
+      "icone": "💻",
+      "tipo": "receita",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Investimentos",
+      "icone": "📈",
+      "tipo": "receita",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Rendimentos",
+      "icone": "💹",
+      "tipo": "receita",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    },
+    {
+      "id": null,
+      "nome": "Outros",
+      "icone": "📦",
+      "tipo": "receita",
+      "ativa": true,
+      "is_padrao": true,
+      "criado_em": null
+    }
+  ],
+  "['statistics','monthly',8,2026]  <- GET /statistics/monthly?mes=8&ano=2026": {
+    "mes": 8,
+    "ano": 2026,
+    "receitas": "6200.00",
+    "despesas": "432.10",
+    "saldo": "5767.90",
+    "categorias": [
+      {
+        "categoria": "Alimentação",
+        "total": "432.10",
+        "percentual": "100.00"
+      }
+    ],
+    "variacao_receitas": null,
+    "variacao_despesas": null,
+    "variacao_saldo": null,
+    "realizado": {
+      "receitas": "6200.00",
+      "despesas": "432.10",
+      "saldo": "5767.90"
+    },
+    "a_vir": {
+      "receitas": "0.00",
+      "despesas": "0.00",
+      "saldo": "0.00"
+    },
+    "consumo": {
+      "receitas": "6200.00",
+      "despesas": "432.10",
+      "saldo": "5767.90"
+    },
+    "categorias_consumo": [
+      {
+        "categoria": "Alimentação",
+        "total": "432.10",
+        "percentual": "100.00"
+      }
+    ],
+    "a_pagar": "0.00"
+  }
+}

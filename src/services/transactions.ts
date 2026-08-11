@@ -19,7 +19,10 @@ export interface Transaction {
 }
 
 export interface TransactionCreatePayload {
-  tipo: 'receita' | 'despesa'
+  // `estorno` entrou aqui em #48: o tipo de LEITURA (Transaction) já o aceitava
+  // desde 24/07 e o de ESCRITA não — assimetria que era lacuna, não decisão, e
+  // deixava o usuário sem como representar um reembolso que não veio de fatura.
+  tipo: 'receita' | 'despesa' | 'estorno'
   valor: string
   descricao: string
   categoria: string

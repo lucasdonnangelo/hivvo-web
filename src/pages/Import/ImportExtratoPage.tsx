@@ -39,6 +39,9 @@ interface State {
   importar: Record<number, boolean>
   // só EDIÇÕES de categoria; o default por linha é categoria_sugerida ?? 'Outros'
   categorias: Record<number, string>
+  // #48 — linhas de receita marcadas como dinheiro de volta (viram estorno).
+  // Ausente = receita, o default de sempre; a tela só afirma o que o usuário marcou.
+  reembolso: Record<number, true>
   // índice escolhido em candidatas (ambíguo); ausente = 0 (a primeira)
   candidataEscolhida: Record<number, number>
   importarRendimento: boolean
@@ -59,6 +62,7 @@ type Action =
   | { type: 'PREVIEW_OK'; preview: ExtratoPreviewResponse }
   | { type: 'TOGGLE_IMPORTAR'; idx: number }
   | { type: 'SET_CATEGORIA'; idx: number; cat: string }
+  | { type: 'TOGGLE_REEMBOLSO'; idx: number }
   | { type: 'SET_CANDIDATA'; idx: number; i: number }
   | { type: 'TOGGLE_RENDIMENTO' }
   | { type: 'SET_PERIODO'; campo: 'de' | 'ate'; valor: string }
@@ -74,6 +78,7 @@ const initialState: State = {
   preview: null,
   importar: {},
   categorias: {},
+  reembolso: {},
   candidataEscolhida: {},
   importarRendimento: true,
   periodoDe: '',
@@ -104,6 +109,7 @@ function reducer(s: State, a: Action): State {
         step: 'revisao',
         importar,
         categorias: {},
+        reembolso: {},
         candidataEscolhida: {},
         importarRendimento: true,
         periodoDe: periodo.de,
@@ -118,6 +124,31 @@ function reducer(s: State, a: Action): State {
       return { ...s, importar: { ...s.importar, [a.idx]: !s.importar[a.idx] } }
     case 'SET_CATEGORIA':
       return { ...s, categorias: { ...s.categorias, [a.idx]: a.cat } }
+    case 'TOGGLE_REEMBOLSO': {
+      // Marcar/desmarcar TROCA o universo de categoria da linha (receita ↔
+      // despesa), então a edição anterior é DESCARTADA: ela foi feita na outra
+      // lista e o servidor a rebaixaria a "Outros" sem a tela saber. Guardar
+      // "Salário" numa linha que vai ser gravada como "Outros" é a mesma
+      // mentira que esta pendência conserta.
+      //
+      // NÃO "CONSERTE" ISTO PRESERVANDO A EDIÇÃO. O descarte é nos DOIS
+      // sentidos, e desmarcar cai no default do universo de receita — que é a
+      // SUGESTÃO do backend, não a escolha manual anterior. As duas coincidem
+      // com frequência (a sugestão costuma ser o que o usuário escolheria), e
+      // é por isso que a diferença passa despercebida — mas são coisas
+      // distintas: uma é o que o servidor propôs, a outra é o que a pessoa
+      // decidiu. Guardar a edição para "devolvê-la" ao voltar reintroduz
+      // exatamente a divergência tela↔banco que a recomputação de categoria no
+      // servidor existe para fechar: a escolha ressuscitada pode não existir no
+      // universo em vigor no momento do commit. Perder um clique é o preço, e é
+      // o barato.
+      const reembolso = { ...s.reembolso }
+      const categorias = { ...s.categorias }
+      if (reembolso[a.idx]) delete reembolso[a.idx]
+      else reembolso[a.idx] = true
+      delete categorias[a.idx]
+      return { ...s, reembolso, categorias }
+    }
     case 'SET_CANDIDATA':
       return { ...s, candidataEscolhida: { ...s.candidataEscolhida, [a.idx]: a.i } }
     case 'TOGGLE_RENDIMENTO':
@@ -190,11 +221,18 @@ export default function ImportExtratoPage() {
   function buildPayload(preview: ExtratoPreviewResponse): ExtratoCommitRequest {
     const linhas: LinhaCommit[] = preview.extrato.linhas.map((l, idx) => {
       const enr = enrMap.get(idx)
+      // #48: marcada como dinheiro de volta, a sugestão do modelo NÃO serve de
+      // default — ela foi calculada no universo de receita. Cai em 'Outros', que
+      // é o mesmo que o servidor faria, em vez de mandar um palpite do outro lado.
+      const reembolso = l.balde === 'receita' && !!state.reembolso[idx]
       const linha: LinhaCommit = {
         ...l,
         importar: !!state.importar[idx],
-        categoria: state.categorias[idx] ?? enr?.categoria_sugerida ?? 'Outros',
+        categoria: reembolso
+          ? (state.categorias[idx] ?? 'Outros')
+          : (state.categorias[idx] ?? enr?.categoria_sugerida ?? 'Outros'),
       }
+      if (reembolso) linha.reclassificar_como = 'estorno'
       if (l.balde === 'pagamento_fatura' && linha.importar) {
         const proposta = resolverProposta(enr)
         if (proposta.kind === 'confirmavel') {
@@ -285,6 +323,7 @@ export default function ImportExtratoPage() {
             enriquecimento={enrMap}
             importar={state.importar}
             categorias={state.categorias}
+            reembolso={state.reembolso}
             candidataEscolhida={state.candidataEscolhida}
             categoriasReceita={categoriasReceita}
             categoriasDespesa={categoriasDespesa}
@@ -295,6 +334,7 @@ export default function ImportExtratoPage() {
             datasNaoReverificadas={state.periodoEditado}
             onToggleImportar={(idx) => dispatch({ type: 'TOGGLE_IMPORTAR', idx })}
             onSetCategoria={(idx, cat) => dispatch({ type: 'SET_CATEGORIA', idx, cat })}
+            onToggleReembolso={(idx) => dispatch({ type: 'TOGGLE_REEMBOLSO', idx })}
             onSetCandidata={(idx, i) => dispatch({ type: 'SET_CANDIDATA', idx, i })}
             onToggleRendimento={() => dispatch({ type: 'TOGGLE_RENDIMENTO' })}
             onSetPeriodo={(campo, valor) => dispatch({ type: 'SET_PERIODO', campo, valor })}

@@ -12,6 +12,7 @@ import {
   resolverProposta,
 } from './helpers'
 import { ariaDataExtrato, avisoDataExtrato, marcaData } from '../dataSuspeita'
+import { presentTipo } from '../../../lib/tipoTransacao'
 
 const catSelectClass =
   'w-full px-2 py-1.5 rounded-sm text-xs text-text-primary bg-bg border border-bg-border focus:outline-none focus:border-amber transition-colors'
@@ -28,6 +29,8 @@ interface StepRevisaoProps {
   importar: Record<number, boolean>
   // só EDIÇÕES; o default por linha é categoria_sugerida ?? 'Outros'
   categorias: Record<number, string>
+  // #48 — receitas marcadas como dinheiro de volta (viram tipo="estorno")
+  reembolso: Record<number, true>
   // índice em candidatas por linha; default 0 (a primeira, ordenada por confiança)
   candidataEscolhida: Record<number, number>
   categoriasReceita: string[]
@@ -44,6 +47,7 @@ interface StepRevisaoProps {
   datasNaoReverificadas: boolean
   onToggleImportar: (idx: number) => void
   onSetCategoria: (idx: number, cat: string) => void
+  onToggleReembolso: (idx: number) => void
   onSetCandidata: (idx: number, i: number) => void
   onToggleRendimento: () => void
   onSetPeriodo: (campo: 'de' | 'ate', valor: string) => void
@@ -103,6 +107,7 @@ export default function StepRevisao({
   enriquecimento,
   importar,
   categorias,
+  reembolso,
   candidataEscolhida,
   categoriasReceita,
   categoriasDespesa,
@@ -113,6 +118,7 @@ export default function StepRevisao({
   datasNaoReverificadas,
   onToggleImportar,
   onSetCategoria,
+  onToggleReembolso,
   onSetCandidata,
   onToggleRendimento,
   onSetPeriodo,
@@ -127,13 +133,55 @@ export default function StepRevisao({
 
   const rendimento = Number(extrato.rendimento)
 
-  const catValor = (idx: number, enr: EnriquecimentoLinha | undefined) =>
-    categorias[idx] ?? enr?.categoria_sugerida ?? 'Outros'
+  // ── #48: dinheiro de volta. A linha continua NASCENDO receita (o modelo não
+  // tem como saber se um "Pix recebido — FULANO" é salário, devolução de loja
+  // ou o amigo pagando de volta) e o usuário marca as que não são renda. Ela
+  // vira tipo="estorno": abate o gasto do mês em vez de inflar a receita. ──
+  const ehReembolso = (l: LinhaExtrato, idx: number) =>
+    l.balde === 'receita' && !!reembolso[idx]
+
+  // Estorno é gasto que VOLTOU, então a categoria dele vive no universo de
+  // DESPESA — o backend recomputa nesse universo. Trocar a lista aqui é o que
+  // impede a tela de afirmar uma categoria que o servidor vai rebaixar a
+  // "Outros" sem ninguém ver.
+  const opcoesDaLinha = (reemb: boolean, opcoes: string[]) =>
+    reemb ? categoriasDespesa : opcoes
+
+  // Marcada, a sugestão do backend NÃO serve de default: ela foi calculada no
+  // universo de receita. 'Outros' é o mesmo que o servidor gravaria.
+  const catValor = (idx: number, enr: EnriquecimentoLinha | undefined, reemb: boolean) =>
+    reemb
+      ? (categorias[idx] ?? 'Outros')
+      : (categorias[idx] ?? enr?.categoria_sugerida ?? 'Outros')
 
   // Se o valor atual (ex.: sugestão do backend de categoria já desativada) não
   // está nas opções, ele entra na lista — o select nunca coage em silêncio.
   const opcoesCom = (valor: string, opcoes: string[]) =>
     opcoes.includes(valor) ? opcoes : [valor, ...opcoes]
+
+  // Apresentação da linha marcada: o MESMO âmbar + selo que `presentTipo` já dá
+  // ao estorno na lista, no dashboard e no recibo — fonte única, não um quinto
+  // sentido do âmbar. A revisão passa a parecer com o resultado.
+  const presentLinha = (l: LinhaExtrato, reemb: boolean) =>
+    reemb ? presentTipo('estorno') : { ...presentBalde(l.balde), badge: null, badgeClass: '' }
+
+  // O controle por linha, idêntico nos dois layouts: mora COLADO no seletor de
+  // categoria porque marcar troca a lista dele — ver as duas coisas juntas é o
+  // que torna a troca legível.
+  const controleReembolso = (l: LinhaExtrato, idx: number) => (
+    <label className="flex items-start gap-2 cursor-pointer mt-1.5">
+      <input
+        type="checkbox"
+        checked={!!reembolso[idx]}
+        onChange={() => onToggleReembolso(idx)}
+        className="accent-amber w-3.5 h-3.5 mt-px shrink-0"
+        aria-label={`Marcar ${l.descricao} como dinheiro de volta`}
+      />
+      <span className="text-[11px] text-text-muted leading-tight">
+        Dinheiro de volta (não é renda)
+      </span>
+    </label>
+  )
 
   const marcadas = (grupo: typeof linhas) =>
     grupo.filter(({ idx }) => importar[idx]).length
@@ -179,7 +227,9 @@ export default function StepRevisao({
   // <select> não remonta ao editar (mesma nota do StepRevisao da fatura). ──
   const linhaMobile = (l: LinhaExtrato, idx: number, enr: EnriquecimentoLinha | undefined, opcoes: string[]) => {
     const marcada = !!importar[idx]
-    const pres = presentBalde(l.balde)
+    const reemb = ehReembolso(l, idx)
+    const pres = presentLinha(l, reemb)
+    const opcoesLinha = opcoesDaLinha(reemb, opcoes)
     return (
       <div
         key={idx}
@@ -196,7 +246,16 @@ export default function StepRevisao({
             aria-label={`Importar ${l.descricao}${ariaDataExtrato(suspeitaDe(enr))}`}
           />
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-            <span className="text-sm text-text-primary truncate">{l.descricao}</span>
+            <span className="text-sm text-text-primary truncate">
+              {l.descricao}
+              {pres.badge && (
+                <span
+                  className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${pres.badgeClass}`}
+                >
+                  {pres.badge}
+                </span>
+              )}
+            </span>
             <span className="text-xs text-text-muted">{marcaData(l.data, suspeitaDe(enr))}</span>
           </div>
           <span className={`text-sm shrink-0 ${pres.amountClass}`}>
@@ -207,18 +266,21 @@ export default function StepRevisao({
         {avisoData(enr)}
         {avisoRecorrencia(enr)}
         {marcada && (
-          <select
-            value={catValor(idx, enr)}
-            onChange={(e) => onSetCategoria(idx, e.target.value)}
-            className={catSelectClass}
-            aria-label={`Categoria de ${l.descricao}`}
-          >
-            {opcoesCom(catValor(idx, enr), opcoes).map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col">
+            <select
+              value={catValor(idx, enr, reemb)}
+              onChange={(e) => onSetCategoria(idx, e.target.value)}
+              className={catSelectClass}
+              aria-label={`Categoria de ${l.descricao}`}
+            >
+              {opcoesCom(catValor(idx, enr, reemb), opcoesLinha).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            {l.balde === 'receita' && controleReembolso(l, idx)}
+          </div>
         )}
       </div>
     )
@@ -227,7 +289,9 @@ export default function StepRevisao({
   // ── Uma linha de receita/débito (desktop = <tr>) ──
   const linhaDesktop = (l: LinhaExtrato, idx: number, enr: EnriquecimentoLinha | undefined, opcoes: string[]) => {
     const marcada = !!importar[idx]
-    const pres = presentBalde(l.balde)
+    const reemb = ehReembolso(l, idx)
+    const pres = presentLinha(l, reemb)
+    const opcoesLinha = opcoesDaLinha(reemb, opcoes)
     return (
       <tr key={idx} className={`border-b border-bg-border ${marcada ? '' : 'opacity-60'}`}>
         <td className="py-2 pr-3 align-top">
@@ -246,7 +310,16 @@ export default function StepRevisao({
             data é whitespace-nowrap e estreita, e uma frase ali estouraria a
             tabela — mesma escolha do StepRevisao da fatura. */}
         <td className="py-2 pr-3 align-top">
-          <span className="text-sm text-text-primary">{l.descricao}</span>
+          <span className="text-sm text-text-primary">
+            {l.descricao}
+            {pres.badge && (
+              <span
+                className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${pres.badgeClass}`}
+              >
+                {pres.badge}
+              </span>
+            )}
+          </span>
           {avisoData(enr)}
           {avisoRecorrencia(enr)}
         </td>
@@ -258,18 +331,21 @@ export default function StepRevisao({
         </td>
         <td className="py-2 align-top w-44">
           {marcada ? (
-            <select
-              value={catValor(idx, enr)}
-              onChange={(e) => onSetCategoria(idx, e.target.value)}
-              className={catSelectClass}
-              aria-label={`Categoria de ${l.descricao}`}
-            >
-              {opcoesCom(catValor(idx, enr), opcoes).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={catValor(idx, enr, reemb)}
+                onChange={(e) => onSetCategoria(idx, e.target.value)}
+                className={catSelectClass}
+                aria-label={`Categoria de ${l.descricao}`}
+              >
+                {opcoesCom(catValor(idx, enr, reemb), opcoesLinha).map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              {l.balde === 'receita' && controleReembolso(l, idx)}
+            </>
           ) : (
             <span className="text-xs text-text-muted">não importar</span>
           )}
@@ -283,6 +359,7 @@ export default function StepRevisao({
     titulo: string,
     grupo: typeof linhas,
     opcoes: string[],
+    nota?: string,
   ) => {
     if (grupo.length === 0) return null
     return (
@@ -290,6 +367,7 @@ export default function StepRevisao({
         <h2 className="text-sm font-medium text-text-primary">
           {titulo} ({marcadas(grupo)}/{grupo.length})
         </h2>
+        {nota && <p className="text-xs text-text-muted">{nota}</p>}
         {isMobile ? (
           <div className="flex flex-col gap-2">
             {grupo.map(({ l, idx, enr }) => linhaMobile(l, idx, enr, opcoes))}
@@ -505,7 +583,18 @@ export default function StepRevisao({
         </p>
       )}
 
-      {secaoLinhas('Receitas', receitas, categoriasReceita)}
+      {/* A cópia tem de ser mais larga que a palavra "estorno": ela precisa
+          cobrir tanto "a loja me devolveu" quanto "meu amigo me pagou de
+          volta". Por isso o controle se chama "dinheiro de volta" e as palavras
+          bancárias ficam aqui, na explicação. */}
+      {secaoLinhas(
+        'Receitas',
+        receitas,
+        categoriasReceita,
+        'Recebeu de volta? Marque a linha como dinheiro de volta — ela abate o gasto do ' +
+          'mês em vez de entrar como renda. Vale para reembolso, estorno de compra, ' +
+          'devolução e dinheiro que alguém te pagou de volta.',
+      )}
       {secaoLinhas('Débitos', debitos, categoriasDespesa)}
 
       {/* ── Pagamentos de fatura ── */}
