@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useBreakpoint } from '../../hooks/useBreakpoint'
-import { useMonthlyStats, useProjection } from '../../hooks/useStatistics'
+import { useCoverage, useMonthlyStats, useProjection } from '../../hooks/useStatistics'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useCards } from '../../hooks/useCards'
 import type { Transaction } from '../../services/transactions'
@@ -309,7 +309,13 @@ function ProjectionBlock({
 
 // ─── page ────────────────────────────────────────────────────────────────────
 
-export default function OverviewPage() {
+interface OverviewPageProps {
+  // A Análise é a outra ABA (estado local do DashboardPage), não uma rota — o
+  // passo 3 do onboarding precisa de um callback para chegar lá.
+  onVerAnalise: () => void
+}
+
+export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
   const isMobile = useBreakpoint('md')
 
   // Bloco 1 "Seu mês" — âncora no mês corrente, FIXO (sem navegação de mês). Todos
@@ -321,6 +327,9 @@ export default function OverviewPage() {
   const { data: stats, isLoading: statsLoading, isError } = useMonthlyStats(mes, ano)
   const { data: transactions, isLoading: txLoading } = useTransactions(mes, ano)
   const { data: cards = [] } = useCards()
+  // Histórico INTEIRO, sem parâmetro de mês — o único sinal honesto de "esta
+  // conta já tem dado", e o mesmo que governa o florescimento da Análise.
+  const { data: coverage } = useCoverage()
 
   // Bloco 2 "Sua projeção" — 12 meses de fluxo, começando no mês default (série[0]).
   // Query independente do /monthly: não trava a página nem o Bloco 1.
@@ -342,8 +351,27 @@ export default function OverviewPage() {
   const isEmpty =
     !isLoading && stats !== undefined && stats.receitas === 0 && stats.despesas === 0
 
+  // O guia fica de pé ENQUANTO houver passo em aberto. A condição anterior era
+  // `transactions.length === 0 && cards.length === 0` (as duas), e tinha os dois
+  // furos possíveis ao mesmo tempo:
+  //   · cadastrar o cartão — o PASSO 1 — derrubava o banner, então os passos 2 e
+  //     3 nunca apareceram para ninguém: um guia de três passos que só mostrava
+  //     o primeiro;
+  //   · `transactions` é do MÊS CORRENTE (useTransactions(mes, ano) logo acima),
+  //     não do histórico: quem importou seis meses de extrato (que não exige
+  //     cartão) e não lançou nada neste mês recebia "Bem-vindo ao Hivvo!" de
+  //     volta.
+  // Some sozinho quando os dois passos estão feitos — quem já usa o app não vê
+  // banner novo — e volta depois do "Começar do zero", que zera o coverage.
+  //
+  // `coverage !== undefined` cobre carregando E erro na mesma condição, de
+  // propósito: sem a resposta, "não tem histórico" é chute, e o chute errado
+  // acusa quem já usa o app de ser novato — a cada carregamento do Dashboard.
+  // Calado é o lado recuperável; o guia continua alcançável pelas telas.
+  const temCartao = cards.some((c) => c.ativo)
+  const temHistorico = (coverage?.meses_com_dados ?? 0) > 0
   const showOnboarding =
-    !isLoading && (transactions ?? []).length === 0 && cards.length === 0
+    !isLoading && coverage !== undefined && (!temCartao || !temHistorico)
 
   const header = (
     <div>
@@ -438,7 +466,14 @@ export default function OverviewPage() {
           {saldoCard}
         </div>
 
-        {showOnboarding && <OnboardingBanner />}
+        {showOnboarding && (
+          <OnboardingBanner
+            temCartao={temCartao}
+            temHistorico={temHistorico}
+            isMobile={isMobile}
+            onVerAnalise={onVerAnalise}
+          />
+        )}
 
         {isEmpty ? (
           <EmptyState mes={mes} ano={ano} />
@@ -466,7 +501,14 @@ export default function OverviewPage() {
         {saldoCard}
       </div>
 
-      {showOnboarding && <OnboardingBanner />}
+      {showOnboarding && (
+        <OnboardingBanner
+          temCartao={temCartao}
+          temHistorico={temHistorico}
+          isMobile={isMobile}
+          onVerAnalise={onVerAnalise}
+        />
+      )}
 
       {isEmpty ? (
         <EmptyState mes={mes} ano={ano} />

@@ -25,6 +25,7 @@ import type { ResetDataResponse } from '../../services/auth'
 import { getAllTransactions } from '../../services/transactions'
 import { clearHistorico } from '../../services/ai'
 import { errorDetail } from '../../lib/extractDetail'
+import { restaurarOnboarding } from '../../lib/onboardingDismiss'
 
 // Recorrência não passa por cartão (§3.4) → sem "Crédito".
 const FORMAS_RECORRENCIA = ['Débito', 'PIX', 'Dinheiro', 'TED/DOC']
@@ -73,6 +74,7 @@ export default function SettingsPage() {
 
   // ── Auth store ────────────────────────────────────────────────────────────
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const user = useAuthStore((s) => s.user)
   const addToast = useUIStore((s) => s.addToast)
   const qc = useQueryClient()
 
@@ -104,6 +106,11 @@ export default function SettingsPage() {
       // Sem filtro: o reset zera tudo, e enumerar as chaves só criaria uma lista
       // para esquecer de atualizar quando nascer a próxima query.
       qc.invalidateQueries()
+      // A conta volta ao estado inicial, o guia de primeiros passos também. Sem
+      // isto, quem zera os dados fica sem histórico E sem guia — o pior dos dois
+      // mundos, e o estado em que a dispensa antiga (global do browser) deixava
+      // o usuário para sempre.
+      restaurarOnboarding(user?.id ?? null)
       setResetDataPassword('')
       setResetDataRecibo(recibo)
     } catch (err: unknown) {

@@ -66,7 +66,13 @@ export default function DashboardPage() {
         <TabNav value={tab} onChange={setTab} isMobile={isMobile} />
       </div>
 
-      {tab === 'overview' ? <OverviewPage /> : <AnalysisPage />}
+      {/* O passo 3 do onboarding (na Visão geral) leva para a Análise, que é ABA
+          e não rota: quem pode trocá-la é este container. */}
+      {tab === 'overview' ? (
+        <OverviewPage onVerAnalise={() => setTab('analysis')} />
+      ) : (
+        <AnalysisPage />
+      )}
     </div>
   )
 }

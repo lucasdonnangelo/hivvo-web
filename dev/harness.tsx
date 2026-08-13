@@ -28,7 +28,7 @@
 import { useState, type CSSProperties } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import '../src/index.css'
 import AddTransactionPage from '../src/pages/AddTransaction/AddTransactionPage'
 import sementes from './sementes-capturadas.json'
@@ -49,6 +49,13 @@ import type {
   ExtratoExtraido,
   ReconciliacaoExtrato,
 } from '../src/services/importExtrato'
+import OnboardingBanner from '../src/components/ui/OnboardingBanner'
+import { useAuthStore } from '../src/store/authStore'
+import {
+  dispensarOnboarding,
+  onboardingDispensado,
+  restaurarOnboarding,
+} from '../src/lib/onboardingDismiss'
 
 // Só tipos vêm de services/importFatura — `import type` some na compilação, então
 // nem axios nem o interceptor de auth entram no grafo. O harness é read-only por
@@ -232,6 +239,50 @@ function novoQueryClient() {
   return qc
 }
 
+// ─── ONBOARDING ──────────────────────────────────────────────────────────────
+// O banner é PRESENTACIONAL (temCartao/temHistorico/isMobile chegam por prop),
+// então os dois eixos de progresso são dirigíveis daqui — é isso que permite
+// verificar "cada passo aparece quando deve" sem backend e sem auth.
+//
+// A dispensa, ao contrário, é EFEITO REAL: escreve em localStorage por usuário.
+// Por isso o harness (a) semeia um usuário falso no authStore, que é de onde o
+// banner tira o id, e (b) APAGA a chave desse usuário a cada carga — senão a
+// primeira rodada dispensaria o banner e todas as seguintes mediriam uma tela
+// vazia, achando que o componente quebrou.
+const USUARIO_HARNESS = {
+  id: 999,
+  email: 'harness@local',
+  username: 'harness',
+  nome_completo: 'Harness',
+  criado_em: '2026-01-01T00:00:00Z',
+  ativo: true,
+}
+useAuthStore.setState({ user: USUARIO_HARNESS, isAuthenticated: true })
+restaurarOnboarding(USUARIO_HARNESS.id)
+
+// O módulo REAL de dispensa exposto para o driver. Não é conveniência: se o
+// driver reimplementasse a chave ("hivvo_onboarding_dismissed:999"), ele
+// verificaria a própria cópia — e continuaria passando no dia em que o formato da
+// chave mudasse no app. Aqui ele chama o mesmo código que a produção chama.
+;(window as unknown as Record<string, unknown>).__onb = {
+  usuarioId: USUARIO_HARNESS.id,
+  dispensado: () => onboardingDispensado(USUARIO_HARNESS.id),
+  dispensar: () => dispensarOnboarding(USUARIO_HARNESS.id),
+  restaurar: () => restaurarOnboarding(USUARIO_HARNESS.id),
+  chaves: () => Object.keys(localStorage),
+}
+
+// Onde o MemoryRouter está agora, impresso no DOM. Sem isto não há como LER para
+// onde um passo levou: dentro do MemoryRouter não existe barra de endereços, e
+// ler o `to` do código-fonte verificaria o código-fonte, não a tela.
+function RotaAtual() {
+  return (
+    <p id="harness-rota" style={{ fontSize: 12, color: '#888580', marginTop: 12 }}>
+      rota: {useLocation().pathname}
+    </p>
+  )
+}
+
 const botao: CSSProperties = {
   fontSize: 12,
   color: '#EF9F27',
@@ -248,8 +299,14 @@ const botao: CSSProperties = {
 // e um harness que o derivasse de outro jeito testaria outra coisa.
 function Harness() {
   const [isMobile, setIsMobile] = useState(false)
-  const [modulo, setModulo] = useState<'fatura' | 'extrato' | 'criar'>('fatura')
+  const [modulo, setModulo] = useState<'fatura' | 'extrato' | 'criar' | 'onboarding'>('fatura')
   const [qc] = useState(novoQueryClient)
+
+  // Os dois eixos do onboarding, independentes: o produto tem os quatro estados
+  // (nada · só cartão · só histórico, que o extrato produz sem cartão nenhum ·
+  // os dois), e o passo "atual" tem de andar entre eles.
+  const [temCartao, setTemCartao] = useState(false)
+  const [temHistorico, setTemHistorico] = useState(false)
 
   const [categorias, setCategorias] = useState<Record<number, string>>({})
   const [apagadas, setApagadas] = useState<Record<number, true>>({})
@@ -287,7 +344,15 @@ function Harness() {
         <button
           id="harness-toggle-modulo"
           onClick={() =>
-            setModulo((m) => (m === 'fatura' ? 'extrato' : m === 'extrato' ? 'criar' : 'fatura'))
+            setModulo((m) =>
+              m === 'fatura'
+                ? 'extrato'
+                : m === 'extrato'
+                  ? 'criar'
+                  : m === 'criar'
+                    ? 'onboarding'
+                    : 'fatura',
+            )
           }
           style={botao}
         >
@@ -301,6 +366,24 @@ function Harness() {
           >
             período do documento: {periodoNulo ? 'ausente' : '2026-07-01 a 2026-07-31'}
           </button>
+        )}
+        {modulo === 'onboarding' && (
+          <>
+            <button
+              id="harness-toggle-cartao"
+              onClick={() => setTemCartao((v) => !v)}
+              style={botao}
+            >
+              cartão: {temCartao ? 'existe' : 'nenhum'}
+            </button>
+            <button
+              id="harness-toggle-historico"
+              onClick={() => setTemHistorico((v) => !v)}
+              style={botao}
+            >
+              histórico: {temHistorico ? 'tem' : 'vazio'}
+            </button>
+          </>
         )}
       </div>
 
@@ -323,6 +406,31 @@ function Harness() {
             })
           }
         />
+      ) : modulo === 'onboarding' ? (
+        // MemoryRouter porque o banner navega (`useNavigate`) nos passos 1 e 2;
+        // aqui a navegação não leva a lugar nenhum, e é isso que se quer — o que
+        // está sob teste é O DESTINO de cada botão, lido do DOM, não a página de
+        // chegada.
+        //
+        // ATENÇÃO ao botão "layout": aqui ele VALE (o banner recebe `isMobile`
+        // por prop, como os StepRevisao), mas ainda assim o driver CDP emula a
+        // VIEWPORT junto — largura de verdade. Um layout mobile dentro de uma
+        // janela de 1280px mede quebras de linha que não acontecem em aparelho
+        // nenhum, que foi o erro da primeira rodada do AddTransactionPage.
+        <MemoryRouter>
+          <OnboardingBanner
+            temCartao={temCartao}
+            temHistorico={temHistorico}
+            isMobile={isMobile}
+            onVerAnalise={() => {
+              // Espelha o setTab('analysis') do DashboardPage: a Análise é aba,
+              // não rota, então o passo 3 não tem URL para inspecionar — o que dá
+              // para verificar é que o clique chama o callback.
+              document.body.dataset.analiseAberta = 'sim'
+            }}
+          />
+          <RotaAtual />
+        </MemoryRouter>
       ) : modulo === 'criar' ? (
         // O componente REAL, com os providers que ele exige e o cache semeado.
         //
