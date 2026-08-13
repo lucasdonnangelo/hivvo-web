@@ -5,6 +5,11 @@ import { useTransactions } from '../../hooks/useTransactions'
 import { useCards } from '../../hooks/useCards'
 import type { Transaction } from '../../services/transactions'
 import { presentTipo } from '../../lib/tipoTransacao'
+import {
+  deveMostrarOnboarding,
+  temCartaoAtivo,
+  temHistorico,
+} from '../../lib/deveMostrarOnboarding'
 import type { ProjectionMonth } from '../../services/statistics'
 import DonutChart from '../../components/charts/DonutChart'
 import OnboardingBanner from '../../components/ui/OnboardingBanner'
@@ -351,27 +356,12 @@ export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
   const isEmpty =
     !isLoading && stats !== undefined && stats.receitas === 0 && stats.despesas === 0
 
-  // O guia fica de pé ENQUANTO houver passo em aberto. A condição anterior era
-  // `transactions.length === 0 && cards.length === 0` (as duas), e tinha os dois
-  // furos possíveis ao mesmo tempo:
-  //   · cadastrar o cartão — o PASSO 1 — derrubava o banner, então os passos 2 e
-  //     3 nunca apareceram para ninguém: um guia de três passos que só mostrava
-  //     o primeiro;
-  //   · `transactions` é do MÊS CORRENTE (useTransactions(mes, ano) logo acima),
-  //     não do histórico: quem importou seis meses de extrato (que não exige
-  //     cartão) e não lançou nada neste mês recebia "Bem-vindo ao Hivvo!" de
-  //     volta.
-  // Some sozinho quando os dois passos estão feitos — quem já usa o app não vê
-  // banner novo — e volta depois do "Começar do zero", que zera o coverage.
-  //
-  // `coverage !== undefined` cobre carregando E erro na mesma condição, de
-  // propósito: sem a resposta, "não tem histórico" é chute, e o chute errado
-  // acusa quem já usa o app de ser novato — a cada carregamento do Dashboard.
-  // Calado é o lado recuperável; o guia continua alcançável pelas telas.
-  const temCartao = cards.some((c) => c.ativo)
-  const temHistorico = (coverage?.meses_com_dados ?? 0) > 0
-  const showOnboarding =
-    !isLoading && coverage !== undefined && (!temCartao || !temHistorico)
+  // A regra vive em lib/deveMostrarOnboarding (pura, com teste): foi ELA o
+  // defeito que abriu este batch — um `&&` onde cabia `||` derrubava o guia no
+  // passo 1 —, e é a metade que o harness não alcança. Os dois predicados saem
+  // de lá também, para o ✓ de cada passo não divergir da regra que decide se o
+  // banner aparece.
+  const showOnboarding = deveMostrarOnboarding(cards, coverage, isLoading)
 
   const header = (
     <div>
@@ -468,8 +458,8 @@ export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
 
         {showOnboarding && (
           <OnboardingBanner
-            temCartao={temCartao}
-            temHistorico={temHistorico}
+            temCartao={temCartaoAtivo(cards)}
+            temHistorico={temHistorico(coverage)}
             isMobile={isMobile}
             onVerAnalise={onVerAnalise}
           />
@@ -503,8 +493,8 @@ export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
 
       {showOnboarding && (
         <OnboardingBanner
-          temCartao={temCartao}
-          temHistorico={temHistorico}
+          temCartao={temCartaoAtivo(cards)}
+          temHistorico={temHistorico(coverage)}
           isMobile={isMobile}
           onVerAnalise={onVerAnalise}
         />
