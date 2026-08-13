@@ -7,6 +7,7 @@ import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import { Section, SettingsRow } from '../../components/ui/SettingsSection'
 import NewCategoryModal from '../../components/categories/NewCategoryModal'
+import FeedbackForm from './FeedbackForm'
 import { useCategories, useDeleteCategory } from '../../hooks/useCategories'
 import {
   useRecorrencias,
@@ -24,7 +25,10 @@ import { deleteMe, resetData } from '../../services/auth'
 import type { ResetDataResponse } from '../../services/auth'
 import { getAllTransactions } from '../../services/transactions'
 import { clearHistorico } from '../../services/ai'
+import { enviarFeedback } from '../../services/feedback'
 import { errorDetail } from '../../lib/extractDetail'
+import { montarContexto } from '../../lib/feedback'
+import { rotaAnterior } from '../../lib/rotaAnterior'
 import { restaurarOnboarding } from '../../lib/onboardingDismiss'
 
 // Recorrência não passa por cartão (§3.4) → sem "Crédito".
@@ -187,6 +191,31 @@ export default function SettingsPage() {
     } finally {
       setIsExporting(false)
     }
+  }
+
+  // ── Feedback ──────────────────────────────────────────────────────────────
+  // O FeedbackForm é apresentacional (não lê `window`, não conhece axios) para
+  // caber no harness. A leitura do browser mora aqui, e não lá, por um motivo
+  // que não é só arrumação: `isMobile` é o MESMO valor que esta página usa
+  // logo abaixo para escolher entre o layout mobile e o desktop. O campo
+  // `layout` do e-mail passa a ser o eixo já resolvido, não uma largura crua
+  // para alguém reinterpretar do outro lado.
+  //
+  // Erro NÃO é tratado aqui: ele sobe para o formulário, que é quem sabe
+  // preservar o texto digitado e escolher a cópia (429 difere de 502).
+  async function handleEnviarFeedback(mensagem: string) {
+    await enviarFeedback(
+      mensagem,
+      montarContexto({
+        rotaAnterior: rotaAnterior(),
+        versao: import.meta.env.VITE_APP_VERSION,
+        largura: window.innerWidth,
+        altura: window.innerHeight,
+        dpr: window.devicePixelRatio,
+        userAgent: navigator.userAgent,
+        isMobile,
+      }),
+    )
   }
 
   // ── Categorias ────────────────────────────────────────────────────────────
@@ -625,17 +654,27 @@ export default function SettingsPage() {
             </span>
           </div>
         </SettingsRow>
+        {/* O formulário substitui o parágrafo + mailto que existiam aqui. O
+            mailto pedia ao usuário que informasse a versão à mão (logo acima) e,
+            no mobile, frequentemente não abre cliente nenhum. Agora a versão vai
+            sozinha e o envio não depende de o aparelho ter e-mail configurado.
+            A saída por e-mail continua embaixo, com o ENDEREÇO À VISTA como
+            texto: link que não abre nada é pior que endereço que dá para
+            copiar. */}
         <SettingsRow>
-          <p className="text-sm text-text-muted mb-3">
-            Encontrou um problema ou tem uma sugestão? Escreva para a gente — informe a versão
-            acima, ajuda a investigar.
+          <FeedbackForm
+            email={user?.email ?? 'seu e-mail cadastrado'}
+            onEnviar={handleEnviarFeedback}
+          />
+          <p className="mt-3 text-xs text-text-muted">
+            Prefere e-mail?{' '}
+            <a
+              href="mailto:contato@hivvo.app"
+              className="text-amber hover:text-amber-light transition-colors"
+            >
+              contato@hivvo.app
+            </a>
           </p>
-          <a
-            href="mailto:contato@hivvo.app"
-            className="inline-flex items-center text-sm text-amber hover:text-amber-light transition-colors"
-          >
-            contato@hivvo.app
-          </a>
         </SettingsRow>
       </Section>
 

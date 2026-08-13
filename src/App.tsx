@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { useBreakpoint } from './hooks/useBreakpoint'
+import { useRastrearRota } from './hooks/useRastrearRota'
 // Shell eager (não pode suspender): layouts + infra de inicialização.
 import AuthLayout from './layouts/AuthLayout'
 import DesktopLayout from './layouts/DesktopLayout'
@@ -32,6 +33,10 @@ const PrivacyPage = lazy(() => import('./pages/Legal/PrivacyPage'))
 
 function AppLayout() {
   const isMobile = useBreakpoint('md')
+  // De onde o usuário vinha antes de abrir Configurações — o formulário de
+  // feedback manda isso junto como PISTA. Aqui, e não em cada página: o
+  // AppLayout envolve todas as rotas autenticadas e é montado uma vez só.
+  useRastrearRota()
   return isMobile ? <MobileLayout /> : <DesktopLayout />
 }
 

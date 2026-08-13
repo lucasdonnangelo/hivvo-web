@@ -50,6 +50,8 @@ import type {
   ReconciliacaoExtrato,
 } from '../src/services/importExtrato'
 import OnboardingBanner from '../src/components/ui/OnboardingBanner'
+import FeedbackForm from '../src/pages/Settings/FeedbackForm'
+import { Section, SettingsRow } from '../src/components/ui/SettingsSection'
 import { useAuthStore } from '../src/store/authStore'
 import {
   dispensarOnboarding,
@@ -272,6 +274,36 @@ restaurarOnboarding(USUARIO_HARNESS.id)
   chaves: () => Object.keys(localStorage),
 }
 
+// ─── FEEDBACK ────────────────────────────────────────────────────────────────
+// O FeedbackForm recebe `onEnviar` por prop, então o harness injeta os três
+// desfechos que o usuário pode encontrar SEM backend, sem axios e sem e-mail
+// nenhum saindo daqui.
+//
+// Os erros são lançados na FORMA DO AXIOS (`{ response: { status, data } }`),
+// e não como strings, porque quem os traduz é o `errorDetail` REAL importado
+// pelo formulário. Um harness que lançasse Error('429') veria a cópia do
+// fallback e diria que está tudo certo.
+//
+// O corpo do 502 é o `detail` literal de app/routers/feedback.py; o do 429 é o
+// corpo literal do slowapi (chave `error`, não `detail`) — é exatamente essa
+// diferença de formato que o extractDetail passou a tratar.
+const RESULTADOS = ['sucesso', 'falha-502', 'limite-429'] as const
+type Resultado = (typeof RESULTADOS)[number]
+
+function erroDoResultado(resultado: Resultado): unknown {
+  if (resultado === 'falha-502') {
+    return {
+      response: {
+        status: 502,
+        data: {
+          detail: 'Não foi possível enviar sua mensagem agora. Tente de novo em instantes.',
+        },
+      },
+    }
+  }
+  return { response: { status: 429, data: { error: 'Rate limit exceeded: 5 per 1 hour' } } }
+}
+
 // Onde o MemoryRouter está agora, impresso no DOM. Sem isto não há como LER para
 // onde um passo levou: dentro do MemoryRouter não existe barra de endereços, e
 // ler o `to` do código-fonte verificaria o código-fonte, não a tela.
@@ -299,8 +331,13 @@ const botao: CSSProperties = {
 // e um harness que o derivasse de outro jeito testaria outra coisa.
 function Harness() {
   const [isMobile, setIsMobile] = useState(false)
-  const [modulo, setModulo] = useState<'fatura' | 'extrato' | 'criar' | 'onboarding'>('fatura')
+  const [modulo, setModulo] = useState<
+    'fatura' | 'extrato' | 'criar' | 'onboarding' | 'feedback'
+  >('fatura')
   const [qc] = useState(novoQueryClient)
+
+  // Desfecho do próximo envio de feedback (ver erroDoResultado).
+  const [resultado, setResultado] = useState<Resultado>('sucesso')
 
   // Os dois eixos do onboarding, independentes: o produto tem os quatro estados
   // (nada · só cartão · só histórico, que o extrato produz sem cartão nenhum ·
@@ -335,9 +372,26 @@ function Harness() {
     periodo: periodoNulo ? null : periodoDoDocumento,
   }
 
+  // O módulo `feedback` renderiza SEM o invólucro de 24px/768px do harness, e
+  // isso não é preferência: o formulário não tem prop de layout, ele responde à
+  // largura que sobra. Numa viewport de 390px, o padding do harness roubaria
+  // 48px e as medidas de quebra de linha sairiam de uma caixa de 310px que não
+  // existe em aparelho nenhum — a mesma classe de erro que o cabeçalho do
+  // harness-cdp-onboarding.mjs descreve para o AddTransactionPage. Quem põe a
+  // margem é o próprio módulo, com as classes que o SettingsPage usa.
+  const solto = modulo === 'feedback'
+
   return (
-    <div style={{ padding: 24, maxWidth: 768, margin: '0 auto' }}>
-      <div style={{ marginBottom: 16, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+    <div style={solto ? undefined : { padding: 24, maxWidth: 768, margin: '0 auto' }}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          gap: 20,
+          flexWrap: 'wrap',
+          padding: solto ? 12 : 0,
+        }}
+      >
         <button id="harness-toggle-mobile" onClick={() => setIsMobile((v) => !v)} style={botao}>
           layout: {isMobile ? 'mobile' : 'desktop'}
         </button>
@@ -351,7 +405,9 @@ function Harness() {
                   ? 'criar'
                   : m === 'criar'
                     ? 'onboarding'
-                    : 'fatura',
+                    : m === 'onboarding'
+                      ? 'feedback'
+                      : 'fatura',
             )
           }
           style={botao}
@@ -365,6 +421,17 @@ function Harness() {
             style={botao}
           >
             período do documento: {periodoNulo ? 'ausente' : '2026-07-01 a 2026-07-31'}
+          </button>
+        )}
+        {modulo === 'feedback' && (
+          <button
+            id="harness-toggle-resultado"
+            onClick={() =>
+              setResultado((r) => RESULTADOS[(RESULTADOS.indexOf(r) + 1) % RESULTADOS.length])
+            }
+            style={botao}
+          >
+            próximo envio: {resultado}
           </button>
         )}
         {modulo === 'onboarding' && (
@@ -387,7 +454,50 @@ function Harness() {
         )}
       </div>
 
-      {modulo === 'fatura' ? (
+      {modulo === 'feedback' ? (
+        // Envolto no MESMO Section/SettingsRow e nos MESMOS invólucros de
+        // largura que o SettingsPage usa (`p-4` no mobile, `p-6 max-w-xl
+        // mx-auto` no desktop). Não é decoração: o formulário não tem prop de
+        // layout — ele responde à LARGURA disponível —, então medi-lo solto
+        // dentro do container de 768px do harness mediria uma caixa que não
+        // existe no produto. O botão "layout" acima controla o invólucro, e o
+        // driver CDP emula a viewport junto.
+        <div className={isMobile ? 'p-4' : 'p-6 max-w-xl mx-auto'}>
+          <Section title="Sobre">
+            <SettingsRow>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-text-muted">Versão</span>
+                <span className="text-sm text-text-primary tabular-nums">0.1.0 (harness)</span>
+              </div>
+            </SettingsRow>
+            <SettingsRow>
+              <FeedbackForm
+                email="harness@local"
+                onEnviar={async (mensagem) => {
+                  // Latência de propósito: é o que faz o estado "Enviando…" e o
+                  // botão em isLoading existirem por tempo suficiente para
+                  // serem lidos do DOM.
+                  await new Promise((r) => setTimeout(r, 150))
+                  if (resultado !== 'sucesso') throw erroDoResultado(resultado)
+                  // Prova que a mensagem chegou ÍNTEGRA ao callback (com trim,
+                  // sem truncar) — sem isto, "sucesso" só provaria que nada
+                  // explodiu.
+                  document.body.dataset.feedbackEnviado = mensagem
+                }}
+              />
+              <p className="mt-3 text-xs text-text-muted">
+                Prefere e-mail?{' '}
+                <a
+                  href="mailto:contato@hivvo.app"
+                  className="text-amber hover:text-amber-light transition-colors"
+                >
+                  contato@hivvo.app
+                </a>
+              </p>
+            </SettingsRow>
+          </Section>
+        </div>
+      ) : modulo === 'fatura' ? (
         <StepRevisao
           isMobile={isMobile}
           fatura={fatura}

@@ -82,6 +82,14 @@ export default function PrivacyPage() {
                 data e hora de acesso; e dados mínimos de diagnóstico de erros (rota, tipo de
                 falha, stack trace sem valores pessoais) via Sentry, para corrigir problemas.
               </>,
+              <>
+                <span className="text-text-primary font-medium">Feedback enviado pelo app:</span>{' '}
+                o texto que você escreve em Configurações e, junto dele, informações capturadas
+                automaticamente para conseguirmos investigar o relato: seu nome, e-mail e
+                identificador de conta, a versão do aplicativo, a tela em que você estava antes de
+                abrir Configurações, o tamanho da tela e o navegador. A mensagem é enviada por
+                e-mail para contato@hivvo.app e não é armazenada no banco de dados.
+              </>,
             ]} />
           </Section>
 
@@ -174,8 +182,8 @@ export default function PrivacyPage() {
               />
               <Subprocessor
                 name="Resend"
-                purpose="Envio de e-mails transacionais"
-                data="E-mail e nome completo"
+                purpose="Envio de e-mails transacionais e do feedback enviado pelo app"
+                data="E-mail, nome completo e o conteúdo das mensagens de feedback"
               />
               <Subprocessor
                 name="Cloudflare"
