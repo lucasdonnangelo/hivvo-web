@@ -37,7 +37,7 @@ export default function TermsPage() {
         </button>
 
         <h1 className="text-2xl font-medium text-text-primary mb-1">Termos de Uso — Hivvo</h1>
-        <p className="text-xs text-text-muted mb-10">Última atualização: julho de 2026</p>
+        <p className="text-xs text-text-muted mb-10">Última atualização: agosto de 2026</p>
 
         <div className="flex flex-col gap-7">
           <Section title="1. Aceitação dos Termos">
@@ -78,6 +78,14 @@ export default function TermsPage() {
               em PDF, com reconhecimento automático por inteligência artificial; veja a Política de
               Privacidade §4). O Hivvo não oferece serviços de intermediação financeira,
               investimento ou crédito.
+            </P>
+            <P>
+              <span className="text-text-primary font-medium">Avisos de vencimento:</span>{' '}
+              o Hivvo envia um aviso por e-mail quando uma fatura sua vence em 3 dias, calculado a
+              partir dos dados que você mesmo cadastrou. O aviso é informativo e{' '}
+              <strong>não constitui cobrança nem garantia de entrega</strong>: pode atrasar ou não
+              chegar, e a responsabilidade pelo pagamento continua sendo sua. Ele vem ativado por
+              padrão e pode ser desativado a qualquer momento (veja a Política de Privacidade §4).
             </P>
           </Section>
 

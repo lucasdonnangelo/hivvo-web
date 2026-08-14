@@ -49,7 +49,7 @@ export default function PrivacyPage() {
         <h1 className="text-2xl font-medium text-text-primary mb-1">
           Política de Privacidade — Hivvo
         </h1>
-        <p className="text-xs text-text-muted mb-10">Última atualização: julho de 2026</p>
+        <p className="text-xs text-text-muted mb-10">Última atualização: agosto de 2026</p>
 
         <div className="flex flex-col gap-7">
           <Section title="1. Introdução e Controlador">
@@ -152,6 +152,15 @@ export default function PrivacyPage() {
               e-mails transacionais (recuperação de senha, alertas de segurança) enviados via
               Resend — para isso, seu e-mail e nome completo são enviados a esse provedor.
             </P>
+            <P>
+              <span className="text-text-primary font-medium">Avisos de vencimento:</span>{' '}
+              além dos transacionais, o Hivvo envia um <strong>aviso periódico por e-mail</strong>{' '}
+              quando uma fatura sua vence em 3 dias, com o nome do cartão e o valor em aberto. É
+              enviado no máximo uma vez por dia e só quando há fatura a vencer. Esse aviso vem{' '}
+              <strong>ativado por padrão</strong>; para desativá-lo, responda o próprio e-mail
+              pedindo para parar, ou escreva para contato@hivvo.app. O envio depende de serviços de
+              terceiros e não é garantido — não substitua o acompanhamento das suas faturas por ele.
+            </P>
           </Section>
 
           <Section title="5. Compartilhamento e Subprocessadores">
@@ -182,8 +191,8 @@ export default function PrivacyPage() {
               />
               <Subprocessor
                 name="Resend"
-                purpose="Envio de e-mails transacionais e do feedback enviado pelo app"
-                data="E-mail, nome completo e o conteúdo das mensagens de feedback"
+                purpose="Envio de e-mails transacionais, dos avisos de vencimento e do feedback enviado pelo app"
+                data="E-mail, nome completo, o nome e o valor em aberto das faturas a vencer, e o conteúdo das mensagens de feedback"
               />
               <Subprocessor
                 name="Cloudflare"
