@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal'
 import { Section, SettingsRow } from '../../components/ui/SettingsSection'
 import NewCategoryModal from '../../components/categories/NewCategoryModal'
 import FeedbackForm from './FeedbackForm'
+import NotificacaoRow from './NotificacaoRow'
 import { useCategories, useDeleteCategory } from '../../hooks/useCategories'
 import {
   useRecorrencias,
@@ -21,8 +22,9 @@ import type { Category } from '../../services/categories'
 import type { Recorrencia, RecorrenciaUpdate } from '../../services/recorrencias'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
-import { deleteMe, resetData } from '../../services/auth'
+import { deleteMe, resetData, updatePreferencia } from '../../services/auth'
 import type { ResetDataResponse } from '../../services/auth'
+import { patchNotificarVencimento } from '../../lib/preferencias'
 import { getAllTransactions } from '../../services/transactions'
 import { clearHistorico } from '../../services/ai'
 import { enviarFeedback } from '../../services/feedback'
@@ -79,6 +81,7 @@ export default function SettingsPage() {
   // ── Auth store ────────────────────────────────────────────────────────────
   const clearAuth = useAuthStore((s) => s.clearAuth)
   const user = useAuthStore((s) => s.user)
+  const setUser = useAuthStore((s) => s.setUser)
   const addToast = useUIStore((s) => s.addToast)
   const qc = useQueryClient()
 
@@ -216,6 +219,17 @@ export default function SettingsPage() {
         isMobile,
       }),
     )
+  }
+
+  // ── Notificações ──────────────────────────────────────────────────────────
+  // A linha inteira (otimismo, rollback, estado de carregando) mora no
+  // NotificacaoRow, que o harness monta com viewport real. Aqui fica só a
+  // costura com a rede e com o store: o servidor é quem FECHA o estado, então
+  // o `setUser` usa a resposta do PUT, não o valor otimista.
+  async function salvarAvisoVencimento(valor: boolean): Promise<boolean> {
+    const atualizado = await updatePreferencia(patchNotificarVencimento(valor))
+    setUser(atualizado)
+    return atualizado.notificar_vencimento
   }
 
   // ── Categorias ────────────────────────────────────────────────────────────
@@ -563,6 +577,17 @@ export default function SettingsPage() {
               )}
             </div>
           )}
+        </SettingsRow>
+      </Section>
+
+      {/* ── Notificações ── */}
+      <Section title="Notificações">
+        <SettingsRow>
+          <NotificacaoRow
+            valor={user?.notificar_vencimento}
+            onSalvar={salvarAvisoVencimento}
+            onErro={(message) => addToast({ message, type: 'error' })}
+          />
         </SettingsRow>
       </Section>
 

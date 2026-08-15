@@ -1,4 +1,5 @@
 import api from './api'
+import type { PatchPerfil } from '../lib/preferencias'
 
 export interface LoginPayload { email: string; password: string }
 export interface RegisterPayload { email: string; nome_completo: string; password: string }
@@ -11,6 +12,9 @@ export interface UserResponse {
   nome_completo: string
   criado_em: string
   ativo: boolean
+  // #6 — estado do toggle de Configurações › Notificações. Vem do servidor
+  // para a tela não precisar assumir o default (que é ligado).
+  notificar_vencimento: boolean
 }
 
 export const login = (payload: LoginPayload) =>
@@ -50,6 +54,12 @@ export const getMe = () =>
 // apenas o nome — antes este updateMe mandava {username} sob o rótulo "Nome".
 export const updateMe = (nome_completo: string) =>
   api.put<UserResponse>('/auth/me', { nome_completo }).then((r) => r.data)
+
+// Mesma rota, campo diferente. Separado de `updateMe` porque o patch é montado
+// por `lib/preferencias` — onde o `false` está provado por teste de não sumir
+// (é o valor que as formas idiomáticas de payload condicional descartam).
+export const updatePreferencia = (patch: PatchPerfil) =>
+  api.put<UserResponse>('/auth/me', patch).then((r) => r.data)
 
 // F-07/LGPD: reautenticação obrigatória — um cookie sozinho não exclui a conta.
 export const deleteMe = (password: string) =>

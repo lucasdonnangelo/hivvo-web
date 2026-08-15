@@ -51,6 +51,7 @@ import type {
 } from '../src/services/importExtrato'
 import OnboardingBanner from '../src/components/ui/OnboardingBanner'
 import FeedbackForm from '../src/pages/Settings/FeedbackForm'
+import NotificacaoRow from '../src/pages/Settings/NotificacaoRow'
 import { Section, SettingsRow } from '../src/components/ui/SettingsSection'
 import { useAuthStore } from '../src/store/authStore'
 import {
@@ -332,12 +333,20 @@ const botao: CSSProperties = {
 function Harness() {
   const [isMobile, setIsMobile] = useState(false)
   const [modulo, setModulo] = useState<
-    'fatura' | 'extrato' | 'criar' | 'onboarding' | 'feedback'
+    'fatura' | 'extrato' | 'criar' | 'onboarding' | 'feedback' | 'preferencia'
   >('fatura')
   const [qc] = useState(novoQueryClient)
 
   // Desfecho do próximo envio de feedback (ver erroDoResultado).
   const [resultado, setResultado] = useState<Resultado>('sucesso')
+
+  // ── módulo `preferencia` ──────────────────────────────────────────────────
+  // `prefServidor` é o estado do BANCO (o que o getMe devolveria); `prefFalha`
+  // decide o desfecho do próximo PUT. Os dois separados porque o que se prova
+  // aqui é justamente a divergência entre o que a tela mostra e o que o
+  // servidor guarda quando o salvamento falha.
+  const [prefServidor, setPrefServidor] = useState<boolean | undefined>(true)
+  const [prefFalha, setPrefFalha] = useState(false)
 
   // Os dois eixos do onboarding, independentes: o produto tem os quatro estados
   // (nada · só cartão · só histórico, que o extrato produz sem cartão nenhum ·
@@ -379,7 +388,7 @@ function Harness() {
   // existe em aparelho nenhum — a mesma classe de erro que o cabeçalho do
   // harness-cdp-onboarding.mjs descreve para o AddTransactionPage. Quem põe a
   // margem é o próprio módulo, com as classes que o SettingsPage usa.
-  const solto = modulo === 'feedback'
+  const solto = modulo === 'feedback' || modulo === 'preferencia'
 
   return (
     <div style={solto ? undefined : { padding: 24, maxWidth: 768, margin: '0 auto' }}>
@@ -407,7 +416,9 @@ function Harness() {
                     ? 'onboarding'
                     : m === 'onboarding'
                       ? 'feedback'
-                      : 'fatura',
+                      : m === 'feedback'
+                        ? 'preferencia'
+                        : 'fatura',
             )
           }
           style={botao}
@@ -434,6 +445,26 @@ function Harness() {
             próximo envio: {resultado}
           </button>
         )}
+        {modulo === 'preferencia' && (
+          <>
+            <button
+              id="harness-toggle-pref-servidor"
+              onClick={() =>
+                setPrefServidor((v) => (v === true ? false : v === false ? undefined : true))
+              }
+              style={botao}
+            >
+              servidor: {prefServidor === undefined ? 'ainda não chegou' : String(prefServidor)}
+            </button>
+            <button
+              id="harness-toggle-pref-falha"
+              onClick={() => setPrefFalha((v) => !v)}
+              style={botao}
+            >
+              próximo salvamento: {prefFalha ? 'FALHA' : 'sucesso'}
+            </button>
+          </>
+        )}
         {modulo === 'onboarding' && (
           <>
             <button
@@ -454,7 +485,34 @@ function Harness() {
         )}
       </div>
 
-      {modulo === 'feedback' ? (
+      {modulo === 'preferencia' ? (
+        // MESMOS invólucros de largura do SettingsPage (`p-4` no mobile,
+        // `p-6 max-w-xl mx-auto` no desktop) — a linha não tem prop de layout,
+        // ela responde à largura que sobra. Medir dentro do container de 768px
+        // do harness mediria uma caixa que não existe no produto.
+        <div className={isMobile ? 'p-4' : 'p-6 max-w-xl mx-auto'}>
+          <Section title="Notificações">
+            <SettingsRow>
+              <NotificacaoRow
+                valor={prefServidor}
+                onSalvar={async (valor) => {
+                  // Latência de propósito: é o que dá tempo de ler o estado
+                  // OTIMISTA no DOM (toggle já virado, ainda salvando) antes
+                  // de o desfecho chegar.
+                  await new Promise((r) => setTimeout(r, 150))
+                  if (prefFalha) throw new Error('PUT /auth/me falhou')
+                  setPrefServidor(valor)
+                  return valor
+                }}
+                onErro={(m) => {
+                  // O toast real vive no uiStore; aqui o driver lê do dataset.
+                  document.body.dataset.prefErro = m
+                }}
+              />
+            </SettingsRow>
+          </Section>
+        </div>
+      ) : modulo === 'feedback' ? (
         // Envolto no MESMO Section/SettingsRow e nos MESMOS invólucros de
         // largura que o SettingsPage usa (`p-4` no mobile, `p-6 max-w-xl
         // mx-auto` no desktop). Não é decoração: o formulário não tem prop de
