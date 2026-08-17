@@ -1060,7 +1060,13 @@ export default function SettingsPage() {
             </button>
             <h1 className="text-sm font-medium text-text-primary">Configurações</h1>
           </header>
-          <main className="flex-1 overflow-y-auto p-4">{content}</main>
+          {/* `relative` NÃO é decoração e não é supérfluo — não remova. Mesmo
+              motivo do MobileLayout (o comentário longo mora lá): o scroller
+              precisa estabelecer bloco continente, senão um `absolute` sem
+              `relative` local devolve o transbordo ao documento e rola o shell.
+              Esta tela é o segundo scroller ANINHADO — e é justamente a que
+              hospeda o `label.sr-only` do FeedbackForm que causou o defeito. */}
+          <main className="relative flex-1 overflow-y-auto p-4">{content}</main>
         </div>
       </>
     )

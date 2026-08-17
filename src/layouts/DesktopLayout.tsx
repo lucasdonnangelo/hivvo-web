@@ -62,7 +62,14 @@ export default function DesktopLayout() {
 
       {/* Main */}
       <div className="flex flex-col flex-1 min-w-0">
-        <main className="flex-1 overflow-y-auto">
+        {/* `relative` NÃO é decoração e não é supérfluo — não remova. Mesmo
+            motivo do MobileLayout, onde o comentário longo mora: o scroller
+            precisa estabelecer bloco continente, senão um `absolute` sem
+            `relative` local devolve o transbordo ao documento e rola o shell.
+            Aqui pelo mesmo padrão, não por sintoma observado: o defeito foi
+            visto no mobile, mas a cadeia é a mesma e o próximo `absolute` pode
+            nascer numa tela só de desktop. */}
+        <main className="relative flex-1 overflow-y-auto">
           <Suspense fallback={<RouteFallback />}>
             <Outlet />
           </Suspense>

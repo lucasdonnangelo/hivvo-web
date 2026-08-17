@@ -40,7 +40,18 @@ export default function MobileLayout() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto">
+      {/* `relative` NÃO é decoração e não é supérfluo — não remova.
+          Este <main> é o scroller do shell. Sem `relative` ele fica `static`, e
+          `overflow-y-auto` sozinho NÃO estabelece bloco continente: qualquer
+          descendente `absolute` sem um `relative` local resolve contra o bloco
+          inicial e devolve o transbordo AO DOCUMENTO, em vez de a este scroller.
+          O documento então ganha altura rolável, o shell inteiro rola, e no iOS
+          ele não volta ao fechar o teclado — a barra de abas fica parada no ar
+          com um bloco morto embaixo.
+          Não é hipótese: um `label.sr-only` de 1px (position:absolute, offsets
+          auto) sozinho levou o scrollHeight do documento a 3284px num aparelho
+          de 695px. Medido, com o antes e o depois, em dev/harness-cdp-shell.mjs. */}
+      <main className="relative flex-1 overflow-y-auto">
         <Suspense fallback={<RouteFallback />}>
           <Outlet />
         </Suspense>

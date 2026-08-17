@@ -28,7 +28,7 @@
 import { useState, type CSSProperties } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import '../src/index.css'
 import AddTransactionPage from '../src/pages/AddTransaction/AddTransactionPage'
 import sementes from './sementes-capturadas.json'
@@ -59,6 +59,8 @@ import {
   onboardingDispensado,
   restaurarOnboarding,
 } from '../src/lib/onboardingDismiss'
+import MobileLayout from '../src/layouts/MobileLayout'
+import Modal from '../src/components/ui/Modal'
 
 // Só tipos vêm de services/importFatura — `import type` some na compilação, então
 // nem axios nem o interceptor de auth entram no grafo. O harness é read-only por
@@ -330,10 +332,103 @@ const botao: CSSProperties = {
 // SET_PERIODO) — a reatividade sob teste nasce daqui, então o estado tem de ter
 // a mesma forma. `periodoEditado` em especial: é ele que limpa os flags de data,
 // e um harness que o derivasse de outro jeito testaria outra coisa.
+// ─── módulo `shell` — a CAMADA QUE FALTAVA ───────────────────────────────────
+//
+// Todos os outros módulos montam um componente ISOLADO. Isso é deliberado e
+// continua certo: isola a unidade sob teste. Mas existe uma classe inteira de
+// defeito que só nasce na RELAÇÃO com a cadeia acima do componente, e para essa
+// classe o componente isolado é cego por construção.
+//
+// O caso que criou este módulo: um `label.sr-only` de uma linha no FeedbackForm.
+// `sr-only` é `position:absolute` com offsets `auto`. Sozinho, inofensivo. Dentro
+// da cadeia real — dois `<main overflow-y-auto>` aninhados e ESTÁTICOS — ele
+// resolvia contra o bloco inicial e devolvia o transbordo ao DOCUMENTO: 3284px
+// de altura rolável num aparelho de 695px, o shell rolando inteiro, e no iOS a
+// barra de abas parada no ar depois de fechar o teclado.
+//
+// Passou por lint, 43 testes, build, os quatro drivers do harness e um E2E de
+// cinco telas. Nada viu, porque nada montava a cadeia. Este módulo monta:
+// MobileLayout REAL (o shell de verdade, com seu scroller) envolvendo uma página
+// que espelha o frame do SettingsPage mobile (o segundo scroller, aninhado) e
+// hospeda o FeedbackForm REAL — o componente onde o defeito nasceu.
+//
+// O modal entra junto porque `fixed inset-0 z-50` renderizado DENTRO do scroller
+// é exatamente o que o SettingsPage faz, e é o que poderia quebrar ao dar
+// `relative` ao scroller. Ver dev/harness-cdp-shell.mjs.
+//
+// SE FOR ESPELHAR MAIS TELAS AQUI: o valor não está no markup específico, está na
+// invariante que o driver checa — nenhum elemento fora de fluxo pode ter o bloco
+// inicial como continente. Essa checagem vale para qualquer módulo.
+function PaginaLongaComScroller() {
+  const [modalAberto, setModalAberto] = useState(false)
+  // Enchimento suficiente para o conteúdo passar da viewport, como a tela real.
+  const secoes = Array.from({ length: 12 }, (_, i) => (
+    <Section key={i} title={`Seção de enchimento ${i + 1}`}>
+      <SettingsRow>
+        <p className="text-sm text-text-muted">
+          Linha só para dar altura à página, como as seções reais de Configurações.
+        </p>
+      </SettingsRow>
+    </Section>
+  ))
+
+  return (
+    <>
+      {/* Sibling do frame, DENTRO do <main> do MobileLayout — a mesma posição
+          que os modais ocupam no SettingsPage real. */}
+      {modalAberto && (
+        <Modal title="Modal de teste" onClose={() => setModalAberto(false)}>
+          <p className="text-sm text-text-muted">
+            Serve para medir se o `relative` do scroller prende um `fixed`.
+          </p>
+        </Modal>
+      )}
+      <div className="flex flex-col h-full">
+        <header className="shrink-0 flex items-center gap-3 px-4 h-14 border-b border-bg-border bg-bg-surface">
+          <h1 className="text-sm font-medium text-text-primary">Configurações</h1>
+        </header>
+        {/* ESPELHA SettingsPage.tsx (frame mobile), `relative` incluído. Se lá
+            mudar, aqui muda — mas o driver não depende deste markup: ele checa a
+            invariante, não as classes. */}
+        <main className="relative flex-1 overflow-y-auto p-4">
+          <div className="flex flex-col gap-6">
+            {secoes}
+            <Section title="Sobre">
+              <SettingsRow>
+                <FeedbackForm email="voce@exemplo.com" onEnviar={async () => {}} />
+              </SettingsRow>
+            </Section>
+            <button
+              id="harness-abre-modal"
+              onClick={() => setModalAberto(true)}
+              className="self-start px-3 py-1.5 rounded-md text-xs font-medium border border-bg-border text-text-primary"
+            >
+              abrir modal
+            </button>
+          </div>
+        </main>
+      </div>
+    </>
+  )
+}
+
+function ModoShell() {
+  return (
+    <MemoryRouter initialEntries={['/settings']}>
+      <Routes>
+        {/* MobileLayout REAL: é o <main> dele o primeiro scroller da cadeia. */}
+        <Route element={<MobileLayout />}>
+          <Route path="/settings" element={<PaginaLongaComScroller />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
 function Harness() {
   const [isMobile, setIsMobile] = useState(false)
   const [modulo, setModulo] = useState<
-    'fatura' | 'extrato' | 'criar' | 'onboarding' | 'feedback' | 'preferencia'
+    'fatura' | 'extrato' | 'criar' | 'onboarding' | 'feedback' | 'preferencia' | 'shell'
   >('fatura')
   const [qc] = useState(novoQueryClient)
 
@@ -388,17 +483,45 @@ function Harness() {
   // existe em aparelho nenhum — a mesma classe de erro que o cabeçalho do
   // harness-cdp-onboarding.mjs descreve para o AddTransactionPage. Quem põe a
   // margem é o próprio módulo, com as classes que o SettingsPage usa.
-  const solto = modulo === 'feedback' || modulo === 'preferencia'
+  const solto = modulo === 'feedback' || modulo === 'preferencia' || modulo === 'shell'
+
+  // O módulo `shell` mede a CADEIA, então a cadeia tem de ser a de produção:
+  // #root já é `height:100%` (index.css), e o wrapper repassa isso para o
+  // MobileLayout, que é `h-full`. Qualquer padding ou altura automática aqui
+  // mediria outra árvore.
+  //
+  // E a barra de botões vira `fixed`: em fluxo ela roubaria altura do shell e
+  // falsearia justamente o número sob teste. `fixed` fica fora de fluxo e não
+  // vira bloco continente de ninguém — não contamina a medição.
+  const modoShell = modulo === 'shell'
 
   return (
-    <div style={solto ? undefined : { padding: 24, maxWidth: 768, margin: '0 auto' }}>
+    <div
+      style={
+        modoShell
+          ? { height: '100%' }
+          : solto
+            ? undefined
+            : { padding: 24, maxWidth: 768, margin: '0 auto' }
+      }
+    >
       <div
         style={{
-          marginBottom: 16,
+          marginBottom: modoShell ? 0 : 16,
           display: 'flex',
           gap: 20,
           flexWrap: 'wrap',
           padding: solto ? 12 : 0,
+          ...(modoShell
+            ? ({
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                zIndex: 9999,
+                background: '#000',
+                padding: 6,
+              } as CSSProperties)
+            : null),
         }}
       >
         <button id="harness-toggle-mobile" onClick={() => setIsMobile((v) => !v)} style={botao}>
@@ -418,7 +541,9 @@ function Harness() {
                       ? 'feedback'
                       : m === 'feedback'
                         ? 'preferencia'
-                        : 'fatura',
+                        : m === 'preferencia'
+                          ? 'shell'
+                          : 'fatura',
             )
           }
           style={botao}
@@ -599,6 +724,8 @@ function Harness() {
           />
           <RotaAtual />
         </MemoryRouter>
+      ) : modulo === 'shell' ? (
+        <ModoShell />
       ) : modulo === 'criar' ? (
         // O componente REAL, com os providers que ele exige e o cache semeado.
         //
