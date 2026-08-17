@@ -116,7 +116,11 @@ await send('Runtime.enable')
 // textContent. Nada é conferido contra o código-fonte.
 const PROBES = String.raw`
 window.__o = {
-  banner() { return document.querySelector('ol') ? document.querySelector('ol').closest('div.rounded-xl') : null },
+  // ESTRUTURAL, não por classe. Antes era closest('div.rounded-xl'), e o probe
+  // quebrou junto com a conformação visual (o card virou rounded-lg, como todo
+  // card do app). O card é o PAI do <ol> por construção — isso sobrevive a
+  // qualquer troca de token.
+  banner() { const ol = document.querySelector('ol'); return ol ? ol.parentElement : null },
   presente() { return !!window.__o.banner() },
 
   // Fundo EFETIVO: o pixel que o olho recebe atrás do glifo.
@@ -238,16 +242,34 @@ window.__c = {
 }
 true`
 
+// Dá a volta completa no carrossel de módulos e PARA no onboarding — desmontando
+// e remontando o componente pelo caminho.
+//
+// Antes isto era `for (i < 4)`, escrito quando o harness tinha 4 módulos. Hoje
+// tem 6, então as 4 trocas paravam em `extrato` e `presente()` respondia sobre
+// uma tela onde o banner nem devia estar: `aposRemontar` e `aposRestaurar` vinham
+// `false` sempre, inclusive quando o restaurar funcionava. Eram falso-negativos
+// silenciosos — o pior tipo, porque um deles ("não voltou") tem a mesma cara de
+// um defeito real. Agora o driver PERGUNTA em que módulo está, em vez de contar.
+async function remonta() {
+  for (let i = 0; i < 12; i++) {
+    await ev('window.__o.trocaModulo()')
+    await sleep(150)
+    if ((await ev('window.__o.modulo()')).includes('onboarding')) {
+      await sleep(250)
+      return
+    }
+  }
+  throw new Error('não voltei ao módulo onboarding — o carrossel mudou de novo?')
+}
+
 async function abreOnboarding() {
   await send('Page.navigate', { url: URL_ALVO })
   await sleep(2200)
   await ev(PROBES)
-  // fatura → extrato → criar → onboarding
-  for (let i = 0; i < 3; i++) {
-    await ev('window.__o.trocaModulo()')
-    await sleep(150)
-  }
-  await sleep(250)
+  // Mesma razão do `remonta()`: contar trocas amarra o driver à quantidade de
+  // módulos do harness, que já mudou uma vez sem ninguém notar.
+  await remonta()
   return ev('window.__o.modulo()')
 }
 
@@ -344,19 +366,11 @@ for (const nome of ['desktop', 'mobile']) {
   v.dismiss.chavesDepois = await ev('window.__onb.chaves()')
   // Remontar o componente (sair e voltar do módulo) exercita o CAMINHO DE
   // LEITURA da chave — o useState inicial roda de novo, sem recarregar a página.
-  for (let i = 0; i < 4; i++) {
-    await ev('window.__o.trocaModulo()')
-    await sleep(150)
-  }
-  await sleep(250)
+  await remonta()
   v.dismiss.aposRemontar = await ev('window.__o.presente()')
   // E o que o "Começar do zero" faz: restaurar traz o guia de volta.
   await ev('window.__onb.restaurar()')
-  for (let i = 0; i < 4; i++) {
-    await ev('window.__o.trocaModulo()')
-    await sleep(150)
-  }
-  await sleep(250)
+  await remonta()
   v.dismiss.aposRestaurar = await ev('window.__o.presente()')
 
   // A chave LEGADA (sem id) não pode dispensar a conta de ninguém.

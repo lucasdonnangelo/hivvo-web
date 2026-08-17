@@ -9,6 +9,8 @@ import { Section, SettingsRow } from '../../components/ui/SettingsSection'
 import NewCategoryModal from '../../components/categories/NewCategoryModal'
 import FeedbackForm from './FeedbackForm'
 import NotificacaoRow from './NotificacaoRow'
+// TEMPORÁRIO — sai junto com o <Section> "Diagnóstico do teclado" abaixo.
+import DiagnosticoTeclado from './DiagnosticoTeclado'
 import { useCategories, useDeleteCategory } from '../../hooks/useCategories'
 import {
   useRecorrencias,
@@ -664,6 +666,16 @@ export default function SettingsPage() {
           <Button variant="danger" onClick={() => setDeleteModalOpen(true)}>
             Excluir minha conta
           </Button>
+        </SettingsRow>
+      </Section>
+
+      {/* ── Diagnóstico do teclado — TEMPORÁRIO, REMOVER ──
+          Este <Section> e o arquivo DiagnosticoTeclado.tsx saem juntos assim que
+          a foto do iPhone existir. O cabeçalho daquele arquivo explica o que
+          está sendo medido e por que a correção não pode ser escolhida antes. */}
+      <Section title="Diagnóstico do teclado (temporário)">
+        <SettingsRow>
+          <DiagnosticoTeclado />
         </SettingsRow>
       </Section>
 

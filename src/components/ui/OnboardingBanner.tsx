@@ -80,7 +80,19 @@ export default function OnboardingBanner({
   ]
 
   return (
-    <div className="relative rounded-xl bg-bg-surface border border-amber/30 p-5">
+    // Card do app, não um container próprio: `bg-bg-surface rounded-lg p-4` é o
+    // que TODO card desta mesma página usa (OverviewPage: os quatro do topo, o
+    // donut, as últimas transações, os dois da projeção) — e nenhum deles tem
+    // borda. `rounded-xl` era órfão: 7 usos no app inteiro, nenhum em card de
+    // página (bolha de chat, skeleton, textarea).
+    //
+    // A borda âmbar SAIU. Ela queria dizer "isto é o onboarding" — o que o badge
+    // logo abaixo já diz em palavras. Em cor, ela era o sexto sentido empilhado
+    // num token que já carrega selecionado, paga_parcial, estorno, reconciliação
+    // e "próximo passo"; e rolava na MESMA tela que o `ring-1 ring-amber` do
+    // ProjectionHighlight, que significa "em destaque". Dois cards âmbares com
+    // sentidos diferentes a dois blocos de distância não somam, se anulam.
+    <div className="relative rounded-lg bg-bg-surface p-4">
       <button
         onClick={dismiss}
         className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-bg-border transition-colors text-xs"
@@ -99,28 +111,54 @@ export default function OnboardingBanner({
         </p>
       </div>
 
-      <ol className="flex flex-col gap-2">
+      {/* Sem `gap`: as divisórias das linhas é que separam, como em toda lista
+          dentro de card no app. */}
+      <ol className="flex flex-col">
         {passos.map((passo) => {
           const atual = passo.num === proximo
           // `success` (não âmbar) no concluído: âmbar já significa "próxima ação"
           // três linhas acima, e concluído É juízo de resultado — o sentido que o
-          // token carrega. Mede 7,65:1 sobre bg-DEFAULT, que é o fundo da linha.
+          // token carrega.
           //
-          // O pendente é neutro pelo PREENCHIMENTO, não pelo texto: `text-muted`
-          // no numeral mede 4,13:1 sobre o fundo da linha (medido no harness),
-          // abaixo de AA para os 12px daqui — e o numeral é o conteúdo, não
-          // decoração. O que separa os três estados é a cor da pastilha.
+          // O pendente é neutro pelo PREENCHIMENTO, não pelo texto: o numeral é
+          // conteúdo, não decoração, então ele fica em `text-primary` e quem
+          // separa os três estados é a cor da pastilha.
+          //
+          // A pastilha do pendente era `bg-bg-surface` porque a LINHA era `bg-bg`.
+          // Agora a linha é o card (`bg-bg-surface`), então ela inverte para
+          // `bg-bg` — sem isso seria superfície sobre superfície, e o canal que
+          // separa os estados sumiria.
+          //
+          // CONTRASTE — remedido no harness DEPOIS da mudança de fundo, nas duas
+          // viewports, com o fundo efetivo composto (as pastilhas são /15 sobre o
+          // card, então a cor crua daria número fantasia). Não são estimativas:
+          //
+          //   concluído  success  sobre rgb(45,60,46)   4,98:1
+          //   próximo    amber    sobre rgb(72,55,33)   5,24:1
+          //   pendente   primary  sobre rgb(26,23,20)  15,73:1
+          //
+          // Os três acima de 4,5:1 (AA para os 12px do numeral). Os dois primeiros
+          // caíram — eram 7,61 e mais folgados sobre `bg-bg` — porque a pastilha
+          // agora repousa no card, e não mais no fundo escuro da linha. Continuam
+          // passando, mas com menos margem: se alguém clarear `bg-surface`,
+          // REMEDIR antes de assumir que ainda passa.
           const marca = passo.feito
             ? 'bg-success/15 border-success/30 text-success'
             : atual
               ? 'bg-amber/15 border-amber/30 text-amber'
-              : 'bg-bg-surface border-bg-border text-text-primary'
+              : 'bg-bg border-bg-border text-text-primary'
 
           return (
             <li
               key={passo.num}
               className={[
-                'p-3 rounded-lg bg-bg border border-bg-border',
+                // Linha, não card. O app não aninha card em card em lugar
+                // nenhum: uma lista dentro de card é `border-b border-bg-border
+                // last:border-0` (as últimas transações e as linhas da projeção,
+                // nesta mesma página) ou `divide-y` (SettingsSection). Este é o
+                // mesmo `py-3 border-b border-bg-border last:border-0` do
+                // TransactionItem, letra por letra.
+                'py-3 border-b border-bg-border last:border-0',
                 // Mobile: as ações descem para baixo do texto — o passo 2 tem
                 // duas, e no desktop elas cabem na mesma linha.
                 isMobile ? 'flex flex-col gap-2.5' : 'flex items-center gap-3',
@@ -139,6 +177,20 @@ export default function OnboardingBanner({
                   {passo.feito ? 'concluído' : atual ? 'próximo passo' : 'ainda não feito'}.
                 </span>
                 <div className="flex-1 min-w-0">
+                  {/* ACHADO DA REMEDIÇÃO, deixado à vista de propósito.
+                      `text-muted` sobre `bg-surface` mede 4,13:1 — abaixo de AA
+                      (4,5:1) para os 14px do título e os 12px da descrição.
+                      Sobre o `bg-bg` da linha antiga media 4,86:1, e passava.
+                      Achatar o card, portanto, PIOROU este número.
+                      NÃO foi compensado aqui de propósito: `text-muted` sobre
+                      `bg-surface` é o par texto/fundo mais comum do app inteiro
+                      (toda descrição dentro de card), e este banner era a
+                      exceção — justamente por causa do card aninhado que saiu.
+                      Consertar só aqui recriaria a divergência que a conformação
+                      veio desfazer; consertar de verdade é subir o token
+                      `text-muted`, que é mudança global e precisa da sua
+                      decisão. Enquanto isso, o estado do passo NÃO depende deste
+                      texto: vive na pastilha (acima) e no sr-only. */}
                   <p
                     className={`text-sm font-medium leading-snug ${
                       passo.feito ? 'text-text-muted' : 'text-text-primary'
@@ -156,10 +208,18 @@ export default function OnboardingBanner({
                   isMobile ? 'pl-10' : 'shrink-0 ml-auto',
                 ].join(' ')}
               >
+                {/* Continuam três pesos — o conteúdo pede três: a próxima ação,
+                    as outras, e a alternativa. O que muda é que os três passam a
+                    ser pesos QUE O APP JÁ TEM, em vez de três invenções.
+                    Sublinhado saiu: os links sublinhados do app são âmbar
+                    (ImportPage, TransactionsPage); sublinhado sobre `text-muted`
+                    não existe em outro lugar. Sobra o botão-texto discreto, que
+                    é idioma corrente (AssistantPage, ForgotPasswordPage,
+                    DesktopLayout). */}
                 {passo.alternativa && !passo.feito && (
                   <button
                     onClick={passo.alternativa.onClick}
-                    className="shrink-0 text-xs text-text-muted hover:text-text-primary underline underline-offset-2 transition-colors"
+                    className="shrink-0 text-xs text-text-muted hover:text-text-primary transition-colors"
                   >
                     {passo.alternativa.label}
                   </button>
@@ -167,9 +227,17 @@ export default function OnboardingBanner({
                 <button
                   onClick={passo.acao.onClick}
                   className={
+                    // Sólido e contornado são as variantes `primary` e `ghost`
+                    // do Button (o componente não serve aqui: é `w-full px-4
+                    // py-3`), copiadas letra por letra — com UM desvio
+                    // deliberado. O `ghost` original é `hover:bg-bg-surface`, e
+                    // o botão agora está SOBRE bg-surface: o hover seria
+                    // invisível. `hover:bg-bg-border` é o que o app usa para
+                    // botão sobre superfície (Modal, TransactionItem), e é o
+                    // `active` do próprio ghost — então não inventa cor nova.
                     atual
                       ? 'shrink-0 px-3 py-1.5 rounded-md text-xs font-medium bg-amber text-bg hover:bg-amber-light active:bg-amber-dark transition-colors'
-                      : 'shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border border-bg-border text-text-primary hover:bg-bg-surface active:bg-bg-border transition-colors'
+                      : 'shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border border-bg-border text-text-primary hover:bg-bg-border transition-colors'
                   }
                 >
                   {passo.acao.label}
