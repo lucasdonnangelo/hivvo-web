@@ -112,8 +112,9 @@ export interface FaturaPreviewResponse {
 //   revalida que a categoria existe para ele, naquele tipo;
 // - null: NÃO decidido → o servidor RECOMPUTA a própria sugestão, com o mesmo
 //   matcher do preview.
-// O front manda null na linha que o usuário não tocou — é o que dá categoria de
-// verdade ao ESTORNO, que não tem seletor na tela (seção cinza).
+// O front manda null na linha que o usuário não tocou — vale para despesa E
+// para o ESTORNO (#43): os dois têm seletor na tela agora, o de estorno na
+// seção "Entram como crédito". null ali significa só "usuário não mexeu".
 export interface TransacaoCommit extends TransacaoFatura {
   categoria: string | null
 }

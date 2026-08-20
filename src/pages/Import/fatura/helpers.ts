@@ -1,5 +1,10 @@
 import type {
+  CompetenciaFatura,
   EnriquecimentoFaturaLinha,
+  FaturaCommit,
+  FaturaCommitRequest,
+  FaturaPreviewResponse,
+  TransacaoCommit,
   TransacaoFatura,
 } from '../../../services/importFatura'
 
@@ -68,4 +73,52 @@ export const rotuloSugestao = (
   if (origem === 'historico') return 'como você já categorizou'
   if (origem === 'regra') return 'sugerida'
   return null
+}
+
+// Edições do usuário na tela de revisão — o subconjunto de State (ImportFaturaPage)
+// que buildFaturaPayload precisa. Tipo próprio (em vez de importar State) para não
+// criar dependência de volta para o componente.
+export interface EdicoesFatura {
+  categorias: Record<number, string>
+  apagadas: Record<number, true>
+  passadasPagas: Record<string, boolean>
+}
+
+// ── Monta o payload do commit ── EXTRAÍDO de dentro de ImportFaturaPage (era um
+// closure sobre `state`) para ser uma função PURA e IMPORTÁVEL — o harness de
+// dev/ precisa chamar a mesma função que a produção chama, não uma cópia da
+// lógica, e um closure sobre o componente inteiro arrastaria useCards/
+// useCategories/axios/interceptor de auth para o grafo do harness. Só tipos
+// (import type) entram aqui, igual ao resto deste arquivo — comportamento
+// idêntico ao que vivia no componente, nenhuma mudança de lógica.
+//
+// A fatura INTEIRA volta (menos linhas apagadas), categoria por linha. As
+// linhas cinzas (pagamento/ajuste/estorno) VIAJAM — o backend as filtra e conta
+// estornos_importados/excluidos a partir delas.
+//
+// TRI-ESTADO da categoria: só vai string quando o usuário MEXEU no seletor.
+// Vale para despesa E estorno — os dois têm seletor (#43; o de estorno vive na
+// seção "Entram como crédito", mesmo categoriaOptions de despesa). Pagamento/
+// ajuste/valor-zero não têm seletor nenhum e vão sempre `null` — não têm
+// categoria a decidir porque não materializam.
+//
+// Linha intocada vai `null` e o servidor recomputa a sugestão — a tela PROPÕE,
+// o servidor DECIDE de novo. Mandar de volta o que está na tela pareceria mais
+// direto, mas transformaria a proposta do servidor em decisão do usuário.
+export function buildFaturaPayload(
+  preview: FaturaPreviewResponse,
+  edicoes: EdicoesFatura,
+): FaturaCommitRequest {
+  const transacoes: TransacaoCommit[] = preview.fatura.transacoes
+    .map((t, idx) => ({ t, idx }))
+    .filter(({ idx }) => !edicoes.apagadas[idx])
+    .map(({ t, idx }) => ({
+      ...t,
+      categoria: isDespesaLinha(t) || isEstornoLinha(t) ? edicoes.categorias[idx] ?? null : null,
+    }))
+  const fatura: FaturaCommit = { ...preview.fatura, transacoes }
+  const competencias_pagas: CompetenciaFatura[] = preview.faturas_passadas
+    .filter((p) => !p.ja_paga && edicoes.passadasPagas[`${p.mes}-${p.ano}`])
+    .map((p) => ({ mes: p.mes, ano: p.ano }))
+  return { cartao_id: preview.cartao_id, fatura, competencias_pagas }
 }

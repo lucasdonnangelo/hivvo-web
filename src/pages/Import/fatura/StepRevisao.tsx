@@ -302,15 +302,13 @@ export default function StepRevisao({
     )
   }
 
-  // ── Uma linha read-only das DUAS seções de baixo ── (função, ver linhaMobile)
-  // Markup idêntico nas duas: o que muda entre crédito e fora-da-importação é o
-  // destino, e ele é dito pelo título/frase da seção e pelo motivo da linha.
-  //
-  // A data só aparece aqui QUANDO flagada, e por isso: pagamento/ajuste/valor
-  // zero não materializam, logo não têm item de enriquecimento e nunca são
-  // flagados — mas o ESTORNO materializa, é importado e PODE ser flagado. Mostrar
-  // a data em toda linha cinza seria ruído; mostrá-la só quando ela é o problema
-  // mantém a marca sobre o campo em questão (e a seção continua read-only).
+  // ── Uma linha read-only de "Não entram na importação" ── (função, ver linhaMobile)
+  // Só esta seção continua 100% read-only: pagamento/ajuste/valor zero não
+  // materializam, logo não têm categoria nenhuma a decidir. O crédito (estorno)
+  // MATERIALIZA, é importado e leva categoria — por isso ganhou linhaCredito, com
+  // seletor, e saiu daqui (#43). A data só aparece aqui QUANDO flagada; mostrá-la
+  // em toda linha seria ruído, mostrá-la só quando é o problema mantém a marca
+  // sobre o campo em questão.
   const linhaCinza = (t: TransacaoFatura, idx: number) => {
     const aviso = avisoDataEstorno(suspeitaDe(idx), fatura.emissao)
     return (
@@ -330,15 +328,72 @@ export default function StepRevisao({
           </>
         )}
       </div>
-      {/* O valor do crédito fica em text-muted, NÃO em âmbar — mesmo o
-          StepRecibo usando âmbar para "estornos importados". Lá o estorno é o
-          resultado, sozinho na tela; aqui âmbar já significa "selecionado" (o
-          foco do seletor de categoria, logo acima) e "atenção" (o banner de
-          reconciliação, logo abaixo). Um terceiro sentido na mesma tela é
-          exatamente o erro que a marca de sugestão acabou de pagar — o "✦ IA"
-          âmbar lido como "confirmado". Aqui o destino é dito por escrito. */}
+      {/* O valor fica em text-muted, NÃO em âmbar — mesmo o StepRecibo usando
+          âmbar para "estornos importados". Lá o estorno é o resultado, sozinho
+          na tela; aqui âmbar já significa "selecionado" (o foco do seletor de
+          categoria, na seção de cima) e "atenção" (o banner de reconciliação,
+          logo abaixo). Um terceiro sentido na mesma tela é exatamente o erro
+          que a marca de sugestão acabou de pagar — o "✦ IA" âmbar lido como
+          "confirmado". Aqui o destino é dito por escrito. */}
       <span className="text-sm text-text-muted shrink-0">{formatBRL(Number(t.valor_brl))}</span>
     </div>
+    )
+  }
+
+  // ── Uma linha de CRÉDITO (estorno) ── (função, ver linhaMobile)
+  // Descrição/data/valor continuam read-only (mesma justificativa de linhaCinza),
+  // mas a categoria É editável: o backend calcula sugestão para esta linha do
+  // mesmo jeito que para despesa (`_sugerir` roda sobre todo índice
+  // materializável, estorno incluso — verificado em enriquecimento.py, não só na
+  // interface TS), e o commit descartava a escolha do usuário aqui
+  // (`isDespesaLinha` no buildPayload da página). Por isso reusa as MESMAS
+  // funções da despesa — catValor/opcoesCom/onSetCategoria/borda/ariaCategoria/
+  // marcaSugestao — em vez de um seletor próprio: um segundo caminho divergiria
+  // cedo ou tarde.
+  //
+  // categoriaOptions já chega filtrada por tipo=despesa (useCategories('despesa')
+  // em ImportFaturaPage) — sem filtro extra aqui, mesmo universo que #48 usa
+  // para {despesa, estorno}.
+  const linhaCredito = (t: TransacaoFatura, idx: number) => {
+    const aviso = avisoDataEstorno(suspeitaDe(idx), fatura.emissao)
+    return (
+      <div
+        key={idx}
+        className="rounded-md border border-bg-border bg-bg px-3 py-2.5 flex flex-col gap-2"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-sm text-text-muted truncate">{t.descricao}</span>
+            <span className="text-[11px] text-text-muted">{motivoNaoDespesa(t)}</span>
+            {aviso && (
+              <>
+                <span className="text-[11px] text-text-muted">
+                  {marcaData(t.data, suspeitaDe(idx))}
+                </span>
+                {aviso}
+              </>
+            )}
+          </div>
+          <span className="text-sm text-text-muted shrink-0">
+            {formatBRL(Number(t.valor_brl))}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <select
+            value={catValor(idx)}
+            onChange={(e) => onSetCategoria(idx, e.target.value)}
+            className={`${catSelectClass} ${borda(idx)}`}
+            aria-label={ariaCategoria(t, idx)}
+          >
+            {opcoesCom(catValor(idx)).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          {marcaSugestao(idx)}
+        </div>
+      </div>
     )
   }
 
@@ -395,7 +450,7 @@ export default function StepRevisao({
             o consumo.
           </p>
           <div className="flex flex-col gap-2">
-            {creditos.map(({ t, idx }) => linhaCinza(t, idx))}
+            {creditos.map(({ t, idx }) => linhaCredito(t, idx))}
           </div>
         </div>
       )}

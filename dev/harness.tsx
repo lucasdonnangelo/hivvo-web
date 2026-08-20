@@ -25,7 +25,7 @@
    Este arquivo é um ENTRY POINT (define o componente e monta), como o
    main.tsx do app: não exporta porque ninguém o importa. A regra protege o
    fast-refresh de arquivo de app; aqui ela pediria um export inútil. */
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -33,10 +33,11 @@ import '../src/index.css'
 import AddTransactionPage from '../src/pages/AddTransaction/AddTransactionPage'
 import sementes from './sementes-capturadas.json'
 import StepRevisao from '../src/pages/Import/fatura/StepRevisao'
-import { mapEnriquecimento } from '../src/pages/Import/fatura/helpers'
+import { buildFaturaPayload, mapEnriquecimento } from '../src/pages/Import/fatura/helpers'
 import type {
   EnriquecimentoFaturaLinha,
   FaturaExtraida,
+  FaturaPreviewResponse,
   ReconciliacaoFatura,
 } from '../src/services/importFatura'
 import StepRevisaoExtrato from '../src/pages/Import/extrato/StepRevisao'
@@ -101,7 +102,8 @@ const fatura: FaturaExtraida = {
 //   idx 0 → tem ◇ sugerida E ⚑ data suspeita: é a linha que prova que as duas
 //           marcas não colidem (o único jeito de verificar isso é ter as duas).
 //   idx 5 → flagada COM sugestão de categoria desativada (dois eixos de uma vez).
-//   idx 3 → ESTORNO flagado: importado, read-only e sem conserto em lugar nenhum.
+//   idx 3 → ESTORNO flagado: importado e, desde #43, com seletor de categoria
+//           próprio (a data continua sem conserto em lugar nenhum).
 //   idx 1/2 → sem flag: o contraste que prova que a marca não vaza para todos.
 const enriquecimento: EnriquecimentoFaturaLinha[] = [
   { indice: 0, categoria_sugerida: 'Mercado', origem_sugestao: 'regra', data_suspeita: 'posterior_a_emissao' },
@@ -129,6 +131,18 @@ const reconciliacao: ReconciliacaoFatura = {
 const categoriaOptions = ['Outros', 'Mercado', 'Transporte', 'Moradia', 'Lazer', 'Vestuário']
 
 const enrMap = mapEnriquecimento(enriquecimento)
+
+// FaturaPreviewResponse INTEIRO só para alimentar buildFaturaPayload (abaixo) —
+// cartao_id/faturas_passadas não importam para o que está sob teste (#43), mas
+// o TIPO exige o objeto completo, e passar um preview de verdade em vez de um
+// fragmento é o que torna o probe uma chamada real, não uma simulação dela.
+const previewMock: FaturaPreviewResponse = {
+  cartao_id: 1,
+  fatura,
+  reconciliacao,
+  faturas_passadas: [],
+  enriquecimento,
+}
 
 // ─── EXTRATO ─────────────────────────────────────────────────────────────────
 // `periodo: null` de propósito: o editor de período só RENDERIZA quando o extrato
@@ -451,6 +465,22 @@ function Harness() {
 
   const [categorias, setCategorias] = useState<Record<number, string>>({})
   const [apagadas, setApagadas] = useState<Record<number, true>>({})
+
+  // PROBE #43 — chama `buildFaturaPayload`, a MESMA função que ImportFaturaPage
+  // chama em handleImportar (import real, não uma cópia da lógica: uma versão
+  // anterior deste probe reimplementava a condição `isDespesaLinha||isEstornoLinha`
+  // aqui dentro, e provava só que a reimplementação concordava consigo mesma).
+  // `categorias`/`apagadas` são o MESMO estado que o <select>/botão ✕ da tela
+  // escrevem via onSetCategoria/onToggleApagar — só `passadasPagas` é fixo em
+  // {} porque nada aqui depende dela. useEffect (não atribuição direta no corpo
+  // do componente): mutar `window` durante o render é o que o
+  // react-hooks/immutability barra; reatribuído a cada mudança de estado, então
+  // ler `window.__faturaPayload()` depois de uma interação reflete o atual.
+  useEffect(() => {
+    ;(window as unknown as Record<string, unknown>).__faturaPayload = () =>
+      buildFaturaPayload(previewMock, { categorias, apagadas, passadasPagas: {} }).fatura
+        .transacoes
+  }, [categorias, apagadas])
 
   // #48 — o mesmo TOGGLE_REEMBOLSO do reducer de ImportExtratoPage: marca/
   // desmarca E DESCARTA a edição de categoria da linha (ela foi feita no outro

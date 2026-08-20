@@ -6,19 +6,12 @@ import { errorDetail } from '../../lib/extractDetail'
 import { useCards } from '../../hooks/useCards'
 import { useCategories } from '../../hooks/useCategories'
 import { useCommitFatura, usePreviewFatura } from '../../hooks/useImportFatura'
-import type {
-  CompetenciaFatura,
-  FaturaCommit,
-  FaturaCommitRequest,
-  FaturaCommitResponse,
-  FaturaPreviewResponse,
-  TransacaoCommit,
-} from '../../services/importFatura'
+import type { FaturaCommitResponse, FaturaPreviewResponse } from '../../services/importFatura'
 import StepUpload from './fatura/StepUpload'
 import StepRevisao from './fatura/StepRevisao'
 import StepPassadas from './fatura/StepPassadas'
 import StepRecibo from './fatura/StepRecibo'
-import { isDespesaLinha, mapEnriquecimento } from './fatura/helpers'
+import { buildFaturaPayload, mapEnriquecimento } from './fatura/helpers'
 
 // ── Estado do wizard (UI-STATE efêmero — vive só nesta rota, fora do TanStack) ──
 // useReducer e não Zustand: a fatura + edições não cruzam navegação nem persistem;
@@ -173,36 +166,13 @@ export default function ImportFaturaPage() {
     )
   }
 
-  // ── Monta o payload do commit: a fatura INTEIRA de volta (menos linhas apagadas),
-  // categoria por linha. As linhas cinzas (pagamento/ajuste/estorno) VIAJAM — o
-  // backend as filtra e conta estornos_importados/excluidos a partir delas.
-  //
-  // TRI-ESTADO da categoria: só vai string quando o usuário MEXEU no seletor.
-  // Linha intocada (e toda linha cinza, que nem tem seletor) vai `null` e o
-  // servidor recomputa a sugestão — a tela PROPÕE, o servidor DECIDE de novo.
-  // Mandar de volta o que está na tela pareceria mais direto, mas transformaria
-  // a proposta do servidor em decisão do usuário, e o estorno (sem seletor)
-  // continuaria preso em "Outros" para sempre. ──
-  function buildPayload(preview: FaturaPreviewResponse): FaturaCommitRequest {
-    const transacoes: TransacaoCommit[] = preview.fatura.transacoes
-      .map((t, idx) => ({ t, idx }))
-      .filter(({ idx }) => !state.apagadas[idx])
-      .map(({ t, idx }) => ({
-        ...t,
-        categoria: isDespesaLinha(t) ? state.categorias[idx] ?? null : null,
-      }))
-    const fatura: FaturaCommit = { ...preview.fatura, transacoes }
-    const competencias_pagas: CompetenciaFatura[] = preview.faturas_passadas
-      .filter((p) => !p.ja_paga && state.passadasPagas[`${p.mes}-${p.ano}`])
-      .map((p) => ({ mes: p.mes, ano: p.ano }))
-    return { cartao_id: preview.cartao_id, fatura, competencias_pagas }
-  }
-
   // ── Commit (SEQUENCIAL — o botão fica isLoading, sem reenvio paralelo) ──
+  // Montagem do payload em `buildFaturaPayload` (fatura/helpers.ts) — extraída
+  // do componente para ser importável pelo harness de dev/ (ver o comentário lá).
   function handleImportar() {
     if (!state.preview) return
     dispatch({ type: 'SET_COMMIT_ERROR', msg: '' })
-    commitMut.mutate(buildPayload(state.preview), {
+    commitMut.mutate(buildFaturaPayload(state.preview, state), {
       onSuccess: (recibo) => dispatch({ type: 'COMMIT_OK', recibo }),
       onError: (err) =>
         dispatch({
