@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: lint + test + build
+    runs-on: ubuntu-latest
+
+    # Nenhum step escreve no repositório (só clona, instala e roda) — sem este
+    # bloco o GITHUB_TOKEN herdaria o default do repo, que pode ser write.
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # O repositório não declara versão de Node (não há .nvmrc, não há
+          # "engines" no package.json, e o vercel.json não fixa nodeVersion) —
+          # a versão que a Vercel usa está só no painel dela, fora do repo.
+          # 22.x é o LTS que satisfaz o piso de todas as ferramentas do tree
+          # (vite 8 exige ^20.19 || >=22.12; eslint 10 exige ^20.19 || ^22.13
+          # || >=24). Confira o painel da Vercel e, se divergir, crie um .nvmrc
+          # para que repo, CI e deploy passem a ter uma fonte única.
+          node-version: 22.x
+          cache: npm
+
+      - name: Instalar dependências
+        # HUSKY=0 impede que o "prepare" (husky) instale git hooks no runner.
+        # O arquivo .husky/pre-push permanece intacto no repositório — o hook
+        # continua sendo o feedback rápido local; o CI é a camada não-pulável.
+        run: npm ci
+        env:
+          HUSKY: 0
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Testes
+        run: npm test
+
+      - name: Build
+        run: npm run build
