@@ -19,14 +19,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # O repositório não declara versão de Node (não há .nvmrc, não há
-          # "engines" no package.json, e o vercel.json não fixa nodeVersion) —
-          # a versão que a Vercel usa está só no painel dela, fora do repo.
-          # 22.x é o LTS que satisfaz o piso de todas as ferramentas do tree
-          # (vite 8 exige ^20.19 || >=22.12; eslint 10 exige ^20.19 || ^22.13
-          # || >=24). Confira o painel da Vercel e, se divergir, crie um .nvmrc
-          # para que repo, CI e deploy passem a ter uma fonte única.
-          node-version: 22.x
+          # Medido no painel da Vercel: produção roda Node 24.x. O .nvmrc na
+          # raiz é a fonte única (local, CI e deploy) — node-version-file o lê,
+          # então esta escolha não pode divergir dele por esquecimento.
+          # Não é cosmético: o npm que vem embutido decide se o `npm ci` aceita
+          # o lock. O Node 24.19 embarca npm 11.17.0 — e foi com ele, não com o
+          # npm local, que o package-lock.json deste commit foi regerado.
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Instalar dependências
