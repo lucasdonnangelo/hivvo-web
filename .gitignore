@@ -24,3 +24,16 @@ dist-ssr
 *.sw?
 
 *.env
+# --- Docs operacionais: vivem no repo privado de documentação -----------------
+# Movidos em 24/08/2026 e purgados de TODA a história com git filter-repo, não
+# só do topo. Descrevem um sistema em produção, e este repositório vai a público.
+# Ver o bloco equivalente no hivvo-api/.gitignore.
+#
+# 🔴 Estas linhas e a constante SHARED em hivvo-api/scripts/sync-docs.py são o
+# MESMO passo: se um destes voltar à SHARED, o sync recria o arquivo aqui e o
+# Git o esconde do `git status` — conferir com `git status --ignored`.
+docs/PENDENCIAS_PRIORIZADAS.md
+docs/ESTADO_HIVVO_HANDOFF.md
+docs/AUDITORIA_FRONTEND.md
+docs/SESSAO_ATUAL_WEB.md
+docs/PLANO_EXECUCAO_WEB.md

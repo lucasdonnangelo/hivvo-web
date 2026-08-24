@@ -13,17 +13,23 @@ cópia manual que fez estes docs divergirem entre os repos.
 
 ## Compartilhados (gerados — canônicos em `hivvo-api/docs`)
 
-`DECISAO_A_PAGAR_SALDO.md` · `ESTADO_HIVVO_HANDOFF.md` · `Hivvo_Referencia.md` ·
-`PENDENCIAS_PRIORIZADAS.md` · `PLANO_3D_PAGAMENTO_FATURA.md` ·
-`PLANO_DASHBOARD_DOIS_BLOCOS.md` · `PLANO_IMPORTACAO.md` ·
-`PLANO_PERFIL_CONFIG.md` · `PLANO_PROJECAO.md` · `PLANO_RESUMO.md`
+`DECISAO_A_PAGAR_SALDO.md` · `Hivvo_Referencia.md` ·
+`PLANO_3D_PAGAMENTO_FATURA.md` · `PLANO_DASHBOARD_DOIS_BLOCOS.md` ·
+`PLANO_IMPORTACAO.md` · `PLANO_PERFIL_CONFIG.md` · `PLANO_PROJECAO.md` ·
+`PLANO_RESUMO.md`
 
 Detalhes e a tabela completa: `hivvo-api/docs/README.md`.
 
-## Específicos deste repo (donos aqui — edite à vontade)
+## Específicos deste repo
 
-- `AUDITORIA_FRONTEND.md` — auditoria do frontend
-- `PLANO_EXECUCAO_WEB.md` — plano de execução do frontend (batches)
-- `SESSAO_ATUAL_WEB.md` — diário de sessão do frontend
+Só este `README.md`, que não é sincronizado.
 
-Este `README.md` também é específico deste repo e não é sincronizado.
+## Documentação operacional (fora deste repositório)
+
+A auditoria do frontend, o diário de sessão e o plano de execução saíram deste
+repositório em 24/08/2026 e passaram a viver num **repositório privado
+separado**, junto com o backlog priorizado e o estado geral do projeto.
+
+**São privados porque descrevem um sistema em produção.** O que fica aqui é o
+que descreve o produto e as decisões de desenho. Nada do que saiu é necessário
+para entender, construir ou rodar este código.
