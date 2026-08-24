@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# Normalização de fim de linha — hivvo-web
+#
+# Por que existe: o core.autocrlf=true desta máquina está no gitconfig de
+# SISTEMA (C:/Program Files/Git/etc/gitconfig), ou seja, é configuração do
+# ambiente, não do projeto. Quem clonar sem essa configuração (CI em Ubuntu,
+# build da Vercel, outro dev) resolveria os fins de linha de outro jeito, e o
+# repositório não teria opinião nenhuma sobre isso. Este arquivo move a decisão
+# para DENTRO do repo: o blob é sempre LF, independentemente de quem commita.
+#
+# `text=auto` = normaliza para LF NO REPOSITÓRIO; o que aparece no disco
+# continua sendo o padrão da plataforma (CRLF aqui no Windows, LF no Linux).
+# Onde o CRLF no disco quebra alguma coisa de verdade, há um `eol=lf` explícito
+# mais abaixo.
+# ---------------------------------------------------------------------------
+
+* text=auto
+
+# --- Arquivos que precisam de LF TAMBÉM no disco ---------------------------
+# O .nvmrc é lido como string crua por nvm/Vercel/actions-setup-node, e um \r
+# entraria no valor da versão. ATENÇÃO ao alcance disso: o blob SEMPRE foi LF
+# (o autocrlf=true já normalizava ao commitar), então quem clona em Linux — CI,
+# Vercel — sempre recebeu LF. O CR existia só na cópia de trabalho do Windows.
+# O `eol=lf` aqui protege a ferramenta LOCAL que lê o arquivo do disco; nunca
+# houve risco no build remoto.
+.nvmrc        text eol=lf
+*.sh          text eol=lf
+
+# --- Binários ---------------------------------------------------------------
+# `binary` = -text -diff: o Git não converte fim de linha nem tenta diffar.
+# Os três .png em public/ e src/assets/ já são detectados como binários pela
+# heurística (bytes NUL no cabeçalho PNG); declará-los remove a dependência
+# dessa heurística.
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.webp        binary
+*.avif        binary
+*.ico         binary
+*.pdf         binary
+*.mp4         binary
+*.zip         binary
+*.woff        binary
+*.woff2       binary
+*.ttf         binary
+*.eot         binary
+*.otf         binary
+
+# NÃO marcar *.svg como binário: SVG é XML, ou seja, texto. Os quatro svg deste
+# repo (favicon, icons, react, vite) devem continuar diffáveis e normalizados.
