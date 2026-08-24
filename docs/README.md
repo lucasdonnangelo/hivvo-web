@@ -13,7 +13,7 @@ cópia manual que fez estes docs divergirem entre os repos.
 
 ## Compartilhados (gerados — canônicos em `hivvo-api/docs`)
 
-`DECISAO_A_PAGAR_SALDO.md` · `Hivvo_Referencia.md` ·
+`DECISAO_A_PAGAR_SALDO.md` · `ENGINEERING.md` · `Hivvo_Referencia.md` ·
 `PLANO_3D_PAGAMENTO_FATURA.md` · `PLANO_DASHBOARD_DOIS_BLOCOS.md` ·
 `PLANO_IMPORTACAO.md` · `PLANO_PERFIL_CONFIG.md` · `PLANO_PROJECAO.md` ·
 `PLANO_RESUMO.md`
