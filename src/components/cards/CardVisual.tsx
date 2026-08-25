@@ -22,9 +22,22 @@ export default function CardVisual({ card, selected, onClick }: CardVisualProps)
   // percentual (nada de NaN%/divisão por null). `hasLimite` guarda TODO o cálculo.
   const limite = card.limite != null ? parseFloat(card.limite) : NaN
   const hasLimite = !isNaN(limite) && limite > 0
-  const usado = parseFloat(card.fatura_aberta_total ?? '0')
-  const disponivel = hasLimite ? Math.max(0, limite - usado) : 0
-  const pct = hasLimite ? Math.min(100, (usado / limite) * 100) : 0
+
+  // COMPROMETIDO, não "usado". A palavra é o conserto: "usado" era o mesmo termo
+  // para dois conceitos (fatura aberta × limite consumido) e foi o que deixou a
+  // barra subtrair uma competência do limite. O número vem pronto do backend
+  // (`limite_usado`), que é quem tem PagamentoFatura e as parcelas futuras.
+  const comprometido = parseFloat(card.limite_usado ?? '0')
+
+  // Comprometido ACIMA do limite não é erro de conta. As duas causas possíveis
+  // são fatura sem pagamento confirmado E limite digitado errado no cadastro, e
+  // a tela não tem como saber qual — por isso a cópia oferece as duas ações em
+  // vez de afirmar uma causa. Não imprimimos "R$ 0,00 disponível" aqui: isso
+  // responde outra pergunta e esconde o motivo.
+  const estourado = hasLimite && comprometido > limite
+  const disponivel = hasLimite ? limite - comprometido : 0
+  const excedente = estourado ? comprometido - limite : 0
+  const pct = hasLimite ? Math.min(100, Math.max(0, (comprometido / limite) * 100)) : 0
 
   return (
     <button
@@ -56,20 +69,40 @@ export default function CardVisual({ card, selected, onClick }: CardVisualProps)
             <div className="mt-2">
               <div className="w-full h-1 rounded-full bg-bg/20 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-bg/60 transition-all"
+                  className={[
+                    'h-full rounded-full transition-all',
+                    // Barra cheia por estouro não pode ler igual a "bateu o
+                    // limite na régua" — opacidade cheia separa os dois.
+                    estourado ? 'bg-bg' : 'bg-bg/60',
+                  ].join(' ')}
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <p className="mt-1 text-[10px] text-bg/60">
-                {formatBRL(usado)} usado · {formatBRL(disponivel)} disponível
-              </p>
+              {estourado ? (
+                <>
+                  <p className="mt-1 text-[10px] text-bg">
+                    {formatBRL(comprometido)} comprometido · {formatBRL(excedente)} acima
+                    do limite
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-bg/70">
+                    Confirme os pagamentos das faturas — ou revise o limite do cartão.
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-[10px] text-bg/60">
+                  {formatBRL(comprometido)} comprometido · {formatBRL(disponivel)}{' '}
+                  disponível
+                </p>
+              )}
             </div>
           </>
         ) : (
           <>
             <p className="text-bg font-semibold text-lg">Sem limite definido</p>
-            {usado > 0 && (
-              <p className="mt-1 text-[10px] text-bg/60">{formatBRL(usado)} usado</p>
+            {comprometido > 0 && (
+              <p className="mt-1 text-[10px] text-bg/60">
+                {formatBRL(comprometido)} comprometido
+              </p>
             )}
           </>
         )}

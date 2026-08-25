@@ -12,7 +12,19 @@ export interface Card {
   mes_offset_vencimento: number
   tipo: 'Crédito' | 'Débito' | 'Ambos'
   ativo: boolean
+  // Total da fatura ABERTA — UMA competência, a corrente do cartão. NÃO é
+  // limite consumido: quem responde isso é `limite_usado`. Tratar este campo
+  // como "usado" foi o defeito da barra (o limite se "recuperava" na virada do
+  // mês e uma compra em 24x quase não aparecia).
   fatura_aberta_total: string | null
+  // Limite COMPROMETIDO: o que resta em aberto em TODAS as competências
+  // (passadas, corrente e futuras), abatido pelos pagamentos de fatura
+  // confirmados, com clamp de cobertura por fatura. Calculado no backend, que é
+  // quem tem PagamentoFatura e as parcelas futuras.
+  //
+  // PODE PASSAR de `limite` — e isso é informação, não erro de conta: significa
+  // fatura sem pagamento confirmado. A UI trata o estouro com cópia própria.
+  limite_usado: string | null
   // True quando o cartão tem compra lançada (parcela não cancelada ou avulsa de
   // cartão). O backend REJEITA (422) alterar dia_fechamento/dia_vencimento/
   // mes_offset_vencimento nesse caso — o form de edição desabilita esses campos.
