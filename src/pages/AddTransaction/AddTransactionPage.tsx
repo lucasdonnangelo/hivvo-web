@@ -384,8 +384,17 @@ export default function AddTransactionPage() {
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
   const [showNewCatModal, setShowNewCatModal] = useState(false)
 
+  // Cartão por FORMA DE PAGAMENTO. O débito passou a ter seletor: o formulário
+  // não coletava em qual cartão a compra no débito aconteceu, e o dado sumia —
+  // a tela "Consumo por cartão" mostrava R$ 1.040,00 em "Sem cartão", parte
+  // disso em cartão real e cadastrado. 'Ambos' entra nas DUAS listas por ser o
+  // mesmo cartão físico fazendo as duas coisas.
+  //
+  // O que o débito guarda é ATRIBUIÇÃO (em qual cartão aconteceu), nunca
+  // cobrança: o backend recusa derivar competência de fatura fora do crédito
+  // (faturas.deriva_competencia), porque o dinheiro já saiu.
   const creditCards = allCards.filter((c) => c.tipo === 'Crédito' || c.tipo === 'Ambos')
-  const hasCards = creditCards.length > 0
+  const debitCards = allCards.filter((c) => c.tipo === 'Débito' || c.tipo === 'Ambos')
 
   const today = [
     now.getFullYear(),
@@ -485,13 +494,21 @@ export default function AddTransactionPage() {
   const numParcelas = watched.total_parcelas ? Number(watched.total_parcelas) : undefined
 
   const isCredito = forma_pagamento === 'Crédito'
+  const isDebito = forma_pagamento === 'Débito'
+  // A lista mostrada e o "tem cartão?" seguem a forma escolhida — senão o
+  // débito herdaria o gate do crédito e o aviso "nenhum cartão cadastrado"
+  // apareceria para quem tem cartão de débito cadastrado.
+  const cartoesDaForma = isCredito ? creditCards : isDebito ? debitCards : []
+  const hasCards = cartoesDaForma.length > 0
   const isEstorno = tipo === 'estorno'
   // Cartão/parcelamento só no modo avulso — recorrência não passa por cartão (§3.4).
   // O CARTÃO continua disponível no estorno de propósito: devolução que cai na
   // fatura é caso real, e o POST já deriva a competência certa para ela
   // (_fatura_cartao_avulso não filtra por tipo) — o estorno abate na fatura
   // dele. O PARCELAMENTO não: o backend rejeita estorno parcelado.
-  const showCartao = isCredito && !recorrente
+  // Débito ganha o seletor; recorrência continua fora (não passa por cartão,
+  // §3.4 — e a Recorrencia nem tem coluna cartao_id).
+  const showCartao = (isCredito || isDebito) && !recorrente
   const showParcelamento =
     isCredito && !recorrente && !isEstorno && hasCards && watched.cartao_id != null
   const valorPorParcela =
@@ -560,14 +577,27 @@ export default function AddTransactionPage() {
   const inicioField = register('mes_inicio_str')
   const diaField = register('dia_do_mes')
 
-  // Reset cartao + parcelamento when switching away from Crédito
+  // Parcelamento é do crédito e só dele — sair do crédito sempre o desliga.
+  // O cartão NÃO é mais limpo aqui: ele sobrevive ao débito (efeito abaixo).
   useEffect(() => {
     if (!isCredito) {
-      setValue('cartao_id', null, { shouldValidate: false })
       setValue('parcelado', false, { shouldValidate: false })
       setValue('total_parcelas', undefined, { shouldValidate: false })
     }
   }, [isCredito]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // O cartão escolhido só é limpo quando ele NÃO existe na lista da forma nova
+  // — um cartão 'Ambos' atravessa a troca Crédito↔Débito intacto, porque é o
+  // mesmo cartão físico e zerá-lo obrigaria a reescolher o que já estava certo.
+  // Um cartão só-Crédito, esse sai ao virar Débito: não está na lista.
+  // A guarda do `allCards.length` evita limpar durante o carregamento da lista.
+  useEffect(() => {
+    if (allCards.length === 0) return
+    const escolhido = getValues('cartao_id')
+    if (escolhido != null && !cartoesDaForma.some((c) => c.id === escolhido)) {
+      setValue('cartao_id', null, { shouldValidate: false })
+    }
+  }, [forma_pagamento, allCards.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset total_parcelas when parcelamento is toggled off
   useEffect(() => {
@@ -971,7 +1001,8 @@ export default function AddTransactionPage() {
               <label className="text-xs font-medium text-text-muted">Cartão</label>
               {!hasCards ? (
                 <p className="text-xs text-text-muted bg-bg-surface rounded-lg px-3 py-3 border border-bg-border">
-                  Nenhum cartão cadastrado. Adicione um na aba{' '}
+                  {isDebito ? 'Nenhum cartão de débito cadastrado' : 'Nenhum cartão cadastrado'}
+                  . Adicione um na aba{' '}
                   <span className="text-text-primary font-medium">Cartões</span>.
                 </p>
               ) : (
@@ -985,12 +1016,17 @@ export default function AddTransactionPage() {
                   className={selectClass}
                 >
                   <option value="">Selecione um cartão</option>
-                  {creditCards.map((c) => (
+                  {cartoesDaForma.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nome}
                     </option>
                   ))}
                 </select>
+              )}
+              {isDebito && hasCards && (
+                <p className="text-xs text-text-muted">
+                  Opcional. Registra em qual cartão a compra aconteceu — não gera fatura.
+                </p>
               )}
               {errors.cartao_id && (
                 <p className="text-xs text-danger">{errors.cartao_id.message}</p>
