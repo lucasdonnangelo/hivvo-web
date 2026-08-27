@@ -37,3 +37,25 @@ docs/ESTADO_HIVVO_HANDOFF.md
 docs/AUDITORIA_FRONTEND.md
 docs/SESSAO_ATUAL_WEB.md
 docs/PLANO_EXECUCAO_WEB.md
+
+# --- Rede de higiene, acrescentada em 27/08/2026 antes de abrir o repo --------
+# Conferido com `git check-ignore` e `git ls-files`: NENHUM destes caminhos
+# estava rastreado quando estas linhas entraram.
+#
+# `.env` e `.env.local` já caíam em `*.env` e `*.local`; `.env.production` NÃO
+# caía em nenhum dos dois — era o furo real aqui.
+#
+# `.vscode/` NÃO entra: o bloco acima usa `.vscode/*` com `!.vscode/extensions.json`,
+# e excluir o DIRETÓRIO faria o Git parar de descer nele, matando a negação.
+.env.*
+!.env.example
+build/
+
+# Python: este repo não tem, mas script auxiliar rodado na raiz por engano não
+# pode virar commit.
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
