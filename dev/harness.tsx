@@ -25,7 +25,7 @@
    Este arquivo é um ENTRY POINT (define o componente e monta), como o
    main.tsx do app: não exporta porque ninguém o importa. A regra protege o
    fast-refresh de arquivo de app; aqui ela pediria um export inútil. */
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -50,6 +50,7 @@ import type {
   ExtratoExtraido,
   ReconciliacaoExtrato,
 } from '../src/services/importExtrato'
+import OverviewPage from '../src/pages/Dashboard/OverviewPage'
 import OnboardingBanner from '../src/components/ui/OnboardingBanner'
 import FeedbackForm from '../src/pages/Settings/FeedbackForm'
 import NotificacaoRow from '../src/pages/Settings/NotificacaoRow'
@@ -258,6 +259,70 @@ function novoQueryClient() {
   return qc
 }
 
+// ─── Bloco 1 do Dashboard (linha de topo: Receitas · Saídas · Saldo) ─────────
+// A OverviewPage consome CINCO queries; sem semear todas ela fica no esqueleto
+// para sempre. `transactions`/`coverage`/`projection` entram vazias de
+// propósito: o alvo da verificação é a LINHA e a sublinha, e uma lista vazia é
+// estado real do app (não um mock inventado).
+//
+// Três variantes de valor, porque a semente real (6.200 / 432,10 / a_vir 0,00)
+// NÃO estressa a sublinha — ela imprime "ainda sai R$ 0,00" e cabe em qualquer
+// largura. O que precisa ser MEDIDO a 390px é o pior caso plausível do público
+// (valores de 6 dígitos nos dois lados do `·`).
+// 'carregando' não é um valor: é o ESQUELETO. Sem ele não há como verificar que
+// SkeletonDashboard espelha o grid real — ele só aparece por ~200ms em produção
+// e some da revisão exatamente por isso.
+export type VarianteLinha = 'semente' | 'medido' | 'extremo' | 'carregando'
+
+const LINHAS: Record<Exclude<VarianteLinha, 'carregando'>, Record<string, unknown>> = {
+  // Capturada do backend real — ver sementes-capturadas.json.
+  semente: {},
+  // A medição de 25/08/2026 que abriu o batch.
+  medido: {
+    receitas: '11000.00',
+    despesas: '1402.50',
+    saldo: '9597.50',
+    a_pagar: '362.50',
+    realizado: { receitas: '11000.00', despesas: '1040.00', saldo: '9960.00' },
+    a_vir: { receitas: '0.00', despesas: '362.50', saldo: '-362.50' },
+    consumo: { receitas: '11000.00', despesas: '9590.00', saldo: '1410.00' },
+  },
+  // Pior caso de largura: 6 dígitos nos DOIS lados do separador.
+  extremo: {
+    receitas: '987654.32',
+    despesas: '456789.01',
+    saldo: '530865.31',
+    a_pagar: '123456.78',
+    realizado: { receitas: '987654.32', despesas: '333333.33', saldo: '0.00' },
+    a_vir: { receitas: '0.00', despesas: '123455.68', saldo: '0.00' },
+    consumo: { receitas: '987654.32', despesas: '654321.09', saldo: '333333.23' },
+  },
+}
+
+function queryClientDashboard(variante: VarianteLinha) {
+  if (variante === 'carregando') {
+    // Nada semeado e um queryFn que NUNCA resolve: as queries ficam pendentes,
+    // `isLoading` fica true e a página renderiza o SkeletonDashboard de verdade
+    // (não uma cópia dele escrita no harness, que testaria o harness).
+    return new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, queryFn: () => new Promise(() => {}) },
+      },
+    })
+  }
+  const qc = novoQueryClient()
+  const agora = new Date()
+  const base = semente("['statistics','monthly'") as Record<string, unknown>
+  qc.setQueryData(['statistics', 'monthly', agora.getMonth() + 1, agora.getFullYear()], {
+    ...base,
+    ...LINHAS[variante as Exclude<VarianteLinha, 'carregando'>],
+  })
+  qc.setQueryData(['transactions', agora.getMonth() + 1, agora.getFullYear()], [])
+  qc.setQueryData(['statistics', 'coverage'], { meses_com_dados: 6 })
+  qc.setQueryData(['statistics', 'projection', 12], { series: [] })
+  return qc
+}
+
 // ─── ONBOARDING ──────────────────────────────────────────────────────────────
 // O banner é PRESENTACIONAL (temCartao/temHistorico/isMobile chegam por prop),
 // então os dois eixos de progresso são dirigíveis daqui — é isso que permite
@@ -442,9 +507,22 @@ function ModoShell() {
 function Harness() {
   const [isMobile, setIsMobile] = useState(false)
   const [modulo, setModulo] = useState<
-    'fatura' | 'extrato' | 'criar' | 'onboarding' | 'feedback' | 'preferencia' | 'shell'
+    | 'fatura'
+    | 'extrato'
+    | 'criar'
+    | 'onboarding'
+    | 'feedback'
+    | 'preferencia'
+    | 'shell'
+    | 'dashboard'
   >('fatura')
+  const [variante, setVariante] = useState<VarianteLinha>('semente')
   const [qc] = useState(novoQueryClient)
+  // Um client POR VARIANTE, memoizado. Criar o QueryClient inline no JSX daria
+  // um client novo a cada render — a troca de variante remontava a árvore e o
+  // valor exibido não acompanhava (medido na primeira rodada do driver: os três
+  // botões mostravam sempre a semente).
+  const qcDash = useMemo(() => queryClientDashboard(variante), [variante])
 
   // Desfecho do próximo envio de feedback (ver erroDoResultado).
   const [resultado, setResultado] = useState<Resultado>('sucesso')
@@ -573,13 +651,34 @@ function Harness() {
                         ? 'preferencia'
                         : m === 'preferencia'
                           ? 'shell'
-                          : 'fatura',
+                          : m === 'shell'
+                            ? 'dashboard'
+                            : 'fatura',
             )
           }
           style={botao}
         >
           módulo: {modulo}
         </button>
+        {modulo === 'dashboard' && (
+          <button
+            id="harness-toggle-variante"
+            onClick={() =>
+              setVariante((v) =>
+                v === 'semente'
+                  ? 'medido'
+                  : v === 'medido'
+                    ? 'extremo'
+                    : v === 'extremo'
+                      ? 'carregando'
+                      : 'semente',
+              )
+            }
+            style={botao}
+          >
+            valores: {variante}
+          </button>
+        )}
         {modulo === 'extrato' && (
           <button
             id="harness-toggle-periodo"
@@ -756,6 +855,15 @@ function Harness() {
         </MemoryRouter>
       ) : modulo === 'shell' ? (
         <ModoShell />
+      ) : modulo === 'dashboard' ? (
+        // Bloco 1 do Dashboard. Como o AddTransactionPage, a OverviewPage lê
+        // `useBreakpoint('md')` (media query) — o botão "layout" acima NÃO a
+        // controla; só a viewport emulada pelo driver CDP muda o layout dela.
+        <QueryClientProvider key={variante} client={qcDash}>
+          <MemoryRouter>
+            <OverviewPage onVerAnalise={() => {}} />
+          </MemoryRouter>
+        </QueryClientProvider>
       ) : modulo === 'criar' ? (
         // O componente REAL, com os providers que ele exige e o cache semeado.
         //

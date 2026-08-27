@@ -11,7 +11,7 @@ import {
   temHistorico,
 } from '../../lib/deveMostrarOnboarding'
 import type { ProjectionMonth } from '../../services/statistics'
-import DonutChart from '../../components/charts/DonutChart'
+import { derivarLinhaDoMes } from '../../lib/linhaDoMes'
 import OnboardingBanner from '../../components/ui/OnboardingBanner'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -41,6 +41,9 @@ const saldoColorClass = (v: number) =>
 
 // ─── sub-components ─────────────────────────────────────────────────────────
 
+// Espelha o layout real: TRÊS caixas de métrica (não quatro) e sem a caixa do
+// donut, que saiu da Visão geral. Esqueleto que não espelha o grid é um salto
+// visual no carregamento — e some da revisão, porque só aparece por 200ms.
 function SkeletonDashboard({ isMobile }: { isMobile: boolean }) {
   if (isMobile) {
     return (
@@ -49,11 +52,9 @@ function SkeletonDashboard({ isMobile }: { isMobile: boolean }) {
         <div className="grid grid-cols-2 gap-3">
           <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
           <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
-          <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
-          <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
+          <div className="col-span-2 h-24 bg-bg-surface rounded-lg animate-pulse" />
         </div>
         <div className="h-28 bg-bg-surface rounded-lg animate-pulse" />
-        <div className="h-72 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-52 bg-bg-surface rounded-lg animate-pulse" />
       </div>
     )
@@ -61,19 +62,12 @@ function SkeletonDashboard({ isMobile }: { isMobile: boolean }) {
   return (
     <div className="flex flex-col gap-4 p-6">
       <div className="h-10 w-52 bg-bg-surface rounded-md animate-pulse" />
-      <div className="grid grid-cols-4 gap-4">
-        <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
+      <div className="grid grid-cols-3 gap-4">
         <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
         <div className="h-24 bg-bg-surface rounded-lg animate-pulse" />
       </div>
-      <div className="grid grid-cols-[45%_1fr] gap-4">
-        <div className="h-80 bg-bg-surface rounded-lg animate-pulse" />
-        <div className="flex flex-col gap-4">
-          <div className="h-36 bg-bg-surface rounded-lg animate-pulse" />
-          <div className="flex-1 bg-bg-surface rounded-lg animate-pulse" />
-        </div>
-      </div>
+      <div className="h-80 bg-bg-surface rounded-lg animate-pulse" />
     </div>
   )
 }
@@ -85,9 +79,29 @@ interface MetricCardProps {
   variacao?: number | null
   // Leve destaque visual (número-resposta): usado no card SALDO do Bloco 1.
   emphasis?: boolean
+  /**
+   * Linha de apoio que DECOMPÕE o valor do card (hoje: "saiu X · ainda sai Y"
+   * sob Saídas do mês). Não é legenda nem explicação — são números que somam o
+   * valor de cima, e é por isso que ela cabe aqui e não num tooltip.
+   *
+   * Mobile (390px, card de meia largura ≈ 171px úteis): `text-[10px]` com
+   * `leading-snug` e quebra NATURAL em duas linhas — o separador `·` tem
+   * espaços em volta, então o ponto de quebra cai entre os dois pares e nunca
+   * no meio de um valor. Sem `truncate`: cortar dinheiro com reticências é
+   * pior que ocupar uma segunda linha. `tabular-nums` mantém o alinhamento
+   * quando os dois valores têm dígitos diferentes.
+   */
+  sublinha?: string
 }
 
-function MetricCard({ label, value, color, variacao, emphasis = false }: MetricCardProps) {
+function MetricCard({
+  label,
+  value,
+  color,
+  variacao,
+  emphasis = false,
+  sublinha,
+}: MetricCardProps) {
   const valueClass =
     color === 'success' ? 'text-success' :
     color === 'danger'  ? 'text-danger'  :
@@ -106,6 +120,14 @@ function MetricCard({ label, value, color, variacao, emphasis = false }: MetricC
       </p>
       {variacaoText && (
         <p className={`text-xs mt-1 ${variacaoClass}`}>{variacaoText} vs mês ant.</p>
+      )}
+      {sublinha && (
+        <p
+          className="text-[10px] leading-snug mt-1 text-text-muted tabular-nums"
+          data-testid="metric-sublinha"
+        >
+          {sublinha}
+        </p>
       )}
     </div>
   )
@@ -381,46 +403,69 @@ export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
     )
   }
 
-  // Bloco 1 — os quatro campos, todos do /monthly do mês corrente:
-  //  RECEITAS = receitas (topo).
-  //  DESPESAS = consumo.despesas (lente CONSUMO — o que gastou/comprou no mês).
-  //  A PAGAR  = a_pagar (fluxo ESTRITO — só o crédito que vence e ainda NÃO saiu;
-  //             à vista/PIX/recorrência ficam fora). Card limpo, sem sublinha.
-  //  SALDO    = saldo (topo; caixa projetado de fim de mês).
-  // `consumo` é opcional no contrato (3b pode não estar no ar); em produção existe.
-  // Degrada sem crash caindo no fluxo, e o donut cai para lista vazia.
-  const despesasConsumo = stats.consumo?.despesas ?? stats.despesas
-  const donutCategorias = stats.categorias_consumo ?? []
+  // Bloco 1 — TRÊS campos que formam UMA cadeia aritmética visível:
+  //
+  //     Receitas − Saídas do mês = Saldo no fim do mês
+  //     11.000,00 −    1.402,50  =         9.597,50
+  //                  saiu 1.040,00 · ainda sai 362,50
+  //
+  // A derivação mora em lib/linhaDoMes (função pura, com teste): o hivvo-web não
+  // tem teste de componente nem runner de mutação, então regra dentro do JSX é
+  // regra sem portão — e foi essa topologia que deixou o defeito passar.
+  //
+  // RÓTULOS, e não são estilo:
+  //  - "Saídas do mês", NUNCA "Despesas": a palavra Despesas já significa
+  //    CONSUMO (9.590,00) na Análise e no donut. Mesma palavra para dois valores
+  //    é o defeito que criou o bug do limite do cartão (usado × comprometido).
+  //  - "Saldo no fim do mês", NUNCA "Saldo atual": o app não tem entidade Conta;
+  //    este número é resultado do mês. "Atual" prometeria estoque e entregaria
+  //    fluxo. UM saldo só — "Saldo até agora" é o número que nasce quando Conta
+  //    existir (PLANO_SALDO_CONTAS), e meia versão dele agora é retrabalho.
+  //  - "ainda sai", NUNCA "a pagar": `a_vir` é eixo TEMPO; `a_pagar` é eixo
+  //    DÍVIDA e não fecha a soma (ver lib/linhaDoMes). "A pagar" continua no
+  //    Bloco 2, nos Cartões e na Análise — sai só da linha de topo.
+  const linha = derivarLinhaDoMes(stats)
 
   const saldoColor: MetricCardProps['color'] =
-    stats.saldo > 0 ? 'success' : stats.saldo < 0 ? 'danger' : 'neutral'
+    linha.saldo > 0 ? 'success' : linha.saldo < 0 ? 'danger' : 'neutral'
 
   const receitasCard = (
     <MetricCard
       label="Receitas"
-      value={stats.receitas}
+      value={linha.receitas}
       color="success"
       variacao={stats.variacao_receitas}
     />
   )
-  const despesasCard = (
-    <MetricCard label="Despesas" value={despesasConsumo} color="danger" />
-  )
-  const aPagarCard = (
-    <MetricCard label="A pagar" value={stats.a_pagar} color="danger" />
+  const saidasCard = (
+    <MetricCard
+      label="Saídas do mês"
+      value={linha.saidas}
+      color="danger"
+      // Sem decomposição (contrato antigo, sem realizado/a_vir) a sublinha some:
+      // o fallback põe tudo em `saiu`, o que seria falso num mês corrente.
+      sublinha={
+        linha.temDecomposicao
+          ? `saiu ${formatBRL(linha.saiu)} · ainda sai ${formatBRL(linha.aindaSai)}`
+          : undefined
+      }
+    />
   )
   const saldoCard = (
-    <MetricCard label="Saldo" value={stats.saldo} color={saldoColor} emphasis />
+    <MetricCard
+      label="Saldo no fim do mês"
+      value={linha.saldo}
+      color={saldoColor}
+      emphasis
+    />
   )
 
-  const donutSection = (
-    <div className="bg-bg-surface rounded-lg p-4">
-      <h2 className="text-sm font-medium text-text-primary mb-3">
-        Gastos por categoria · {MONTHS[mes - 1]}
-      </h2>
-      <DonutChart data={donutCategorias} />
-    </div>
-  )
+  // O donut "Gastos por categoria" SAIU daqui (25/08/2026). Era idêntico ao da
+  // Análise, que é mais completo (`showValues`, `size="lg"`), e as duas abas são
+  // NÍVEIS DE ZOOM: a Visão geral responde "como estou de caixa", a Análise
+  // responde "no que gastei". Com ele fora e "Despesas" virando "Saídas do mês",
+  // a lente CONSUMO deixa de existir na Visão geral inteira — isso é
+  // DELIBERADO, não sobra de refatoração; ver PLANO_DASHBOARD_DOIS_BLOCOS.
 
   const transactionsSection = (
     <div className="bg-bg-surface rounded-lg p-4">
@@ -449,11 +494,15 @@ export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
       <div className="flex flex-col gap-4 p-4">
         {header}
 
+        {/* Mobile: a cadeia lida de cima para baixo. Receitas e Saídas dividem a
+            linha (os dois operandos, lado a lado); o Saldo ocupa a largura
+            inteira embaixo, como o RESULTADO. Três colunas a 390px dariam ~110px
+            por card — não cabe "R$ 11.000,00" em text-xl, e o público-alvo tem
+            valores de 6 dígitos. */}
         <div className="grid grid-cols-2 gap-3">
           {receitasCard}
-          {despesasCard}
-          {aPagarCard}
-          {saldoCard}
+          {saidasCard}
+          <div className="col-span-2">{saldoCard}</div>
         </div>
 
         {showOnboarding && (
@@ -465,14 +514,7 @@ export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
           />
         )}
 
-        {isEmpty ? (
-          <EmptyState mes={mes} ano={ano} />
-        ) : (
-          <>
-            {donutSection}
-            {transactionsSection}
-          </>
-        )}
+        {isEmpty ? <EmptyState mes={mes} ano={ano} /> : transactionsSection}
 
         {projectionSection}
       </div>
@@ -484,10 +526,11 @@ export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
     <div className="flex flex-col gap-4 p-6">
       {header}
 
-      <div className="grid grid-cols-4 gap-4">
+      {/* Desktop: três colunas iguais, na ordem da cadeia (Receitas − Saídas =
+          Saldo). O Saldo mantém o `emphasis` — é o número-resposta. */}
+      <div className="grid grid-cols-3 gap-4">
         {receitasCard}
-        {despesasCard}
-        {aPagarCard}
+        {saidasCard}
         {saldoCard}
       </div>
 
@@ -503,14 +546,7 @@ export default function OverviewPage({ onVerAnalise }: OverviewPageProps) {
       {isEmpty ? (
         <EmptyState mes={mes} ano={ano} />
       ) : (
-        <div className="grid grid-cols-[45%_1fr] gap-4">
-          <div className="bg-bg-surface rounded-lg p-6">
-            <h2 className="text-sm font-medium text-text-primary mb-4">
-              Gastos por categoria · {MONTHS[mes - 1]}
-            </h2>
-            <DonutChart data={donutCategorias} />
-          </div>
-
+        <div className="grid grid-cols-1 gap-4">
           <div className="bg-bg-surface rounded-lg p-6">
             <h2 className="text-sm font-medium text-text-primary mb-4">
               Últimas transações
