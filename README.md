@@ -308,10 +308,31 @@ Feature-complete for its core and running in production. Honest gaps:
   comes from a static config array). The fix is the 7.x major, a routing-breaking
   upgrade, and is not pre-launch work.
 
-<!-- SCREENSHOT: dashboard — mobile and desktop side by side -->
-<!-- SCREENSHOT: add transaction — instalment split with per-instalment amount -->
-<!-- SCREENSHOT: invoice detail — instalments vs one-off charges -->
-<!-- SCREENSHOT: PDF import — review step before commit -->
+<table>
+  <tr>
+    <td width="70%"><img src="docs/img/dashboard-desktop.png" width="100%" alt="Hivvo dashboard on a 1440px desktop viewport, Visão geral tab: Receitas R$ 11.000,00, Saídas do mês R$ 1.402,50 with the cash-flow subline, Saldo no fim do mês R$ 9.597,50, the latest-transactions card and the Sua projeção block for the coming months."></td>
+    <td width="30%"><img src="docs/img/dashboard-mobile.png" width="100%" alt="The same Visão geral on a 390px phone viewport: the three summary cards stack two-up plus one full-width, above the latest-transactions card and the bottom tab bar."></td>
+  </tr>
+</table>
+
+*The same monthly view at 1440px and at 390px — cash flow, consumption and the
+projection for the months already committed.*
+
+![Add-transaction form filled with R$ 1.200,00 on Crédito, Parcelar compra switched on and 12 instalments, showing “R$ 100,00 por parcela” under the field and “R$ 100,00 × 12x” in the live preview panel.](docs/img/add-parcelado.png)
+
+*Adding a R$ 1,200 purchase as 12x: the per-instalment amount is computed
+as you type, and the preview separates consumption from what leaves the
+account this month.*
+
+![Invoice detail for Setembro 2026, total R$ 1.450,00, split into a Parcelas section with two instalment lines (1/12 and 1/10) and an Avulsas section with four one-off charges from the cycle.](docs/img/fatura-detalhe.png)
+
+*One invoice, two kinds of line: instalments carried in from earlier months,
+and charges made inside this cycle.*
+
+![PDF import review step: a green reconciliation banner reading “A fatura fecha — os lançamentos batem com o total informado pelo banco” above a table of seven extracted charges, each with an editable, pre-suggested category.](docs/img/import-revisao.png)
+
+*The review step, before anything is written: reconciliation result on top,
+every line editable, nothing committed until Continuar.*
 
 ---
 

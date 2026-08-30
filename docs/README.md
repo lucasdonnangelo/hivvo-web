@@ -20,6 +20,13 @@ cópia manual que fez estes docs divergirem entre os repos.
 
 Detalhes e a tabela completa: `hivvo-api/docs/README.md`.
 
+## `img/` — espelhado À MÃO
+
+As capturas de `docs/img/` estão duplicadas byte a byte nos dois repos e **fora
+da lista `SHARED`** do `sync-docs.py`, então o `--check` não olha para elas:
+quem atualizar uma captura tem de copiá-la para o `hivvo-api` no mesmo commit,
+senão a versão nova chega num lado só e nada acusa.
+
 ## Específicos deste repo
 
 Só este `README.md`, que não é sincronizado.
