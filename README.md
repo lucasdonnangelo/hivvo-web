@@ -194,19 +194,30 @@ versions** before being accepted.
 **A pre-push hook** runs tests and build locally. It is fast feedback, not a
 barrier: `--no-verify` skips it, by design.
 
-**What actually blocks, stated precisely — because it is less than it looks.**
-CI runs on every push and reports, but **nothing today prevents merging or
-pushing past a red result.** A branch ruleset is configured and shows as active,
-with force-push blocking and required status checks; it does not take effect,
-because repository rulesets are not enforced on private repositories under the
-free plan. That was measured, not assumed: a force push went through on both
-repositories with no bypass and no configuration change.
+**What actually blocks, stated precisely.** The branch ruleset on `master` is
+enforced. It was inert while this repository was private — repository rulesets
+are not applied to private repositories under the free plan, measured at the
+time by a force push that went through with no bypass and no configuration
+change. Opening the repository is what switched it on, and that too was
+**measured rather than assumed**: a direct push of a documentation commit to
+`master`, in August 2026, was refused by the server.
 
-So the honest position is that the gates here are **informational and local**,
-and the discipline is the enforcement. This changes when the repositories become
-public and the ruleset starts applying — which is a thing to **re-measure at
-that point rather than assume**, since the same configuration has already proven
-capable of being inert while looking active.
+```
+remote: error: GH013: Repository rule violations found for refs/heads/master.
+remote: - Required status check "lint + test + build" is expected.
+ ! [remote rejected] master -> master (push declined due to repository rule violations)
+```
+
+Three rules apply to `master`. Two of them, `deletion` and `non_fast_forward`,
+are declared by the ruleset and close the history against erasure and rewriting;
+neither was exercised here, so they are reported as configuration, not as
+behaviour observed. The third, `required_status_checks`, requires the
+`lint + test + build` context — the single CI job that lints, runs the suite and
+builds — and it is the one the refusal above measured: a commit whose required
+check has not passed does not reach `master` by direct push. So work lands
+through a branch and a pull request, merged once the check is green.
+
+There is no `pull_request` rule, so review is not required here; the check is.
 
 Full detail on the method in [docs/ENGINEERING.md](docs/ENGINEERING.md).
 
